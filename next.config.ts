@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  logging: {
+    /**
+     * Development only, but off on purpose: Next prints every Server
+     * Function call WITH its arguments, and two of ours carry passwords —
+     * the invitation page and Account → Change password. A password in a
+     * terminal ends up in a pasted bug report. The request line and the
+     * timing stay; only the argument dump goes.
+     */
+    serverFunctions: false,
+  },
   async headers() {
     return [
       {

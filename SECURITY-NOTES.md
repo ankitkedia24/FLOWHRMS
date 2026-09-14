@@ -122,6 +122,33 @@ Absent configuration is a stated condition, not a crash: invitations are
 refused with a message naming the missing key, so a half-configured
 deployment is obvious rather than mysterious.
 
+## Changing a password (Account → Change password)
+
+Every signed-in person, whatever their role, can change their own
+password at `/account` (`src/lib/account/actions.ts`). It is the second
+of the two places FlowHRMS writes a password; the invitation page is the
+other. The rules:
+
+- **The current password is proved first.** A session cookie alone is
+  not enough — an unlocked phone must not let someone lock its owner out.
+  The proof is a sign-in with the current password from a throwaway
+  Supabase client that keeps no session and is signed out again at once.
+- **Wrong guesses are counted per person** — five in fifteen minutes,
+  then a wait — in process memory (`PasswordAttemptLimiter`). The check
+  leaves from the server, so Supabase's own per-IP sign-in limit sees one
+  address for every company; without our limit, one person guessing could
+  exhaust that shared allowance for everyone. The deployment is a single
+  instance, so a restart forgetting a few counters is acceptable.
+- **The change is announced to the person** in every channel: an audit
+  event (`account.password_changed`), a bell notification, and an email
+  when SMTP is configured. If it wasn't them, the email is how they learn.
+- **"Sign out of other devices"** is an explicit choice, off by default
+  (`signOut({ scope: "others" })`); the device making the change stays in.
+- The password is never logged. `next.config.ts` turns off Next's
+  development-only Server Function argument logging for the same reason.
+- Forgot-password remains the path for someone who cannot prove the
+  current one; that goes through Supabase's emailed link to `/reset`.
+
 ## Invitation tokens
 
 - 32 bytes of CSPRNG output, base64url. Shown once, never stored.

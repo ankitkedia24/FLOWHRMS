@@ -39,7 +39,8 @@ export type NavIcon =
   | "departments"
   | "activity"
   | "performance"
-  | "expenses";
+  | "expenses"
+  | "account";
 
 export interface NavItem {
   href: string;

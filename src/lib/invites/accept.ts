@@ -125,8 +125,9 @@ export async function acceptInviteAction(
   if (!admin) return { ok: false, error: ADMIN_KEY_MISSING };
 
   // The token proved they control the invitation, so we set the password on
-  // their behalf. This is the only place FlowHRMS ever writes a password, and it
-  // never sees an existing one.
+  // their behalf. FlowHRMS writes a password in two places — here, and in
+  // src/lib/account/actions.ts where the person proves the current one
+  // first — and never sees an existing one.
   let authUserId = invite.membership.user.authUserId;
 
   if (authUserId) {

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireSession } from "@/lib/authz/guard";
 import { SignOutButton } from "@/components/offline/SignOutButton";
-import { Button } from "@/components/ui/Button";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { STATUS } from "@/lib/status";
@@ -59,6 +58,17 @@ export default async function EmployeeProfilePage() {
             <dt className="text-secondary text-text-secondary">Status</dt>
             <dd>
               <StatusChip status={STATUS.active} size="sm" />
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <dt className="text-secondary text-text-secondary">Password</dt>
+            <dd>
+              <Link
+                href="/account"
+                className="text-body text-brand-primary underline-offset-2 hover:underline"
+              >
+                Change password
+              </Link>
             </dd>
           </div>
         </dl>

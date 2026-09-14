@@ -8,6 +8,7 @@ import {
   FileText,
   History,
   House,
+  KeyRound,
   LayoutDashboard,
   ListChecks,
   Network,
@@ -48,4 +49,5 @@ export const NAV_ICONS: Record<NavIcon, typeof Clock> = {
   activity: History,
   performance: Trophy,
   expenses: Wallet,
+  account: KeyRound,
 };

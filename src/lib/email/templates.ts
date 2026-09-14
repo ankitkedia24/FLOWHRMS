@@ -77,12 +77,68 @@ export function inviteEmail(input: InviteEmailInput): {
 <p>Hello ${escapeHtml(firstName)},</p>
 <p>${escapeHtml(opening)}</p>
 <p style="margin:28px 0">
-  <a href="${escapeHtml(input.url)}" style="display:inline-block;background:#1F5FA9;color:#FFFFFF;text-decoration:none;padding:14px 24px;border-radius:12px;font-weight:600">Set your password</a>
+  <a href="${escapeHtml(input.url)}" style="display:inline-block;background:#7166F3;color:#FFFFFF;text-decoration:none;padding:14px 24px;border-radius:12px;font-weight:600">Set your password</a>
 </p>
 <p style="font-size:14px;color:#5A5A5A">Or paste this into your browser:<br><span style="word-break:break-all">${escapeHtml(input.url)}</span></p>
 <p>This link works until <strong>${escapeHtml(expiry)}</strong>. After that, ask ${escapeHtml(input.invitedByName)} to send a new one.</p>
 <p><strong>Don't share this link</strong> — anyone who opens it can set the password on your account.</p>
 <p style="font-size:14px;color:#5A5A5A">If you weren't expecting this, you can ignore it and nothing will happen. You can also tell ${escapeHtml(input.invitedByName)}.</p>
+</div>`;
+
+  return { subject, text, html };
+}
+
+export interface PasswordChangedEmailInput {
+  name: string;
+  at: Date;
+  timeZone: string;
+  signedOutOthers: boolean;
+}
+
+/**
+ * Sent to the person whose password changed. Short, because the only
+ * question it answers is "was that me?" — and if the answer is no, the
+ * next line is what to do.
+ */
+export function passwordChangedEmail(input: PasswordChangedEmailInput): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  const when = new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: input.timeZone,
+  }).format(input.at);
+  const firstName = input.name.trim().split(/\s+/)[0] || "there";
+
+  const subject = "Your FlowHRMS password was changed";
+  const devices = input.signedOutOthers
+    ? "Your other devices were signed out at the same time."
+    : "Your other devices stay signed in.";
+
+  const lines = [
+    `Hello ${firstName},`,
+    "",
+    `The password for your FlowHRMS account was changed on ${when}. ${devices}`,
+    "",
+    "If that was you, there is nothing to do.",
+    "",
+    "If it wasn't, change your password again now — from a signed-in device use Account, or from the sign-in page use \"Forgot password\" — and tell your company's admin or owner.",
+    "",
+    "FlowHRMS support (help@flowacord.com) never asks for your password.",
+  ];
+  const text = lines.join("\n");
+
+  const html = `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;line-height:1.6;color:#1A1A1A;max-width:520px">
+<p>Hello ${escapeHtml(firstName)},</p>
+<p>The password for your FlowHRMS account was changed on <strong>${escapeHtml(when)}</strong>. ${escapeHtml(devices)}</p>
+<p>If that was you, there is nothing to do.</p>
+<p>If it wasn't, change your password again now — from a signed-in device use <strong>Account</strong>, or from the sign-in page use &ldquo;Forgot password&rdquo; — and tell your company's admin or owner.</p>
+<p style="font-size:14px;color:#5A5A5A">FlowHRMS support (help@flowacord.com) never asks for your password.</p>
 </div>`;
 
   return { subject, text, html };

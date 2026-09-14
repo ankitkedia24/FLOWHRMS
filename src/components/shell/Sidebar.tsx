@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { KeyRound, LogOut } from "lucide-react";
 import { isActiveNav, type NavItem } from "@/lib/shell/nav";
 import { NAV_ICONS } from "./nav-icons";
 import { cn } from "@/lib/cn";
@@ -133,7 +133,24 @@ export function Sidebar({
             </span>
           </span>
         </div>
-        <form action="/auth/sign-out" method="post" className="mt-2">
+        {/* The two things about a sign-in that belong to the person rather
+            than to a module: change the password, end the session. Both
+            shells, every role — a password is personal, not a permission. */}
+        <Link
+          href="/account"
+          aria-current={isActiveNav("/account", pathname) ? "page" : undefined}
+          title="Account"
+          className={cn(
+            "mt-2 flex h-10 w-full items-center gap-3 rounded-md px-3 text-secondary md:justify-center lg:justify-start",
+            isActiveNav("/account", pathname)
+              ? "bg-brand-primary-subtle font-semibold text-brand-primary"
+              : "text-text-secondary hover:bg-surface-sunken hover:text-text-primary",
+          )}
+        >
+          <KeyRound aria-hidden="true" className="size-5 shrink-0" />
+          <span className="md:hidden lg:inline">Account</span>
+        </Link>
+        <form action="/auth/sign-out" method="post">
           <button
             type="submit"
             className="flex h-10 w-full items-center gap-3 rounded-md px-3 text-secondary text-text-secondary hover:bg-surface-sunken hover:text-text-primary md:justify-center lg:justify-start"

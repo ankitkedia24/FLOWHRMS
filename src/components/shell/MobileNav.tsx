@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Menu } from "lucide-react";
+import { KeyRound, LogOut, Menu } from "lucide-react";
 import { Drawer } from "@/components/ui/Drawer";
 import { IconButton } from "@/components/ui/IconButton";
 import { isActiveNav, type NavItem } from "@/lib/shell/nav";
@@ -137,7 +137,20 @@ export function MobileNav({
               </span>
             </span>
           </div>
-          <form action="/auth/sign-out" method="post" className="mt-2">
+          <Link
+            href="/account"
+            aria-current={isActiveNav("/account", pathname) ? "page" : undefined}
+            className={cn(
+              "mt-2 flex min-h-12 w-full items-center gap-3 rounded-md px-3 text-body",
+              isActiveNav("/account", pathname)
+                ? "bg-brand-primary-subtle font-semibold text-brand-primary"
+                : "text-text-secondary hover:bg-surface-sunken hover:text-text-primary",
+            )}
+          >
+            <KeyRound aria-hidden="true" className="size-5 shrink-0" />
+            Account
+          </Link>
+          <form action="/auth/sign-out" method="post">
             <button
               type="submit"
               className="flex min-h-12 w-full items-center gap-3 rounded-md px-3 text-body text-text-secondary hover:bg-surface-sunken hover:text-text-primary"

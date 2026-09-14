@@ -230,7 +230,29 @@ async function expenseUpdate(
   });
 }
 
+/**
+ * The person's own password was changed. Sent to them, not to admins: if it
+ * was them, it is confirmation; if it wasn't, it is the alarm.
+ */
+async function passwordChanged(session: AppSession, at: Date): Promise<void> {
+  const when = new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: session.tenant.timezone,
+  }).format(at);
+  await create({
+    tenantId: session.tenant.id,
+    userId: session.user.id,
+    title: "Your password was changed",
+    body: `Changed ${when}. If this wasn't you, change it again now and tell your admin.`,
+    href: "/account",
+  });
+}
+
 export const notify = {
+  passwordChanged,
   attendanceException,
   attendanceDecision,
   leaveDecision,

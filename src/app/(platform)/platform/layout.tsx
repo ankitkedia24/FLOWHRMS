@@ -70,6 +70,12 @@ export default async function PlatformLayout({
               >
                 My workspace
               </Link>
+              <Link
+                href="/account"
+                className="inline-flex min-h-11 items-center rounded-button px-3 text-label text-text-secondary hover:bg-surface-sunken hover:text-text-primary"
+              >
+                Account
+              </Link>
               <form action="/auth/sign-out" method="post">
                 <button
                   type="submit"
