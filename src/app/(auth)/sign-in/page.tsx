@@ -24,7 +24,7 @@ export const metadata: Metadata = { title: "Sign in" };
  *
  * The "already signed in, go to your surface" redirect lives here rather
  * than in the proxy because it is only correct if the person actually has
- * an FlowHRMS account, and only the database knows that.
+ * a FlowHRMS account, and only the database knows that.
  */
 export default async function SignInPage({
   searchParams,

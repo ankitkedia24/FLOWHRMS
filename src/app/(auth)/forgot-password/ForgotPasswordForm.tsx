@@ -22,7 +22,7 @@ export function ForgotPasswordForm() {
   if (sent) {
     return (
       <Alert variant="success" title="Check your email.">
-        If that address has an FlowHRMS account, a reset link is on its way. The
+        If that address has a FlowHRMS account, a reset link is on its way. The
         link expires shortly, so use it soon.
       </Alert>
     );
