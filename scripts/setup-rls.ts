@@ -87,6 +87,8 @@ const TENANT_TABLES = [
   "invoice_counters",
   // Job titles and the access each carries.
   "designations",
+  // Sign-up codes: hashes only, but tied to emails and phone numbers.
+  "signup_verifications",
 ];
 
 const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;

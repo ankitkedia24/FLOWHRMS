@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { describeAction } from "@/lib/activity-labels";
 import Link from "next/link";
 import { requireAdminArea } from "@/lib/authz/guard";
 import { loadEntitlements } from "@/lib/authz/entitlements";
@@ -14,6 +15,7 @@ import { periodLabel } from "@/lib/payroll/engine";
 import { membersOffOn } from "@/lib/attendance/work-calendar";
 import { currentPeriod } from "@/lib/payroll/service";
 import { cn } from "@/lib/cn";
+import { UserPlus } from "lucide-react";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -145,10 +147,41 @@ export default async function AdminDashboardPage() {
   ].filter(Boolean) as Array<{ label: string; count: number; href: string }>;
 
   const totalToReview = reviewItems.reduce((sum, item) => sum + item.count, 0);
+  const canAddPeople = session.permissions.has("employees.manage");
 
   return (
     <div className="flex flex-col gap-5">
       <h1 className="font-heading text-h1 text-text-primary">Dashboard</h1>
+
+      {/* Right after sign-up, adding people is the job. A slim bar, not a
+          card: always one tap away, never in the way of the numbers. */}
+      {canAddPeople && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-surface-card border border-brand-primary-subtle bg-brand-primary-subtle px-4 py-2.5">
+          <p className="flex min-w-0 items-center gap-2.5 text-body text-text-primary">
+            <span
+              aria-hidden="true"
+              className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-default text-brand-primary"
+            >
+              <UserPlus className="size-4" />
+            </span>
+            <span className="min-w-0">
+              <span className="font-semibold">
+                {headcount <= 1 ? "Add your team" : "Add more people"}
+              </span>{" "}
+              <span className="text-text-secondary">
+                · {headcount} {headcount === 1 ? "person" : "people"} in {session.tenant.name} so far
+              </span>
+            </span>
+          </p>
+          <Link
+            href="/admin/employees/new"
+            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-button bg-brand-primary px-4 text-label text-text-on-primary hover:bg-brand-primary-hover"
+          >
+            <UserPlus className="size-4" aria-hidden="true" />
+            Add employee
+          </Link>
+        </div>
+      )}
 
       {attendanceOn && (
         <section aria-label="Attendance today">
@@ -271,7 +304,7 @@ export default async function AdminDashboardPage() {
                     className="border-b border-border-subtle py-2.5 last:border-0"
                   >
                     <p className="text-secondary text-text-primary">
-                      {event.action}
+                      {describeAction(event.action)}
                     </p>
                     <p className="font-mono text-mono text-text-tertiary uppercase">
                       {event.actor?.displayName ?? "System"} ·{" "}

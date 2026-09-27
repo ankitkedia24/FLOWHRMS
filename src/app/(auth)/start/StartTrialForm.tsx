@@ -19,6 +19,7 @@ import {
 } from "@/lib/signup/catalog";
 import { addressStep, companyStep, detailsStep, stepErrors, type StepErrors } from "@/lib/signup/validate";
 import { startTrialAction, type StartTrialResult } from "@/lib/signup/actions";
+import { checkSignupContactAction } from "@/lib/signup/contact-check";
 import { AcceptInviteForm } from "../invite/[token]/AcceptInviteForm";
 import { cn } from "@/lib/cn";
 
@@ -57,6 +58,7 @@ export function StartTrialForm() {
   const [accountConsent, setAccountConsent] = useState<string[]>([]);
   const [companyConsent, setCompanyConsent] = useState<string[]>([]);
   const [website, setWebsite] = useState("");
+  const [checking, setChecking] = useState(false);
 
   const values = {
     companyName, staffCount, industry, pincode, state, city,
@@ -70,9 +72,40 @@ export function StartTrialForm() {
     return Object.keys(found).length === 0;
   }
 
-  function next() {
+  /**
+   * Already registered? Asked the moment the email or mobile field is
+   * left, and again before step 4 — so nobody fills in the consent step
+   * only to be sent back.
+   */
+  async function checkTaken(fields: { email?: string; mobile?: string }): Promise<boolean> {
+    const found = await checkSignupContactAction(fields).catch(() => ({}) as Awaited<ReturnType<typeof checkSignupContactAction>>);
+    let taken = false;
+    setErrors((prev) => {
+      const next = { ...prev };
+      for (const key of ["email", "mobile"] as const) {
+        if (!(key in found)) continue;
+        const message = found[key];
+        if (message) {
+          next[key] = message;
+          taken = true;
+        } else if (next[key]?.includes("already registered")) {
+          delete next[key];
+        }
+      }
+      return next;
+    });
+    return taken || Boolean(found.email || found.mobile);
+  }
+
+  async function next() {
     setFormError(null);
     if (step < 4 && !validate(step)) return;
+    if (step === 3) {
+      setChecking(true);
+      const taken = await checkTaken({ email, mobile });
+      setChecking(false);
+      if (taken) return;
+    }
     setStep((s) => Math.min(4, s + 1));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -150,12 +183,12 @@ export function StartTrialForm() {
     }).format(new Date(r.trialEndsAt));
     return (
       <div className="mt-8 flex flex-col gap-5">
-        <div className="rounded-surface-card border border-warm-border bg-warm-subtle p-5 motion-safe:animate-[fh-confirm-pulse_var(--fh-motion-duration-slow)_var(--fh-motion-easing-spring-subtle)]">
+        <div className="rounded-surface-card border border-status-success-border bg-status-success-bg p-5 motion-safe:animate-[fh-confirm-pulse_var(--fh-motion-duration-slow)_var(--fh-motion-easing-spring-subtle)]">
           <CircleCheck aria-hidden="true" className="size-9 text-status-success-fg" />
-          <h1 role="status" className="mt-3 font-heading text-h1 text-warm-text">
+          <h1 role="status" className="mt-3 font-heading text-h1 text-status-success-text">
             Your {r.trialDays}-day free trial has started!
           </h1>
-          <p className="mt-2 text-body text-warm-text">
+          <p className="mt-2 text-body text-status-success-text">
             {r.companyName} is set up on FlowHRMS. Your trial runs until{" "}
             <strong>{ends}</strong>.
           </p>
@@ -209,7 +242,7 @@ export function StartTrialForm() {
         className="mt-6 flex flex-col gap-1"
         onSubmit={(e) => {
           e.preventDefault();
-          if (step < 4) next();
+          if (step < 4) void next();
           else if (consentReady) void submit();
         }}
       >
@@ -326,6 +359,9 @@ export function StartTrialForm() {
               value={email}
               error={errors.email}
               onChange={(e) => setEmail(e.target.value)}
+              onBlur={() => {
+                if (detailsStep.shape.email.safeParse(email).success) void checkTaken({ email });
+              }}
             />
             <Input
               label="Mobile number"
@@ -337,6 +373,9 @@ export function StartTrialForm() {
               value={mobile}
               error={errors.mobile}
               onChange={(e) => setMobile(e.target.value)}
+              onBlur={() => {
+                if (detailsStep.shape.mobile.safeParse(mobile).success) void checkTaken({ mobile });
+              }}
             />
             <Select
               label="Your role in the company"
@@ -406,7 +445,7 @@ export function StartTrialForm() {
 
         <div className="mt-4">
           {step < 4 ? (
-            <Button type="submit" size="xl" className="w-full">
+            <Button type="submit" size="xl" className="w-full" loading={checking}>
               Continue
             </Button>
           ) : (

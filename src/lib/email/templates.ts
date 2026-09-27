@@ -230,3 +230,23 @@ export function paymentReceiptEmail(input: PaymentReceiptInput): {
 </div>`;
   return { subject, text, html };
 }
+
+/** The 6-digit code that proves a sign-up email address. */
+export function signupCodeEmail(input: { code: string }): { subject: string; text: string; html: string } {
+  const spaced = `${input.code.slice(0, 3)} ${input.code.slice(3)}`;
+  const subject = `${input.code} is your FlowHRMS code`;
+  const text = [
+    `Your FlowHRMS verification code is ${spaced}.`,
+    "",
+    "Type it on the sign-up page to confirm this email address. It works for 10 minutes.",
+    "",
+    "If you didn't try to sign up, ignore this email — nothing happens without the code.",
+  ].join("\n");
+  const html = `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;line-height:1.6;color:#1A1A1A;max-width:520px">
+<p>Your FlowHRMS verification code is:</p>
+<p style="margin:20px 0;font-size:32px;font-weight:700;letter-spacing:6px;color:#17163E">${escapeHtml(spaced)}</p>
+<p>Type it on the sign-up page to confirm this email address. It works for 10 minutes.</p>
+<p style="font-size:14px;color:#5A5A5A">If you didn't try to sign up, ignore this email — nothing happens without the code.</p>
+</div>`;
+  return { subject, text, html };
+}

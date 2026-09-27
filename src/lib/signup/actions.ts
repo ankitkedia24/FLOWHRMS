@@ -11,6 +11,8 @@ import { generateInviteToken, hashInviteToken } from "@/lib/invites/token";
 import { emailConfigured, sendMail } from "@/lib/email/send";
 import { verifyEmailMessage } from "@/lib/email/templates";
 import {
+  EMAIL_TAKEN,
+  MOBILE_TAKEN,
   MAX_SIGNUPS_PER_HOUR,
   MAX_SIGNUPS_PER_IP_PER_HOUR,
   signupSchema,
@@ -119,7 +121,7 @@ export async function startTrialAction(input: SignupInput): Promise<StartTrialRe
   if (existingEmail) {
     return {
       ok: false,
-      error: "This email already has a FlowHRMS account. Sign in, or use “Forgot password” on the sign-in page.",
+      error: EMAIL_TAKEN,
       field: "email",
       step: 3,
     };
@@ -127,7 +129,7 @@ export async function startTrialAction(input: SignupInput): Promise<StartTrialRe
   if (existingPhone) {
     return {
       ok: false,
-      error: "This mobile number is already on a FlowHRMS account. Use a different number, or sign in.",
+      error: MOBILE_TAKEN,
       field: "mobile",
       step: 3,
     };

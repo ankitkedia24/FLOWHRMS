@@ -87,6 +87,12 @@ export function stepErrors(schema: z.ZodTypeAny, values: unknown): StepErrors {
   return errors;
 }
 
+/** Said on step 3 as soon as the field is filled, and again at the end if need be. */
+export const EMAIL_TAKEN =
+  "This email is already registered on FlowHRMS. Sign in instead, or use a different email.";
+export const MOBILE_TAKEN =
+  "This mobile number is already registered on FlowHRMS. Sign in instead, or use a different number.";
+
 /** How many sign-ups the whole site accepts per hour, and per IP address. */
 export const MAX_SIGNUPS_PER_HOUR = 30;
 export const MAX_SIGNUPS_PER_IP_PER_HOUR = 5;

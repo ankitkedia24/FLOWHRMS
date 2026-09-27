@@ -198,7 +198,7 @@ export const PERMISSIONS = [
   { key: "reports.view", name: "View reports", isSensitive: false },
   { key: "reports.export", name: "Export reports", isSensitive: true },
   { key: "audit.view", name: "View the activity log", isSensitive: true },
-  { key: "policy.edit", name: "Edit tenant policies", isSensitive: false },
+  { key: "policy.edit", name: "Edit company rules and shifts", isSensitive: false },
   { key: "modules.manage", name: "Manage modules and features", isSensitive: false },
   { key: "roles.manage", name: "Manage roles and permissions", isSensitive: false },
   { key: "settings.manage", name: "Manage company settings", isSensitive: false },

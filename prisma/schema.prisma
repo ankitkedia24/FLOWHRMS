@@ -41,6 +41,8 @@ model User {
   status         UserStatus @default(ACTIVE)
   /// Platform Super Admin (operates the SaaS across tenants; USER-ROLES.md).
   isPlatformAdmin Boolean   @default(false)
+  /// When the mobile number was proven by a one-time code (self sign-up).
+  phoneVerifiedAt DateTime?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
@@ -1870,4 +1872,33 @@ model InvoiceCounter {
   last          Int    @default(0)
 
   @@map("invoice_counters")
+}
+
+// ------------------------------------------------ sign-up contact checks
+
+enum ContactChannel {
+  EMAIL
+  SMS
+}
+
+/// A one-time code proving someone controls an email address or mobile
+/// number while they sign up (/start, step 3). Only a hash of the code is
+/// kept. Codes last 10 minutes and allow 5 tries; a verified row is proof
+/// for 30 minutes and is used once, by the sign-up it belongs to.
+model SignupVerification {
+  id         String         @id @default(uuid()) @db.Uuid
+  channel    ContactChannel
+  /// Normalised email, or the 10-digit mobile number.
+  target     String
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int            @default(0)
+  verifiedAt DateTime?
+  usedAt     DateTime?
+  ipAddress  String?
+  createdAt  DateTime       @default(now())
+
+  @@index([channel, target, createdAt])
+  @@index([ipAddress, createdAt])
+  @@map("signup_verifications")
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { describeAction, describeEntity } from "@/lib/activity-labels";
 import { redirect } from "next/navigation";
 import { checkAccess } from "@/lib/authz/guard";
 import { getDb } from "@/lib/db";
@@ -52,10 +53,10 @@ export default async function AdminActivityPage() {
               <li key={event.id}>
                 <Card>
                   <p className="text-body font-semibold text-text-primary">
-                    {event.action}
+                    {describeAction(event.action)}
                   </p>
                   <p className="text-secondary text-text-secondary">
-                    {event.actor?.displayName ?? "System"} · {event.entityType}
+                    {event.actor?.displayName ?? "System"} · {describeEntity(event.entityType)}
                   </p>
                   {event.reason && (
                     <p className="mt-1 text-secondary text-text-secondary">
@@ -108,9 +109,9 @@ export default async function AdminActivityPage() {
                     <td className="px-4 py-2.5 text-body">
                       {event.actor?.displayName ?? "System"}
                     </td>
-                    <td className="px-4 py-2.5 text-body">{event.action}</td>
+                    <td className="px-4 py-2.5 text-body">{describeAction(event.action)}</td>
                     <td className="px-4 py-2.5 text-secondary text-text-secondary">
-                      {event.entityType}
+                      {describeEntity(event.entityType)}
                     </td>
                     <td className="px-4 py-2.5 text-secondary text-text-secondary">
                       {event.reason ?? "—"}
