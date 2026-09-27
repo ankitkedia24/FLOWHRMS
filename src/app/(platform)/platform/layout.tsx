@@ -81,6 +81,19 @@ export default async function PlatformLayout({
               >
                 Notices
               </Link>
+              {/* Money in: plan prices and modules, invoices and payments. */}
+              <Link
+                href="/platform/plans"
+                className="inline-flex min-h-11 items-center rounded-button px-3 text-label text-text-secondary hover:bg-surface-sunken hover:text-text-primary"
+              >
+                Plans
+              </Link>
+              <Link
+                href="/platform/billing"
+                className="inline-flex min-h-11 items-center rounded-button px-3 text-label text-text-secondary hover:bg-surface-sunken hover:text-text-primary"
+              >
+                Billing
+              </Link>
               <Link
                 href="/platform/settings"
                 className="inline-flex min-h-11 items-center rounded-button px-3 text-label text-text-secondary hover:bg-surface-sunken hover:text-text-primary"

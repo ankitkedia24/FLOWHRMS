@@ -135,6 +135,18 @@ model Tenant {
   addressCountry  String?
   signupRole      String?
   signupHeardFrom String?
+  /// Billing (PAID companies). The plan decides the modules; access runs
+  /// to paidUntil, then 7 days' grace, then the company pauses.
+  billingPlanId   String?       @db.Uuid
+  billingCycle    BillingCycle?
+  paidUntil       DateTime?
+  /// Who the tax invoice is made out to. Prefilled from the sign-up address.
+  billingName     String?
+  billingGstin    String?
+  billingAddress  String?
+  billingCity     String?
+  billingState    String?
+  billingPincode  String?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
@@ -168,6 +180,7 @@ model Tenant {
   rewardRedemptions RewardRedemption[]
   kudos             Kudos[]
   expenseClaims     ExpenseClaim[]
+  billingPlan       BillingPlan?          @relation(fields: [billingPlanId], references: [id])
 
   @@map("tenants")
 }
@@ -1713,4 +1726,106 @@ model EmailVerification {
 
   @@index([tenantId])
   @@map("email_verifications")
+}
+
+// ----------------------------------------------------------------- billing
+//
+// Paid subscriptions (27 Sept 2026). A company pays per period — a month or
+// a year — for its active employees at its plan's rate, plus 18% GST, by
+// Razorpay. Paying moves `paidUntil` forward; 7 days after it passes the
+// company pauses, like an ended trial. Nothing renews by itself.
+
+enum BillingCycle {
+  MONTHLY
+  ANNUAL
+}
+
+enum BillingPaymentStatus {
+  /// A Razorpay order exists; the customer has not paid yet (or gave up).
+  CREATED
+  PAID
+  FAILED
+}
+
+/// A plan Flowacord sells. Prices, modules and the marketing bullet list
+/// are edited in /platform/plans; the website and the in-app subscription
+/// page both read from here.
+model BillingPlan {
+  id           String   @id @default(uuid()) @db.Uuid
+  key          String   @unique
+  name         String
+  /// Who it is for, in the customer's words.
+  target       String
+  /// Whole rupees per active employee per month, excluding GST.
+  priceMonthly Int
+  /// Per-employee-per-month price when paid a year at a time.
+  priceAnnual  Int
+  /// Module keys a company on this plan gets (src/lib/catalog.ts MODULES).
+  modules      String[]
+  /// [{ label, strong? }] — the bullet list on the website and in the app.
+  features     Json
+  flagship     Boolean  @default(false)
+  /// Hidden plans are not offered to new buyers; companies on them keep them.
+  active       Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  updatedById  String?  @db.Uuid
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenants Tenant[]
+
+  @@map("billing_plans")
+}
+
+/// One attempt to pay, and — once paid — the tax invoice for it. No foreign
+/// key to the company: financial records must outlive a deleted company
+/// (CGST Rules r.56 keeps accounts for 72 months), so the names are copied.
+model BillingPayment {
+  id                String               @id @default(uuid()) @db.Uuid
+  tenantId          String               @db.Uuid
+  tenantName        String
+  planId            String               @db.Uuid
+  planKey           String
+  planName          String
+  cycle             BillingCycle
+  months            Int
+  /// Active employees charged for, counted when the order was made.
+  employees         Int
+  /// Rupees per employee per month at the time.
+  rateRupees        Int
+  /// Amounts in paise.
+  subtotalPaise     Int
+  cgstPaise         Int                  @default(0)
+  sgstPaise         Int                  @default(0)
+  igstPaise         Int                  @default(0)
+  totalPaise        Int
+  status            BillingPaymentStatus @default(CREATED)
+  razorpayOrderId   String               @unique
+  razorpayPaymentId String?              @unique
+  /// The buyer as they will appear on the invoice: name, GSTIN, address, state.
+  buyer             Json
+  periodStart       DateTime?
+  periodEnd         DateTime?
+  paidAt            DateTime?
+  /// FH/2627/00001 — consecutive per financial year (CGST Rules r.46(b)).
+  invoiceNumber     String?              @unique
+  /// Everything printed on the invoice, frozen when it was issued.
+  invoice           Json?
+  failureReason     String?
+  createdById       String?              @db.Uuid
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([tenantId, createdAt])
+  @@index([status])
+  @@map("billing_payments")
+}
+
+/// The last invoice number used in each Indian financial year ("2627" =
+/// April 2026 – March 2027). Incremented inside the payment transaction.
+model InvoiceCounter {
+  financialYear String @id
+  last          Int    @default(0)
+
+  @@map("invoice_counters")
 }

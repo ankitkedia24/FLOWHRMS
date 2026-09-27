@@ -15,8 +15,9 @@ import { OfflineProvider } from "@/lib/offline/OfflineProvider";
 import { AdminOfflineBar } from "@/components/offline/OfflineBar";
 import { ActionQueueProvider } from "@/lib/actions/ActionQueueProvider";
 import { ActionTiles } from "@/components/actions/ActionTiles";
-import { TrialBanner } from "@/components/shell/TrialBanner";
-import { trialDaysLeft } from "@/lib/signup/validate";
+import { TrialBanner, type PlanNotice } from "@/components/shell/TrialBanner";
+import { accessState } from "@/lib/billing/pricing";
+import { canManageBilling } from "@/lib/billing/policy";
 
 /**
  * Admin shell: cool surface, 240px sidebar (lg+) / 72px rail (md) / drawer
@@ -46,6 +47,7 @@ export default async function AdminLayout({
       roles: session.permissions.has("roles.manage"),
       settings: session.permissions.has("settings.manage"),
       audit: session.permissions.has("audit.view"),
+      billing: canManageBilling(session),
     },
   };
   // An admin has attendance, leave and payslips of their own, and nothing
@@ -57,17 +59,17 @@ export default async function AdminLayout({
   ];
   const configItems = adminConfigItems(navInput);
 
-  const trial =
-    session.tenant.plan === "TRIAL" && session.tenant.trialEndsAt
-      ? {
-          daysLeft: trialDaysLeft(session.tenant.trialEndsAt, new Date()),
-          endsLabel: new Intl.DateTimeFormat("en-IN", {
-            day: "numeric",
-            month: "short",
-            timeZone: session.tenant.timezone,
-          }).format(session.tenant.trialEndsAt),
-        }
-      : null;
+  const day = (at: Date) =>
+    new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: session.tenant.timezone }).format(at);
+  const access = accessState(session.tenant, new Date());
+  const notice: PlanNotice | null =
+    access.kind === "trial" && access.endsAt && access.daysLeft !== null
+      ? { kind: "trial", daysLeft: access.daysLeft, endsLabel: day(access.endsAt) }
+      : access.kind === "paid" && access.until && access.daysLeft !== null && access.daysLeft <= 7
+        ? { kind: "renew_soon", daysLeft: access.daysLeft, untilLabel: day(access.until) }
+        : access.kind === "grace"
+          ? { kind: "grace", endedLabel: day(access.until), pausesLabel: day(access.pausesAt) }
+          : null;
   const needsVerification =
     session.tenant.selfSignup &&
     !session.tenant.ownerEmailVerifiedAt &&
@@ -97,10 +99,10 @@ export default async function AdminLayout({
                 notificationCount={unread}
                 nav={nav}
               />
-              {(trial || needsVerification) && (
+              {(notice || needsVerification) && (
                 <TrialBanner
-                  daysLeft={trial?.daysLeft ?? null}
-                  endsLabel={trial?.endsLabel ?? null}
+                  notice={notice}
+                  canPay={navInput.can.billing}
                   needsVerification={needsVerification}
                   email={session.user.email}
                 />

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { PLANS, PRICING_FOOTNOTE, rupees } from "@/lib/marketing/plans";
+import { PLANS, PRICING_FOOTNOTE, annualSaving, rupees, type Plan } from "@/lib/marketing/plans";
 
 /**
  * Pricing cards with a monthly/annual toggle.
@@ -13,8 +13,9 @@ import { PLANS, PRICING_FOOTNOTE, rupees } from "@/lib/marketing/plans";
  * the price itself is announced politely when it changes, because the
  * number moving under a toggle is the entire point of pressing it.
  */
-export function Pricing() {
+export function Pricing({ plans = PLANS }: { plans?: readonly Plan[] }) {
   const [annual, setAnnual] = useState(false);
+  const saving = annualSaving(plans);
 
   return (
     <>
@@ -34,15 +35,17 @@ export function Pricing() {
           onClick={() => setAnnual(true)}
         >
           Annual
-          <span
-            className="rounded-full px-2 py-[3px] text-[11px] font-bold"
-            style={{
-              background: annual ? "var(--m-green)" : "rgba(47,158,111,.15)",
-              color: annual ? "#fff" : "var(--m-green-text)",
-            }}
-          >
-            Save ~20%
-          </span>
+          {saving > 0 && (
+            <span
+              className="rounded-full px-2 py-[3px] text-[11px] font-bold"
+              style={{
+                background: annual ? "var(--m-green)" : "rgba(47,158,111,.15)",
+                color: annual ? "#fff" : "var(--m-green-text)",
+              }}
+            >
+              Save up to {saving}%
+            </span>
+          )}
         </button>
       </div>
 
@@ -50,7 +53,7 @@ export function Pricing() {
         className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))] items-stretch gap-5"
         aria-live="polite"
       >
-        {PLANS.map((plan) => {
+        {plans.map((plan) => {
           const dark = plan.flagship;
           const ink = dark ? "var(--m-cream)" : "var(--m-navy)";
           const sub = dark ? "var(--m-on-navy-2)" : "var(--m-muted-2)";

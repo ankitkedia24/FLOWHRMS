@@ -311,6 +311,41 @@ npm run publish-notices       # then the exact texts people will consent to
 under an old version number — bump `version` in src/lib/consent/documents.ts
 instead; everyone is then asked to consent again on their next visit.
 
+## 7c. Online payment (Razorpay) — so companies can pay in the app
+
+Companies choose a plan and pay at **/subscription** (Owner, Tenant Super
+Admin or Admin). Until both steps below are done they see the prices and a
+"Online payment opens shortly" note instead of a Pay button.
+
+1. **Flowacord's invoice details** — in the app, Platform → **Billing**:
+   legal name, GSTIN, address, state (must match the GSTIN), SAC code
+   (997331 is pre-filled; confirm it with your CA). These are printed on
+   every tax invoice.
+2. **Razorpay keys** — Razorpay Dashboard → Account & Settings → API keys.
+   Start with **Test mode** keys (`rzp_test_…`): no real money moves, and the
+   app says "Test mode" on the payment page. Add three environment
+   variables to `.env.local` and to Hostinger → Environment variables, then
+   redeploy:
+
+   | Variable | Where it comes from |
+   |---|---|
+   | `RAZORPAY_KEY_ID` | API keys → Key Id |
+   | `RAZORPAY_KEY_SECRET` | API keys → Key Secret (shown once) |
+   | `RAZORPAY_WEBHOOK_SECRET` | a secret you choose in step 3 |
+
+   Never paste these into chat, email or a commit.
+3. **Webhook** — Razorpay Dashboard → Webhooks → Add: URL
+   `https://hrms.flowacord.com/api/razorpay/webhook`, the secret from
+   step 2, events `payment.captured`, `order.paid`, `payment.failed`. This
+   marks a company paid even if the customer closes the tab before the
+   payment page reports back.
+
+Going live is the same three variables with the `rzp_live_…` keys, and a
+webhook added in Live mode. Prices, modules and the "Popular" plan are
+edited in Platform → **Plans**. Payments never renew by themselves: a paid
+period ends at `paidUntil`, everything keeps working for 7 more days, then
+the company pauses until it pays (nothing is deleted).
+
 ## 8. Before you hand over the URL (30 min)
 
 - [ ] Sign in as the owner on a **real phone**, not a desktop browser

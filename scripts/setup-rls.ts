@@ -81,6 +81,10 @@ const TENANT_TABLES = [
   "data_requests",
   "email_verifications",
   "platform_settings",
+  // Billing: what each company paid, and the tax invoices issued for it.
+  "billing_plans",
+  "billing_payments",
+  "invoice_counters",
 ];
 
 const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;

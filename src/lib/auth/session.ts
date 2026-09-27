@@ -97,6 +97,7 @@ export const getAppSession = cache(async (): Promise<AppSession | null> => {
       trialEndsAt: membership.tenant.trialEndsAt,
       selfSignup: membership.tenant.selfSignup,
       ownerEmailVerifiedAt: membership.tenant.ownerEmailVerifiedAt,
+      paidUntil: membership.tenant.paidUntil,
     },
     membership: {
       id: membership.id,

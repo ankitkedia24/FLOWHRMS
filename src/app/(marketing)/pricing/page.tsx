@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
-import { PLANS, PRICING_FOOTNOTE, rupees } from "@/lib/marketing/plans";
+import { PRICING_FOOTNOTE, annualSaving, rupees } from "@/lib/marketing/plans";
+import { loadMarketingPlans } from "@/lib/billing/store";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -15,27 +16,32 @@ export const metadata: Metadata = {
  * said no prices until pricing was set. Pricing is now set and published,
  * and D-018 has been updated to record that.
  *
- * The figures come from src/lib/marketing/plans.ts — the same module the
- * homepage section reads. That is the whole point of the module: a
+ * The figures come from the database (edited in /platform/plans) through
+ * loadMarketingPlans() — the same call the homepage section makes. That is the whole point of the module: a
  * customer who compares this page with the homepage must never find two
  * different numbers for the same plan.
  *
  * The page keeps the product's original design language rather than the
  * marketing redesign, which covers the homepage and sign-in only.
  */
-export default function PricingPage() {
+/** Re-read hourly, and at once when a plan is saved (revalidatePath). */
+export const revalidate = 3600;
+
+export default async function PricingPage() {
+  const plans = await loadMarketingPlans();
+  const saving = annualSaving(plans);
   return (
     <div className="mx-auto max-w-[1200px] px-5 py-16 lg:px-8">
       <h1 className="font-heading text-h1 text-text-primary">
         Priced per employee. Nothing hidden.
       </h1>
       <p className="mt-3 max-w-[72ch] text-body-lg text-text-secondary">
-        Pay for the people on the roster, not for seats you&apos;ll never use. Annual billing
-        saves about 20%.
+        Pay for the people on the roster, not for seats you&apos;ll never use.
+        {saving > 0 ? ` Annual billing saves up to ${saving}%.` : ""}
       </p>
 
       <ul className="mt-10 grid gap-4 lg:grid-cols-3">
-        {PLANS.map((plan) => (
+        {plans.map((plan) => (
           <li key={plan.key}>
             <Card className="flex h-full flex-col">
               <h2 className="font-heading text-h2 text-text-primary">{plan.name}</h2>

@@ -4,6 +4,7 @@ import {
   ChartNoAxesColumn,
   CircleUser,
   Clock,
+  CreditCard,
   FileClock,
   FileText,
   History,
@@ -50,4 +51,5 @@ export const NAV_ICONS: Record<NavIcon, typeof Clock> = {
   performance: Trophy,
   expenses: Wallet,
   account: KeyRound,
+  subscription: CreditCard,
 };

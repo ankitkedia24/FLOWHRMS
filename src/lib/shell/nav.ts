@@ -40,7 +40,8 @@ export type NavIcon =
   | "activity"
   | "performance"
   | "expenses"
-  | "account";
+  | "account"
+  | "subscription";
 
 export interface NavItem {
   href: string;
@@ -55,6 +56,8 @@ export interface AdminNavInput {
     roles: boolean;
     settings: boolean;
     audit: boolean;
+    /** Owner, Super Admin or Admin: sees the plan and can pay for it. */
+    billing: boolean;
   };
 }
 
@@ -115,6 +118,11 @@ export function adminConfigItems({ can }: AdminNavInput): NavItem[] {
       href: "/admin/settings",
       label: "Company settings",
       icon: "company" as const,
+    },
+    can.billing && {
+      href: "/subscription",
+      label: "Subscription",
+      icon: "subscription" as const,
     },
     can.audit && {
       href: "/admin/activity",

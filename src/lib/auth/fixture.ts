@@ -103,6 +103,7 @@ export async function fixtureSession(
             trialEndsAt: membership.tenant.trialEndsAt,
             selfSignup: membership.tenant.selfSignup,
             ownerEmailVerifiedAt: membership.tenant.ownerEmailVerifiedAt,
+            paidUntil: membership.tenant.paidUntil,
           },
           membership: {
             id: membership.id,
@@ -139,6 +140,7 @@ export async function fixtureSession(
       trialEndsAt: null,
       selfSignup: false,
       ownerEmailVerifiedAt: null,
+      paidUntil: null,
     },
     membership: {
       id: "00000000-0000-4000-8000-0000000000b1",

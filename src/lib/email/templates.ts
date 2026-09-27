@@ -188,3 +188,45 @@ export function verifyEmailMessage(input: VerifyEmailInput): {
 </div>`;
   return { subject, text, html };
 }
+
+export interface PaymentReceiptInput {
+  name: string;
+  companyName: string;
+  planName: string;
+  invoiceNumber: string;
+  total: string;
+  paidUntil: Date;
+  invoiceUrl: string;
+}
+
+/** Sent to whoever paid, with the link to the tax invoice. */
+export function paymentReceiptEmail(input: PaymentReceiptInput): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  const firstName = input.name.trim().split(/\s+/)[0] || "there";
+  const until = formatInviteDate(input.paidUntil, "Asia/Kolkata");
+  const subject = `Payment received — FlowHRMS invoice ${input.invoiceNumber}`;
+  const lines = [
+    `Hello ${firstName},`,
+    "",
+    `Thank you. We received ${input.total} for ${input.companyName}'s FlowHRMS ${input.planName} plan.`,
+    `Your plan now runs until ${until}.`,
+    "",
+    `Your tax invoice ${input.invoiceNumber}:`,
+    input.invoiceUrl,
+    "",
+    "Questions about this payment? Reply to help@flowacord.com.",
+  ];
+  const text = lines.join("\n");
+  const html = `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;line-height:1.6;color:#1A1A1A;max-width:520px">
+<p>Hello ${escapeHtml(firstName)},</p>
+<p>Thank you. We received <strong>${escapeHtml(input.total)}</strong> for ${escapeHtml(input.companyName)}'s FlowHRMS <strong>${escapeHtml(input.planName)}</strong> plan. Your plan now runs until <strong>${escapeHtml(until)}</strong>.</p>
+<p style="margin:28px 0">
+  <a href="${escapeHtml(input.invoiceUrl)}" style="display:inline-block;background:#7166F3;color:#FFFFFF;text-decoration:none;padding:14px 24px;border-radius:12px;font-weight:600">View tax invoice ${escapeHtml(input.invoiceNumber)}</a>
+</p>
+<p style="font-size:14px;color:#5A5A5A">Questions about this payment? Write to help@flowacord.com.</p>
+</div>`;
+  return { subject, text, html };
+}

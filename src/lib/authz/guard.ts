@@ -6,7 +6,7 @@ import { getAppSession } from "@/lib/auth/session";
 import type { AppSession } from "@/lib/auth/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { outstandingNotices } from "@/lib/consent/record";
-import { trialExpired } from "@/lib/signup/validate";
+import { accessState, isPaused } from "@/lib/billing/pricing";
 import { loadEntitlements } from "./entitlements";
 import { evaluateAccess, type AccessDecision } from "./flags";
 
@@ -23,7 +23,10 @@ import { evaluateAccess, type AccessDecision } from "./flags";
  *   → /unauthorized. Never back to /sign-in: the proxy bounces signed-in
  *   users off that route, which would loop.
  */
-export async function requireSession(): Promise<AppSession> {
+export async function requireSession(options?: {
+  /** For the few pages a paused company still needs: paying, mainly. */
+  allowPaused?: boolean;
+}): Promise<AppSession> {
   const session = await getAppSession();
   if (!session) {
     const supabase = await createSupabaseServerClient();
@@ -37,10 +40,13 @@ export async function requireSession(): Promise<AppSession> {
   // through here, so this is the one place it is enforced. /consent itself
   // does not call requireSession.
   if ((await outstandingNotices(session)).length > 0) redirect("/consent");
-  // A trial that has run out pauses the company: data is kept, nothing can
-  // be done until Flowacord extends it or it moves to a paid plan.
-  // /trial-ended itself does not call requireSession.
-  if (trialExpired(session.tenant, new Date())) redirect("/trial-ended");
+  // A trial that has run out, or a paid period a week past its end, pauses
+  // the company: data is kept, nothing can be done until it pays or
+  // Flowacord extends it. /trial-ended does not call requireSession, and
+  // /subscription passes allowPaused so the company can pay its way back.
+  if (!options?.allowPaused && isPaused(accessState(session.tenant, new Date()))) {
+    redirect("/trial-ended");
+  }
   return session;
 }
 

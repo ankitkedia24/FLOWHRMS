@@ -7,6 +7,7 @@ import { Evidence } from "@/components/marketing/Evidence";
 import { HeroPanel } from "@/components/marketing/HeroPanel";
 import { OperatingLoop } from "@/components/marketing/OperatingLoop";
 import { Pricing } from "@/components/marketing/Pricing";
+import { loadMarketingPlans } from "@/lib/billing/store";
 import { Reveal } from "@/components/marketing/Reveal";
 import { Ticker } from "@/components/marketing/Ticker";
 import { UseCases } from "@/components/marketing/UseCases";
@@ -146,7 +147,7 @@ export default async function LandingPage() {
           </p>
         </Reveal>
         <Reveal delay={80}>
-          <Pricing />
+          <Pricing plans={await loadMarketingPlans()} />
         </Reveal>
       </section>
 

@@ -6,9 +6,10 @@ import { getDb } from "@/lib/db";
 import { MODULES, type ModuleKey } from "@/lib/catalog";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { StatusChip } from "@/components/ui/StatusChip";
-import { trialDaysLeft, trialExpired } from "@/lib/signup/validate";
+import { accessState, formatPaise } from "@/lib/billing/pricing";
+import { loadPlans } from "@/lib/billing/store";
 import { TenantStatusControl } from "../../TenantStatusControl";
-import { TrialControls, ModuleControls, VerifyEmailControl } from "./CompanyControls";
+import { TrialControls, ModuleControls, PaidPlanControl, VerifyEmailControl } from "./CompanyControls";
 
 export const metadata: Metadata = { title: "Company" };
 
@@ -39,6 +40,7 @@ export default async function PlatformCompanyPage({
   const tenant = await db.tenant.findUnique({
     where: { id },
     include: {
+      billingPlan: { select: { key: true, name: true } },
       _count: { select: { memberships: true } },
       moduleSettings: { include: { module: { select: { key: true } } } },
       memberships: {
@@ -50,24 +52,39 @@ export default async function PlatformCompanyPage({
   });
   if (!tenant) notFound();
 
-  const consents = await db.consentRecord.findMany({
-    where: { tenantId: tenant.id },
-    orderBy: { seq: "desc" },
-    take: 20,
-  });
+  const [consents, payments, plans] = await Promise.all([
+    db.consentRecord.findMany({
+      where: { tenantId: tenant.id },
+      orderBy: { seq: "desc" },
+      take: 20,
+    }),
+    db.billingPayment.findMany({
+      where: { tenantId: tenant.id },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
+    loadPlans(),
+  ]);
 
   const now = new Date();
-  const expired = trialExpired(tenant, now);
-  const daysLeft =
-    tenant.plan === "TRIAL" && tenant.trialEndsAt ? trialDaysLeft(tenant.trialEndsAt, now) : null;
+  const access = accessState(tenant, now);
+  const planName = tenant.billingPlan?.name ?? "Paid plan";
   const planChip =
-    tenant.plan === "PAID"
-      ? { key: "plan-paid", label: "Paid plan", tone: "success" as const }
-      : tenant.plan === "TRIAL"
-        ? expired
-          ? { key: "plan-ended", label: "Trial ended", tone: "warning" as const }
-          : { key: "plan-trial", label: `Trial · ${daysLeft} day${daysLeft === 1 ? "" : "s"} left`, tone: "info" as const }
-        : { key: "plan-internal", label: "Internal", tone: "neutral" as const };
+    access.kind === "paid"
+      ? { key: "plan-paid", label: planName, tone: "success" as const }
+      : access.kind === "grace"
+        ? { key: "plan-grace", label: `${planName} · grace, ${access.daysLeft}d left`, tone: "warning" as const }
+        : access.kind === "lapsed"
+          ? { key: "plan-lapsed", label: "Plan ended · paused", tone: "warning" as const }
+          : access.kind === "trial_ended"
+            ? { key: "plan-ended", label: "Trial ended", tone: "warning" as const }
+            : access.kind === "trial"
+              ? {
+                  key: "plan-trial",
+                  label: access.daysLeft === null ? "Trial" : `Trial · ${access.daysLeft} day${access.daysLeft === 1 ? "" : "s"} left`,
+                  tone: "info" as const,
+                }
+              : { key: "plan-internal", label: "Internal", tone: "neutral" as const };
 
   const modules = (Object.keys(MODULES) as ModuleKey[])
     .filter((k) => MODULES[k].category !== "CORE")
@@ -103,17 +120,55 @@ export default async function PlatformCompanyPage({
       <Card>
         <CardHeader title="Trial and plan" />
         <p className="text-body text-text-secondary">
-          {tenant.plan === "TRIAL"
-            ? expired
-              ? `The trial ended ${fmt(tenant.trialEndsAt, true)}. Everyone sees "Trial ended"; nothing is deleted.`
-              : `Trial ends ${fmt(tenant.trialEndsAt, true)}.`
-            : tenant.plan === "PAID"
-              ? "On a paid plan. No trial end."
-              : "Internal company (sample, demo or added before trials). Never expires."}
+          {access.kind === "trial_ended"
+            ? `The trial ended ${fmt(tenant.trialEndsAt, true)}. Everyone sees "Access paused"; nothing is deleted.`
+            : access.kind === "trial"
+              ? `Trial ends ${fmt(tenant.trialEndsAt, true)}.`
+              : access.kind === "paid"
+                ? `${planName}, billed ${tenant.billingCycle === "ANNUAL" ? "yearly" : "monthly"}. ${access.until ? `Paid until ${fmt(access.until, true)}.` : "No end date."}`
+                : access.kind === "grace"
+                  ? `${planName} ended ${fmt(access.until, true)}. In the 7-day grace period; pauses ${fmt(access.pausesAt, true)} unless renewed.`
+                  : access.kind === "lapsed"
+                    ? `${planName} ended ${fmt(access.until, true)} and the company is paused. Nothing is deleted.`
+                    : "Internal company (sample, demo or added before trials). Never expires."}
         </p>
-        <div className="mt-4">
+        <div className="mt-4 flex flex-col gap-4">
           <TrialControls tenantId={tenant.id} plan={tenant.plan} />
+          <PaidPlanControl
+            tenantId={tenant.id}
+            plans={plans.map((p) => ({ key: p.key, name: `${p.name}${p.active ? "" : " (hidden)"}` }))}
+            currentPlanKey={tenant.billingPlan?.key ?? null}
+            currentCycle={tenant.billingCycle}
+          />
         </div>
+      </Card>
+
+      <Card>
+        <CardHeader title="Payments" meta="Online payments through Razorpay, with their tax invoices." />
+        {payments.length === 0 ? (
+          <p className="text-secondary text-text-secondary">No payments yet.</p>
+        ) : (
+          <ul className="flex flex-col">
+            {payments.map((p) => (
+              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle py-2 last:border-0">
+                <span className="text-body text-text-primary">
+                  {p.planName} · {p.cycle === "ANNUAL" ? "1 year" : "1 month"} · {p.employees} employees ·{" "}
+                  <span className="font-mono">{formatPaise(p.totalPaise)}</span>
+                </span>
+                <span className="text-caption text-text-secondary">
+                  {p.status === "PAID" ? (
+                    <Link href={`/subscription/invoice/${p.id}`} className="text-brand-primary underline-offset-2 hover:underline">
+                      {p.invoiceNumber}
+                    </Link>
+                  ) : (
+                    `Not completed${p.failureReason ? ` — ${p.failureReason}` : ""}`
+                  )}{" "}
+                  · {fmt(p.paidAt ?? p.createdAt, true)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
 
       <Card>

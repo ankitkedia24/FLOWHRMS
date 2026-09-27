@@ -8,7 +8,7 @@ import { Table } from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { Status } from "@/lib/status";
 import { TenantStatusControl } from "./TenantStatusControl";
-import { trialDaysLeft } from "@/lib/signup/validate";
+import { accessState } from "@/lib/billing/pricing";
 
 export const metadata: Metadata = { title: "Companies" };
 
@@ -25,15 +25,24 @@ interface Row {
 }
 
 function planStatus(
-  t: { plan: "TRIAL" | "PAID" | "INTERNAL"; trialEndsAt: Date | null },
+  t: { plan: "TRIAL" | "PAID" | "INTERNAL"; trialEndsAt: Date | null; paidUntil: Date | null },
   now: Date,
 ): Status {
-  if (t.plan === "PAID") return { key: "plan-paid", label: "Paid", tone: "success" };
-  if (t.plan === "INTERNAL") return { key: "plan-internal", label: "Internal", tone: "neutral" };
-  const left = t.trialEndsAt ? trialDaysLeft(t.trialEndsAt, now) : 0;
-  return left <= 0
-    ? { key: "plan-ended", label: "Trial ended", tone: "warning" }
-    : { key: "plan-trial", label: `Trial · ${left}d left`, tone: "info" };
+  const a = accessState(t, now);
+  switch (a.kind) {
+    case "paid":
+      return { key: "plan-paid", label: a.daysLeft === null ? "Paid" : `Paid · ${a.daysLeft}d left`, tone: "success" };
+    case "grace":
+      return { key: "plan-grace", label: `Grace · ${a.daysLeft}d`, tone: "warning" };
+    case "lapsed":
+      return { key: "plan-lapsed", label: "Plan ended", tone: "warning" };
+    case "trial":
+      return { key: "plan-trial", label: a.daysLeft === null ? "Trial" : `Trial · ${a.daysLeft}d left`, tone: "info" };
+    case "trial_ended":
+      return { key: "plan-ended", label: "Trial ended", tone: "warning" };
+    default:
+      return { key: "plan-internal", label: "Internal", tone: "neutral" };
+  }
 }
 
 function tenantStatus(key: Row["status"]): Status {

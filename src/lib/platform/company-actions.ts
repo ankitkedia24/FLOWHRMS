@@ -112,23 +112,6 @@ export async function endTrialAction(input: { tenantId: string; reason: string }
   return done(tenant.id, `${tenant.name}'s trial has ended. Their access is paused; nothing is deleted.`);
 }
 
-export async function convertToPaidAction(input: { tenantId: string }): Promise<Result> {
-  const session = await requirePlatformAdmin();
-  const db = getDb();
-  const tenant = await db.tenant.findUnique({ where: { id: input.tenantId } });
-  if (!tenant) return { ok: false, error: "That company no longer exists." };
-  if (tenant.plan === "PAID") return { ok: true, message: `${tenant.name} is already on a paid plan.` };
-  await db.tenant.update({ where: { id: tenant.id }, data: { plan: "PAID", trialEndsAt: null } });
-  await audit({
-    tenantId: tenant.id,
-    actorUserId: session.user.id,
-    action: "tenant.converted_to_paid",
-    before: { plan: tenant.plan, trialEndsAt: tenant.trialEndsAt?.toISOString() ?? null },
-    after: { plan: "PAID" },
-  });
-  return done(tenant.id, `${tenant.name} is on a paid plan. Their access continues without a trial end.`);
-}
-
 export async function verifyOwnerEmailAction(input: { tenantId: string; reason: string }): Promise<Result> {
   const session = await requirePlatformAdmin();
   const reason = input.reason?.trim();

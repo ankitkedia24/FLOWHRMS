@@ -1,28 +1,48 @@
 "use client";
 
+import Link from "next/link";
 import { useTransition } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { resendVerificationAction } from "@/lib/signup/owner-actions";
 
+/** What the banner has to say about the company's access, if anything. */
+export type PlanNotice =
+  | { kind: "trial"; daysLeft: number; endsLabel: string }
+  /** A paid period with a week or less to run. */
+  | { kind: "renew_soon"; daysLeft: number; untilLabel: string }
+  /** The paid period is over; access continues until `pausesLabel`. */
+  | { kind: "grace"; endedLabel: string; pausesLabel: string };
+
 /**
- * Above the admin screens of a trial company: how long is left (a quiet
- * line, turning to a warning in the last 7 days), and whether the owner
- * still has to confirm their email before they can invite staff.
+ * Above the admin screens: how long a trial has left, a paid plan about
+ * to run out, or a plan in its week of grace — each with a way to pay for
+ * those who can. And whether the owner still has to confirm their email
+ * before they can invite staff.
  */
 export function TrialBanner({
-  daysLeft,
-  endsLabel,
+  notice,
+  canPay,
   needsVerification,
   email,
 }: {
-  daysLeft: number | null;
-  endsLabel: string | null;
+  notice: PlanNotice | null;
+  canPay: boolean;
   needsVerification: boolean;
   email: string | null;
 }) {
   const { show } = useToast();
   const [pending, startTransition] = useTransition();
-  const urgent = daysLeft !== null && daysLeft <= 7;
+  const urgent =
+    notice !== null && (notice.kind === "grace" || notice.kind === "renew_soon" || notice.daysLeft <= 7);
+
+  const pay = (label: string) =>
+    canPay ? (
+      <Link href="/subscription" className="font-semibold underline underline-offset-2">
+        {label}
+      </Link>
+    ) : (
+      <span>Ask your company&apos;s owner to {label.toLowerCase()}.</span>
+    );
 
   return (
     <div className="flex flex-col">
@@ -47,18 +67,43 @@ export function TrialBanner({
           </button>
         </div>
       )}
-      {daysLeft !== null && (
+      {notice && (
         <div
+          role={notice.kind === "grace" ? "status" : undefined}
           className={
             urgent
-              ? "border-b border-status-warning-border bg-status-warning-bg px-5 py-2 text-secondary text-status-warning-text lg:px-8"
-              : "border-b border-border-default bg-surface-sunken px-5 py-1.5 text-caption text-text-secondary lg:px-8"
+              ? "flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-status-warning-border bg-status-warning-bg px-5 py-2 text-secondary text-status-warning-text lg:px-8"
+              : "flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border-default bg-surface-sunken px-5 py-1.5 text-caption text-text-secondary lg:px-8"
           }
         >
-          {daysLeft <= 0
-            ? "Your free trial ends today."
-            : `Free trial: ${daysLeft} day${daysLeft === 1 ? "" : "s"} left (ends ${endsLabel}).`}{" "}
-          {urgent && "Write to help@flowacord.com or call +91 89088 88880 to continue."}
+          {notice.kind === "trial" && (
+            <>
+              <span>
+                {notice.daysLeft <= 0
+                  ? "Your free trial ends today."
+                  : `Free trial: ${notice.daysLeft} day${notice.daysLeft === 1 ? "" : "s"} left (ends ${notice.endsLabel}).`}
+              </span>
+              {pay("Choose a plan")}
+            </>
+          )}
+          {notice.kind === "renew_soon" && (
+            <>
+              <span>
+                Your plan runs until {notice.untilLabel}
+                {notice.daysLeft <= 1 ? "" : ` — ${notice.daysLeft} days left`}.
+              </span>
+              {pay("Renew")}
+            </>
+          )}
+          {notice.kind === "grace" && (
+            <>
+              <span>
+                Your plan ended on {notice.endedLabel}. Renew by {notice.pausesLabel} to keep using FlowHRMS —
+                nothing is deleted either way.
+              </span>
+              {pay("Renew")}
+            </>
+          )}
         </div>
       )}
     </div>

@@ -21,8 +21,8 @@ const ALL_MODULES: ModuleKey[] = [
   "NOTIFICATIONS",
 ];
 
-const ALL_CAN = { modules: true, roles: true, settings: true, audit: true };
-const NO_CAN = { modules: false, roles: false, settings: false, audit: false };
+const ALL_CAN = { modules: true, roles: true, settings: true, audit: true, billing: true };
+const NO_CAN = { modules: false, roles: false, settings: false, audit: false, billing: false };
 
 describe("admin destinations", () => {
   it("offers every module screen when everything is on", () => {
@@ -56,12 +56,19 @@ describe("admin destinations", () => {
   it("shows only the configuration a role holds", () => {
     const hrefs = adminConfigItems({
       enabledModules: ALL_MODULES,
-      can: { modules: false, roles: false, settings: true, audit: false },
+      can: { modules: false, roles: false, settings: true, audit: false, billing: false },
     }).map((i) => i.href);
     expect(hrefs).toContain("/admin/settings");
     expect(hrefs).toContain("/admin/settings/departments");
     expect(hrefs).not.toContain("/admin/roles");
     expect(hrefs).not.toContain("/admin/activity");
+  });
+
+  it("offers Subscription only to those who can pay", () => {
+    const hrefs = (billing: boolean) =>
+      adminConfigItems({ enabledModules: ALL_MODULES, can: { ...NO_CAN, billing } }).map((i) => i.href);
+    expect(hrefs(true)).toEqual(["/subscription"]);
+    expect(hrefs(false)).toEqual([]);
   });
 
   it("reaches Departments, which had no route in the sidebar before", () => {

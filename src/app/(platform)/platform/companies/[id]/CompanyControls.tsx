@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
 import { useToast } from "@/components/ui/Toast";
+import { setCompanyPlanAction } from "@/lib/billing/platform-actions";
+import { Select } from "@/components/ui/Select";
 import {
-  convertToPaidAction,
   endTrialAction,
   extendTrialAction,
   setCompanyModuleAction,
@@ -65,20 +66,88 @@ export function TrialControls({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-end gap-2 border-t border-border-subtle pt-4">
-        {plan !== "PAID" && (
-          <Button size="sm" loading={pending} onClick={() => run(() => convertToPaidAction({ tenantId }))}>
-            Convert to paid plan
+      {plan === "TRIAL" && (
+        <div className="flex flex-wrap items-end gap-2 border-t border-border-subtle pt-4">
+          <Input label="Reason to end the trial now" value={reason} onChange={(e) => setReason(e.target.value)} />
+          <Button size="sm" variant="dangerSubtle" loading={pending} disabled={!reason.trim()} onClick={() => run(() => endTrialAction({ tenantId, reason }), () => setReason(""))}>
+            End trial now
           </Button>
-        )}
-        {plan === "TRIAL" && (
-          <>
-            <Input label="Reason to end the trial now" value={reason} onChange={(e) => setReason(e.target.value)} />
-            <Button size="sm" variant="dangerSubtle" loading={pending} disabled={!reason.trim()} onClick={() => run(() => endTrialAction({ tenantId, reason }), () => setReason(""))}>
-              End trial now
-            </Button>
-          </>
-        )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Put the company on a paid plan by hand — paid by bank transfer, or a
+ * deal agreed directly. The plan's modules apply at once; no invoice is
+ * issued from here.
+ */
+export function PaidPlanControl({
+  tenantId,
+  plans,
+  currentPlanKey,
+  currentCycle,
+}: {
+  tenantId: string;
+  plans: Array<{ key: string; name: string }>;
+  currentPlanKey: string | null;
+  currentCycle: "MONTHLY" | "ANNUAL" | null;
+}) {
+  const { pending, run } = useRun();
+  const [planKey, setPlanKey] = useState(currentPlanKey ?? plans[0]?.key ?? "");
+  const [cycle, setCycle] = useState<"MONTHLY" | "ANNUAL">(currentCycle ?? "ANNUAL");
+  const [until, setUntil] = useState("");
+  const [reason, setReason] = useState("");
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-border-subtle pt-4">
+      <p className="text-label text-text-primary">Set a paid plan by hand</p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Select
+          label="Plan"
+          value={planKey}
+          onChange={(e) => setPlanKey(e.target.value)}
+          options={plans.map((p) => ({ value: p.key, label: p.name }))}
+        />
+        <Select
+          label="Billed"
+          value={cycle}
+          onChange={(e) => setCycle(e.target.value as "MONTHLY" | "ANNUAL")}
+          options={[
+            { value: "MONTHLY", label: "Monthly" },
+            { value: "ANNUAL", label: "Yearly" },
+          ]}
+        />
+        <Input
+          label="Paid until"
+          helper="Empty = no end date"
+          type="date"
+          value={until}
+          onChange={(e) => setUntil(e.target.value)}
+        />
+      </div>
+      <Input
+        label="Reason"
+        helper="E.g. “Paid by bank transfer, UTR …”. Goes on the record."
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+      />
+      <div>
+        <Button
+          size="sm"
+          loading={pending}
+          disabled={!planKey || reason.trim().length < 3}
+          disabledReason="Choose a plan and give a reason"
+          onClick={() =>
+            run(
+              () => setCompanyPlanAction({ tenantId, planKey, cycle, until, reason }),
+              () => setReason(""),
+            )
+          }
+        >
+          Set paid plan
+        </Button>
       </div>
     </div>
   );
