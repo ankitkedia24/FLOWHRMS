@@ -70,7 +70,7 @@
   /* ---- typography ---- */
   --fh-font-family-heading: var(--font-poppins), "Helvetica Neue", Helvetica, Arial, sans-serif;
   --fh-font-family-body: var(--font-wix-madefor-text), "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --fh-font-family-mono: var(--font-spline-sans-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --fh-font-family-mono: var(--font-poppins), "Helvetica Neue", Helvetica, Arial, sans-serif;
   --fh-font-weight-regular: 400;
   --fh-font-weight-medium: 500;
   --fh-font-weight-semibold: 600;

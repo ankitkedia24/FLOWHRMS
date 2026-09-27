@@ -66,7 +66,7 @@ export function MarketingNav() {
     <>
       <nav className="m-nav" data-scrolled={scrolled ? "true" : "false"} aria-label="Main">
         <Link href="/" className="flex items-center" aria-label="FlowHRMS home">
-          <FlowHRMSWordmark height={28} className="md:hidden" />
+          <FlowHRMSWordmark height={24} className="md:hidden" />
           <FlowHRMSLockup height={28} className="hidden md:inline-flex" />
         </Link>
 
@@ -93,10 +93,19 @@ export function MarketingNav() {
           </Link>
         </div>
 
-        <div className="flex items-center gap-2.5 md:hidden">
+        <div className="flex items-center gap-2 md:hidden">
+          {/* Someone with an account is not browsing — they are trying to
+              get in. Sign in sits in the bar, outlined so it never competes
+              with the trial button beside it. */}
+          <Link
+            href="/sign-in"
+            className="whitespace-nowrap rounded-[11px] border-[1.5px] border-[color:var(--m-navy)] bg-white px-3 py-[9px] text-sm font-semibold text-[color:var(--m-navy)]"
+          >
+            Sign in
+          </Link>
           <Link
             href="/start"
-            className="whitespace-nowrap rounded-[11px] bg-[color:var(--m-red)] px-4 py-2.5 text-sm font-semibold text-white"
+            className="whitespace-nowrap rounded-[11px] bg-[color:var(--m-red)] px-3 py-2.5 text-sm font-semibold text-white"
           >
             Free trial
           </Link>
@@ -106,7 +115,7 @@ export function MarketingNav() {
             onClick={() => setOpen(true)}
             aria-label="Open menu"
             aria-expanded={open}
-            className="flex size-11 flex-col items-center justify-center gap-1 rounded-[11px] border border-[color:var(--m-border-strong)] bg-white"
+            className="flex size-10 shrink-0 flex-col items-center justify-center gap-1 rounded-[11px] border border-[color:var(--m-border-strong)] bg-white"
           >
             <span className="block h-0.5 w-[18px] bg-[color:var(--m-navy)]" />
             <span className="block h-0.5 w-[18px] bg-[color:var(--m-navy)]" />

@@ -24,12 +24,13 @@ import { cn } from "@/lib/cn";
 
 const STEPS = ["Company", "Address", "Your details", "Consent"] as const;
 
+type Success = Extract<StartTrialResult, { ok: true }>;
+
 type Phase =
   | { name: "form" }
-  | { name: "creating" }
-  | { name: "done"; result: Extract<StartTrialResult, { ok: true }> };
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  /** `result` arrives while the animation is still playing out. */
+  | { name: "creating"; result: Success | null }
+  | { name: "done"; result: Success };
 
 export function StartTrialForm() {
   const [step, setStep] = useState(1);
@@ -88,10 +89,8 @@ export function StartTrialForm() {
 
   async function submit() {
     setFormError(null);
-    setPhase({ name: "creating" });
-    // Let the steps be read: a very fast server should not flash them.
-    const [result] = await Promise.all([
-      startTrialAction({
+    setPhase({ name: "creating", result: null });
+    const result = await startTrialAction({
         companyName,
         staffCount,
         industry: industry as (typeof INDUSTRIES)[number],
@@ -105,12 +104,11 @@ export function StartTrialForm() {
         heardFrom: (heardFrom || undefined) as (typeof HEARD_FROM)[number] | undefined,
         consents: { account_holder: accountConsent, customer_terms: companyConsent },
         website,
-      }),
-      sleep(2600),
-    ]);
+      });
     if (result.ok) {
-      setPhase({ name: "done", result });
-      window.scrollTo({ top: 0 });
+      // Hand the result to the animation; it finishes its steps and then
+      // moves on (SetupProgress onComplete) — never an abrupt cut.
+      setPhase({ name: "creating", result });
       return;
     }
     setPhase({ name: "form" });
@@ -123,9 +121,19 @@ export function StartTrialForm() {
   }
 
   if (phase.name === "creating") {
+    const ready = phase.result;
     return (
       <div className="mt-8">
-        <SetupProgress companyName={companyName} />
+        <SetupProgress
+          companyName={companyName}
+          done={ready !== null}
+          onComplete={() => {
+            if (ready) {
+              setPhase({ name: "done", result: ready });
+              window.scrollTo({ top: 0 });
+            }
+          }}
+        />
       </div>
     );
   }

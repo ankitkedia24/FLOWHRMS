@@ -60,8 +60,9 @@
     box-shadow: var(--fh-shadow-focus-ring);
   }
 
-  /* Numerals: Spline Sans Mono always tabular; numerals in tables too
-     (01-brand/typography.md §2, §5). */
+  /* Figures: tabular wherever the font offers it; numerals in tables too
+     (01-brand/typography.md §2, §5). `font-mono` is Poppins since 27 Sept
+     2026 — the name is kept so every existing figure changed at once. */
   :where(.font-mono, table) {
     font-variant-numeric: tabular-nums;
   }

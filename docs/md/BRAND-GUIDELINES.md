@@ -50,7 +50,7 @@ Status colours (success, warning, error, info) are unchanged: status is always a
 - **Primary face: Neulis Alt** — used in the company logo only. It is a licensed face and is not shipped; the logo is outlined vector.
 - **Secondary face: Poppins** — headings (600/700), display type on marketing, and "HRMS" in the wordmark (SemiBold Italic). Self-hosted through `next/font`.
 - **Body: Wix Madefor Text** (unchanged) — dense tables and long forms read better in it at small sizes than Poppins does.
-- **Mono: Spline Sans Mono** (unchanged) — figures and codes.
+- **Figures: Poppins** — numbers, times, codes and small meta lines (`font-mono` in code). Replaced Spline Sans Mono on 27 Sept 2026 at the owner's request.
 
 ## Voice
 

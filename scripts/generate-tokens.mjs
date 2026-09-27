@@ -83,7 +83,7 @@ fontVars.push([
 ]);
 fontVars.push([
   "--fh-font-family-mono",
-  `var(--font-spline-sans-mono), ${typography.family.mono.value.replace('"Spline Sans Mono", ', "")}`,
+  `var(--font-poppins), ${typography.family.mono.value.replace('"Poppins", ', "")}`,
 ]);
 for (const [key, value] of Object.entries(typography.weight)) {
   fontVars.push([`--fh-font-weight-${kebab(key)}`, String(value.value)]);

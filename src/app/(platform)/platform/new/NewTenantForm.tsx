@@ -40,6 +40,7 @@ export function NewTenantForm({
     inviteLink?: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [revealed, setRevealed] = useState(false);
 
   const effectiveSlug = slug.trim() || slugify(name);
 
@@ -65,11 +66,14 @@ export function NewTenantForm({
     });
   }
 
-  if (pending) {
+  // While creating, and until the animation has played out after success.
+  if (pending || (done && !revealed)) {
     return (
       <Card>
         <SetupProgress
           companyName={name}
+          done={Boolean(done)}
+          onComplete={() => setRevealed(true)}
           steps={[
             `Creating ${name.trim() || "the company"}`,
             "Setting up roles and permissions",

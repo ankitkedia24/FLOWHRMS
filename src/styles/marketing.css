@@ -249,6 +249,16 @@
   box-shadow: 0 8px 24px rgba(1, 1, 35, 0.12);
   background: rgba(251, 248, 242, 0.88);
 }
+
+/* On a phone the bar carries the wordmark, Sign in, Free trial and the
+   menu; desktop padding would push the menu off the edge. */
+@media (max-width: 480px) {
+  .m-nav,
+  .m-nav[data-scrolled="true"] {
+    padding: 12px 14px;
+    gap: 8px;
+  }
+}
 .m-nav-link {
   color: var(--m-navy);
   font-size: 14.5px;
