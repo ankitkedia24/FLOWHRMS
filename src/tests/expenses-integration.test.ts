@@ -132,7 +132,7 @@ d("expenses flow (integration, sample tenant)", () => {
 
     const session = (m: typeof emp, perms: string[]): AppSession => ({
       user: { id: m.user.id, displayName: m.user.displayName, email: null, isPlatformAdmin: false },
-      tenant: { id: tenant.id, slug: tenant.slug, name: tenant.name, timezone: tenant.timezone },
+      tenant: { id: tenant.id, slug: tenant.slug, name: tenant.name, timezone: tenant.timezone, plan: "INTERNAL", trialEndsAt: null, selfSignup: false, ownerEmailVerifiedAt: null },
       membership: { id: m.id, roleKey: m.role.key, roleName: m.role.name, employeeCode: null },
       permissions: new Set(perms) as AppSession["permissions"],
       source: "supabase",

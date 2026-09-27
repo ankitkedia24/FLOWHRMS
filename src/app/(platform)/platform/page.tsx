@@ -8,6 +8,7 @@ import { Table } from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { Status } from "@/lib/status";
 import { TenantStatusControl } from "./TenantStatusControl";
+import { trialDaysLeft } from "@/lib/signup/validate";
 
 export const metadata: Metadata = { title: "Companies" };
 
@@ -19,6 +20,20 @@ interface Row {
   activity: string;
   created: string;
   status: "ACTIVE" | "SUSPENDED" | "ARCHIVED";
+  plan: Status;
+  ownerJoined: boolean | null;
+}
+
+function planStatus(
+  t: { plan: "TRIAL" | "PAID" | "INTERNAL"; trialEndsAt: Date | null },
+  now: Date,
+): Status {
+  if (t.plan === "PAID") return { key: "plan-paid", label: "Paid", tone: "success" };
+  if (t.plan === "INTERNAL") return { key: "plan-internal", label: "Internal", tone: "neutral" };
+  const left = t.trialEndsAt ? trialDaysLeft(t.trialEndsAt, now) : 0;
+  return left <= 0
+    ? { key: "plan-ended", label: "Trial ended", tone: "warning" }
+    : { key: "plan-trial", label: `Trial · ${left}d left`, tone: "info" };
 }
 
 function tenantStatus(key: Row["status"]): Status {
@@ -58,8 +73,15 @@ export default async function PlatformCompaniesPage() {
         take: 1,
         select: { workDate: true },
       },
+      memberships: {
+        where: { role: { key: "OWNER" } },
+        orderBy: { createdAt: "asc" },
+        take: 1,
+        select: { status: true },
+      },
     },
   });
+  const now = new Date();
 
   const rows: Row[] = tenants.map((t) => ({
     id: t.id,
@@ -69,6 +91,8 @@ export default async function PlatformCompaniesPage() {
     activity: when(t.attendanceRecords[0]?.workDate ?? null),
     created: when(t.createdAt),
     status: t.status,
+    plan: planStatus(t, now),
+    ownerJoined: t.memberships[0] ? t.memberships[0].status === "ACTIVE" : null,
   }));
 
   return (
@@ -108,14 +132,28 @@ export default async function PlatformCompaniesPage() {
               rowHeader: true,
               render: (row) => (
                 <span className="block">
-                  <span className="block font-semibold text-text-primary">
+                  <Link
+                    href={`/platform/companies/${row.id}`}
+                    className="block font-semibold text-brand-primary underline-offset-2 hover:underline"
+                  >
                     {row.name}
-                  </span>
+                  </Link>
                   <span className="block font-mono text-mono text-text-tertiary">
                     {row.slug}
                   </span>
                 </span>
               ),
+            },
+            {
+              key: "plan",
+              header: "Plan",
+              render: (row) => <StatusChip status={row.plan} size="sm" />,
+            },
+            {
+              key: "owner",
+              header: "Owner joined",
+              render: (row) =>
+                row.ownerJoined === null ? "—" : row.ownerJoined ? "Yes" : "Not yet",
             },
             { key: "people", header: "People", numeric: true, render: (row) => row.people },
             { key: "activity", header: "Last check-in", render: (row) => row.activity },
@@ -142,10 +180,18 @@ export default async function PlatformCompaniesPage() {
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-semibold text-text-primary">{row.name}</p>
+                  <Link
+                    href={`/platform/companies/${row.id}`}
+                    className="font-semibold text-brand-primary underline-offset-2 hover:underline"
+                  >
+                    {row.name}
+                  </Link>
                   <p className="font-mono text-mono text-text-tertiary">{row.slug}</p>
                 </div>
-                <StatusChip status={tenantStatus(row.status)} size="sm" />
+                <div className="flex flex-wrap gap-1.5">
+                  <StatusChip status={row.plan} size="sm" />
+                  <StatusChip status={tenantStatus(row.status)} size="sm" />
+                </div>
               </div>
               <dl className="flex flex-col gap-1 text-secondary text-text-secondary">
                 <div className="flex justify-between gap-3">

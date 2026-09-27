@@ -1,12 +1,13 @@
 import "server-only";
 
-import type { PrismaClient } from "@/generated/prisma/client";
+import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import {
   DEFAULT_ENABLED_MODULES,
   FEATURES,
   MODULES,
   PERMISSIONS,
   ROLE_TEMPLATES,
+  type ModuleKey,
 } from "@/lib/catalog";
 import {
   generateInviteToken,
@@ -47,6 +48,32 @@ export interface ProvisionInput {
   /** Origin the invitation link should point at. */
   origin: string;
   actor: ProvisionActor;
+  /** Self-serve trial: plan, end date and what the registrant told us. */
+  trial?: {
+    endsAt: Date;
+    profile: {
+      industry: string;
+      staffCount: number;
+      addressPincode: string;
+      addressCity: string;
+      addressState: string;
+      addressCountry: string;
+      signupRole: string;
+      signupHeardFrom: string | null;
+    };
+    ownerPhone: string;
+  };
+  /** Modules switched on; the rest are off and not allowed (trial package). Default: the catalog default, all allowed. */
+  enabledModules?: ModuleKey[];
+  /**
+   * Runs inside the creating transaction, after everything else — so
+   * records that must exist together with the company (consent) do, or
+   * the whole company is rolled back.
+   */
+  onCreated?: (
+    tx: Prisma.TransactionClient,
+    created: { tenantId: string; userId: string; membershipId: string },
+  ) => Promise<void>;
 }
 
 export type ProvisionResult =
@@ -55,6 +82,9 @@ export type ProvisionResult =
       tenantId: string;
       slug: string;
       inviteLink: string;
+      /** The raw one-time token, for callers that hand it straight to the owner. */
+      inviteToken: string;
+      ownerUserId: string;
       /** Companies this owner already belonged to. Legitimate, but said out loud. */
       alsoOwns: string[];
     }
@@ -97,79 +127,102 @@ export async function provisionTenant(
   const alsoOwns =
     existingUser?.memberships.map((m) => m.tenant.name).filter(Boolean) ?? [];
 
-  // The platform catalog must already be seeded.
-  const permissionIdByKey = new Map<string, string>();
-  for (const p of PERMISSIONS) {
-    const row = await db.permission.findUnique({ where: { key: p.key } });
-    if (!row) {
-      return {
-        ok: false,
-        error: `The permission catalog is incomplete ("${p.key}" is missing). Run the database seed before creating companies.`,
-      };
-    }
-    permissionIdByKey.set(p.key, row.id);
+  // The platform catalog must already be seeded. Read it in three queries
+  // rather than one per row: this runs while a new customer watches a
+  // "Setting up your company" screen.
+  const [permissionRows, moduleRows, featureRows] = await Promise.all([
+    db.permission.findMany({
+      where: { key: { in: PERMISSIONS.map((p) => p.key) } },
+      select: { id: true, key: true },
+    }),
+    db.module.findMany({
+      where: { key: { in: Object.keys(MODULES) } },
+      select: { id: true, key: true },
+    }),
+    db.feature.findMany({ select: { id: true, key: true, module: { select: { key: true } } } }),
+  ]);
+  const permissionIdByKey = new Map(permissionRows.map((r) => [r.key, r.id]));
+  const missingPermission = PERMISSIONS.find((p) => !permissionIdByKey.has(p.key));
+  if (missingPermission) {
+    return {
+      ok: false,
+      error: `The permission catalog is incomplete ("${missingPermission.key}" is missing). Run the database seed before creating companies.`,
+    };
   }
-  const moduleIdByKey = new Map<string, string>();
-  for (const key of Object.keys(MODULES)) {
-    const row = await db.module.findUnique({ where: { key } });
-    if (!row) {
-      return {
-        ok: false,
-        error: `The module catalog is incomplete ("${key}" is missing). Run the database seed before creating companies.`,
-      };
-    }
-    moduleIdByKey.set(key, row.id);
+  const moduleIdByKey = new Map(moduleRows.map((r) => [r.key, r.id]));
+  const missingModule = Object.keys(MODULES).find((k) => !moduleIdByKey.has(k));
+  if (missingModule) {
+    return {
+      ok: false,
+      error: `The module catalog is incomplete ("${missingModule}" is missing). Run the database seed before creating companies.`,
+    };
   }
+  const featureIdByKey = new Map(featureRows.map((r) => [`${r.module.key}:${r.key}`, r.id]));
 
   const result = await db.$transaction(async (tx) => {
     const tenant = await tx.tenant.create({
-      data: { slug, name, timezone, status: "ACTIVE" },
+      data: {
+        slug,
+        name,
+        timezone,
+        status: "ACTIVE",
+        ...(input.trial
+          ? {
+              plan: "TRIAL" as const,
+              trialEndsAt: input.trial.endsAt,
+              selfSignup: true,
+              ...input.trial.profile,
+            }
+          : {}),
+      },
     });
 
     let ownerRoleId: string | null = null;
-    for (const tpl of ROLE_TEMPLATES) {
-      const role = await tx.role.create({
-        data: {
-          tenantId: tenant.id,
-          key: tpl.key,
-          name: tpl.name,
-          description: tpl.description,
-          isSystem: true,
-        },
-      });
-      if (tpl.key === "OWNER") ownerRoleId = role.id;
-      if (tpl.permissions.length > 0) {
-        await tx.rolePermission.createMany({
-          data: tpl.permissions.map((k) => ({
-            roleId: role.id,
-            permissionId: permissionIdByKey.get(k)!,
-          })),
-        });
-      }
-    }
+    const roles = await tx.role.createManyAndReturn({
+      data: ROLE_TEMPLATES.map((tpl) => ({
+        tenantId: tenant.id,
+        key: tpl.key,
+        name: tpl.name,
+        description: tpl.description,
+        isSystem: true,
+      })),
+      select: { id: true, key: true },
+    });
+    const roleIdByKey = new Map(roles.map((r) => [r.key, r.id]));
+    ownerRoleId = roleIdByKey.get("OWNER") ?? null;
+    await tx.rolePermission.createMany({
+      data: ROLE_TEMPLATES.flatMap((tpl) =>
+        tpl.permissions.map((k) => ({
+          roleId: roleIdByKey.get(tpl.key)!,
+          permissionId: permissionIdByKey.get(k)!,
+        })),
+      ),
+    });
     if (!ownerRoleId) throw new Error("No OWNER role template in the catalog.");
 
+    // A trial package decides both what is on and what the company may
+    // turn on itself; otherwise the catalog default applies and everything
+    // is theirs to switch.
+    const enabledKeys = (input.enabledModules ?? DEFAULT_ENABLED_MODULES) as string[];
     await tx.tenantModuleSetting.createMany({
       data: Object.values(MODULES).map((m) => ({
         tenantId: tenant.id,
         moduleId: moduleIdByKey.get(m.key)!,
-        enabled: (DEFAULT_ENABLED_MODULES as string[]).includes(m.key),
+        enabled: enabledKeys.includes(m.key),
+        allowedByPlatform: input.enabledModules
+          ? enabledKeys.includes(m.key)
+          : true,
       })),
     });
 
-    for (const f of FEATURES) {
-      const feature = await tx.feature.findFirst({
-        where: { key: f.key, module: { key: f.module } },
-      });
-      if (!feature) continue;
-      await tx.tenantFeatureSetting.create({
-        data: {
-          tenantId: tenant.id,
-          featureId: feature.id,
-          enabled: f.defaultEnabled,
-        },
-      });
-    }
+    await tx.tenantFeatureSetting.createMany({
+      data: FEATURES.flatMap((f) => {
+        const featureId = featureIdByKey.get(`${f.module}:${f.key}`);
+        return featureId
+          ? [{ tenantId: tenant.id, featureId, enabled: f.defaultEnabled }]
+          : [];
+      }),
+    });
 
     // INVITED until they set their own password.
     const user = existingUser
@@ -178,7 +231,12 @@ export async function provisionTenant(
           data: { displayName: existingUser.displayName || ownerName },
         })
       : await tx.user.create({
-          data: { email: ownerEmail, displayName: ownerName, status: "INVITED" },
+          data: {
+            email: ownerEmail,
+            displayName: ownerName,
+            status: "INVITED",
+            phone: input.trial?.ownerPhone ?? null,
+          },
         });
 
     const membership = await tx.tenantMembership.create({
@@ -188,6 +246,7 @@ export async function provisionTenant(
         roleId: ownerRoleId,
         status: "INVITED",
         employmentType: "FULL_TIME",
+        designation: input.trial?.profile.signupRole ?? null,
       },
     });
 
@@ -211,7 +270,7 @@ export async function provisionTenant(
         tenantId: tenant.id,
         actorType: input.actor.type,
         actorUserId: input.actor.type === "USER" ? input.actor.userId : null,
-        action: "tenant.created",
+        action: input.trial ? "tenant.self_signup" : "tenant.created",
         entityType: "tenant",
         entityId: tenant.id,
         metadata: {
@@ -220,11 +279,22 @@ export async function provisionTenant(
           timezone,
           owner: ownerEmail,
           via: input.actor.via,
+          ...(input.trial
+            ? { plan: "TRIAL", trialEndsAt: input.trial.endsAt.toISOString() }
+            : {}),
         },
       },
     });
 
-    return { tenant, token };
+    if (input.onCreated) {
+      await input.onCreated(tx, {
+        tenantId: tenant.id,
+        userId: user.id,
+        membershipId: membership.id,
+      });
+    }
+
+    return { tenant, token, userId: user.id };
   },
   // Roles, permissions, modules and features are ~60 writes. Prisma's 5 s
   // default was being exceeded on an ordinary day (5.1 s measured, 27 Sept
@@ -239,6 +309,8 @@ export async function provisionTenant(
     tenantId: result.tenant.id,
     slug,
     inviteLink: inviteUrl(input.origin, result.token),
+    inviteToken: result.token,
+    ownerUserId: result.userId,
     alsoOwns,
   };
 }

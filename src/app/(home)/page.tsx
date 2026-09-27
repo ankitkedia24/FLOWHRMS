@@ -62,8 +62,8 @@ export default async function LandingPage() {
             </p>
           </Reveal>
           <Reveal delay={240} className="flex flex-wrap gap-3.5">
-            <Link href="/demo" className="m-btn-primary">
-              Request a demo
+            <Link href="/start" className="m-btn-primary">
+              Start free trial
             </Link>
             <a href="#how" className="m-btn-outline">
               See how it works

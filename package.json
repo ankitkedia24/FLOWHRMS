@@ -17,7 +17,8 @@
     "sample-data": "tsx --tsconfig scripts/tsconfig.json scripts/sample-data.ts",
     "create-tenant": "tsx --tsconfig scripts/tsconfig.json scripts/create-tenant.ts",
     "delete-tenant": "tsx --tsconfig scripts/tsconfig.json scripts/delete-tenant.ts",
-    "reissue-invite": "tsx --tsconfig scripts/tsconfig.json scripts/reissue-invite.ts"
+    "reissue-invite": "tsx --tsconfig scripts/tsconfig.json scripts/reissue-invite.ts",
+    "publish-notices": "tsx --tsconfig scripts/tsconfig.json scripts/publish-notices.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",

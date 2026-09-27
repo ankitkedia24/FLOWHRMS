@@ -65,10 +65,10 @@ export default function ProductPage() {
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/demo"
+              href="/start"
               className="inline-flex h-12 items-center justify-center rounded-button bg-brand-primary px-6 font-heading text-body font-semibold text-text-on-primary shadow-primary-action hover:bg-brand-primary-hover"
             >
-              Request a demo
+              Start free trial
             </Link>
             <Link
               href="#how"
@@ -147,14 +147,14 @@ export default function ProductPage() {
             See it with your own team&apos;s day
           </h2>
           <p className="mt-3 max-w-[60ch] text-body-lg text-[color:var(--fh-color-brand-primary-subtle)]">
-            A 30-minute walkthrough using your shifts, branches and one real
-            week of work.
+            Set up your company in minutes and try it with your own team —
+            free for 30 days, no card needed.
           </p>
           <Link
-            href="/demo"
+            href="/start"
             className="mt-6 inline-flex h-12 items-center rounded-button bg-surface-default px-6 font-heading text-body font-semibold text-brand-primary hover:bg-surface-sunken"
           >
-            Request a demo
+            Start free trial
           </Link>
         </div>
       </section>

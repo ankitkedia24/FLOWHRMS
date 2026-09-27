@@ -99,6 +99,10 @@ export async function fixtureSession(
             slug: membership.tenant.slug,
             name: membership.tenant.name,
             timezone: membership.tenant.timezone,
+            plan: membership.tenant.plan,
+            trialEndsAt: membership.tenant.trialEndsAt,
+            selfSignup: membership.tenant.selfSignup,
+            ownerEmailVerifiedAt: membership.tenant.ownerEmailVerifiedAt,
           },
           membership: {
             id: membership.id,
@@ -129,7 +133,13 @@ export async function fixtureSession(
       email: `dev.${template.key.toLowerCase()}@example.com`,
       isPlatformAdmin: false,
     },
-    tenant: { ...FIXTURE_TENANT },
+    tenant: {
+      ...FIXTURE_TENANT,
+      plan: "INTERNAL",
+      trialEndsAt: null,
+      selfSignup: false,
+      ownerEmailVerifiedAt: null,
+    },
     membership: {
       id: "00000000-0000-4000-8000-0000000000b1",
       roleKey: template.key,

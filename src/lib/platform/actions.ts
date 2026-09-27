@@ -3,99 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/authz/guard";
-import { sendMail, emailConfigured } from "@/lib/email/send";
 import { provisionTenant } from "./provision";
-import {
-  MAX_REQUESTS_PER_HOUR,
-  normalisePhone,
-  validateDemoRequest,
-  type DemoRequestInput,
-  type DemoRequestStatusKey,
-} from "./demo-requests";
+import type { DemoRequestStatusKey } from "./demo-requests";
 
 type Result =
   | { ok: true; message: string; detail?: string; inviteLink?: string }
   | { ok: false; error: string; field?: string };
-
-/**
- * Submit an enquiry from the marketing site.
- *
- * UNAUTHENTICATED — the only action in FlowHRMS that is. It therefore assumes
- * nothing: it validates server-side (the client checks are a courtesy),
- * stores only the fields the form asks for, and refuses once the site has
- * taken more enquiries in an hour than a real business ever would.
- */
-export async function submitDemoRequestAction(
-  input: DemoRequestInput,
-): Promise<Result> {
-  const problems = validateDemoRequest(input);
-  if (problems.length > 0) {
-    const first = problems[0];
-    return {
-      ok: false,
-      error: first.message,
-      field: first.field === "form" ? undefined : first.field,
-    };
-  }
-
-  const db = getDb();
-
-  const anHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-  const recent = await db.demoRequest.count({
-    where: { createdAt: { gte: anHourAgo } },
-  });
-  if (recent >= MAX_REQUESTS_PER_HOUR) {
-    // Honest about what happened. "Something went wrong" would be a lie,
-    // and this person may be a real customer.
-    return {
-      ok: false,
-      error:
-        "We're getting an unusual number of enquiries right now and this one wasn't saved. Please call or WhatsApp us instead — we'd rather not lose it.",
-    };
-  }
-
-  const phone = normalisePhone(input.phone)!;
-  const request = await db.demoRequest.create({
-    data: {
-      name: input.name.trim(),
-      company: input.company.trim(),
-      phone,
-      teamSize: input.teamSize?.trim() || null,
-      notes: input.notes?.trim() || null,
-    },
-  });
-
-  // Stored first, emailed second, and deliberately in that order: an email
-  // that fails must not lose the enquiry. The inbox is a convenience; the
-  // record is the thing.
-  if (emailConfigured()) {
-    const to = process.env.SMTP_USER;
-    if (to) {
-      const lines = [
-        `Name:    ${request.name}`,
-        `Company: ${request.company}`,
-        `Phone:   ${request.phone}`,
-        request.teamSize ? `Team:    ${request.teamSize}` : null,
-        request.notes ? `\n${request.notes}` : null,
-      ].filter(Boolean);
-      await sendMail({
-        to,
-        subject: `FlowHRMS enquiry — ${request.company}`,
-        text: lines.join("\n"),
-        html: `<pre style="font:14px ui-monospace,monospace">${lines
-          .join("\n")
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")}</pre>`,
-      });
-    }
-  }
-
-  return {
-    ok: true,
-    message: "Thanks — we have your details.",
-    detail: "Someone will call you on the number you gave, usually the same working day.",
-  };
-}
 
 /** Create a customer company from the platform area. */
 export async function createTenantAction(input: {

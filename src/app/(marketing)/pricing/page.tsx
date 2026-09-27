@@ -57,10 +57,10 @@ export default function PricingPage() {
               </ul>
 
               <Link
-                href="/demo"
+                href="/start"
                 className="mt-5 inline-flex h-11 items-center justify-center rounded-button border-[1.5px] border-border-strong bg-surface-default px-5 font-heading text-label text-text-primary hover:bg-surface-sunken"
               >
-                Request a demo
+                Start free trial
               </Link>
             </Card>
           </li>

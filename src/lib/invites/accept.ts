@@ -7,6 +7,9 @@ import { getSupabaseAdmin, ADMIN_KEY_MISSING } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { hashInviteToken } from "./token";
 import { isInviteRedeemable } from "./policy";
+import { CURRENT_DOCUMENTS, type DocumentKey } from "@/lib/consent/documents";
+import { choicesFor, requiredNoticeKeys, type PurposeChoice } from "@/lib/consent/chain";
+import { consentStandings, recordConsents, requestMeta } from "@/lib/consent/record";
 
 /**
  * Accepting an invitation.
@@ -35,6 +38,22 @@ export interface InvitePreview {
   employeeName?: string;
   email?: string;
   reason?: string;
+  /** Notices this person must accept on this page (none if already given). */
+  consentKeys?: DocumentKey[];
+}
+
+/**
+ * The notices an invitee still has to accept: the employee notice for
+ * staff; the account notice and company terms for an owner the Flowacord
+ * team registered. An owner who signed up at /start has already consented.
+ */
+async function outstandingFor(
+  roleKey: string,
+  userId: string,
+): Promise<DocumentKey[]> {
+  const keys = requiredNoticeKeys({ isOwner: roleKey === "OWNER" });
+  const standings = await consentStandings(userId, keys);
+  return standings.filter((s) => s.status.state !== "current").map((s) => s.key);
 }
 
 const DEAD_LINK =
@@ -76,6 +95,7 @@ export async function previewInviteAction(token: string): Promise<InvitePreview>
     companyName: invite.tenant.name,
     employeeName: invite.membership.user.displayName,
     email: invite.membership.user.email ?? undefined,
+    consentKeys: await outstandingFor(invite.membership.role.key, invite.membership.userId),
   };
 }
 
@@ -85,6 +105,8 @@ const acceptSchema = z.object({
     .string()
     .min(8, "Use at least 8 characters.")
     .max(200, "That password is too long."),
+  /** Purpose keys ticked per notice shown on the page. */
+  consents: z.record(z.string(), z.array(z.string()).max(10)).optional(),
 });
 
 export type AcceptResult =
@@ -119,6 +141,21 @@ export async function acceptInviteAction(
       error:
         "This account has no email address, so a password can't be set. Ask your admin to add one.",
     };
+  }
+
+  // Consent before anything is written (DPDP Act s.6): every notice this
+  // person still owes, with every required box ticked by them.
+  const owed = await outstandingFor(invite.membership.role.key, invite.membership.userId);
+  const consentChoices: Array<{ key: DocumentKey; choices: PurposeChoice[] }> = [];
+  for (const key of owed) {
+    const result = choicesFor(CURRENT_DOCUMENTS[key], parsed.data.consents?.[key] ?? []);
+    if (!result.ok) {
+      return {
+        ok: false,
+        error: "Please read the notice above and tick every box marked Required.",
+      };
+    }
+    consentChoices.push({ key, choices: result.choices });
   }
 
   const admin = getSupabaseAdmin();
@@ -198,6 +235,25 @@ export async function acceptInviteAction(
       data: { status: "RESOLVED", resolvedAt: now, resolution: "accepted" },
     }),
   ]);
+
+  if (consentChoices.length > 0) {
+    const meta = await requestMeta();
+    await recordConsents(
+      consentChoices.map(({ key, choices }) => ({
+        noticeKey: key,
+        subject: key === "employee" ? ("EMPLOYEE" as const) : ("ACCOUNT_HOLDER" as const),
+        action: "GRANTED" as const,
+        purposes: choices,
+        userId: invite.membership.userId,
+        email,
+        tenantId: invite.tenantId,
+        tenantName: invite.tenant.name,
+        method: "checkbox+submit:/invite",
+        withDocuments: key === "customer_terms" ? (["terms", "privacy"] as DocumentKey[]) : undefined,
+        ...meta,
+      })),
+    );
+  }
 
   await recordSystemAuditEvent(invite.tenantId, {
     action: "employee.invite_accepted",

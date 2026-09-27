@@ -74,6 +74,13 @@ const TENANT_TABLES = [
   "expense_claim_transitions",
   "expense_settlements",
   "expense_counters",
+  // DPDP consent proof and rights requests: personal data about people
+  // who may not even be customers any more. Same fence as everything else.
+  "consent_notices",
+  "consent_records",
+  "data_requests",
+  "email_verifications",
+  "platform_settings",
 ];
 
 const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;

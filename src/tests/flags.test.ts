@@ -12,7 +12,7 @@ function makeSession(
       email: "t@example.com",
       isPlatformAdmin: false,
     },
-    tenant: { id: "t1", slug: "demo", name: "Demo", timezone: "Asia/Kolkata" },
+    tenant: { id: "t1", slug: "demo", name: "Demo", timezone: "Asia/Kolkata", plan: "INTERNAL", trialEndsAt: null, selfSignup: false, ownerEmailVerifiedAt: null },
     membership: {
       id: "m1",
       roleKey: "ADMIN",

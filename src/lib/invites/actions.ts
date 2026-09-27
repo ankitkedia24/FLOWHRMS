@@ -278,13 +278,13 @@ export async function inviteEmployeeAction(
         ok: true,
         message: `${data.displayName} is on your team.`,
         detail: `An invitation is on its way to ${email}. They'll set their own password.`,
-        inviteLink: delivery.link,
+        inviteLink: delivery.link ?? undefined,
       }
     : {
         ok: true,
         message: `${data.displayName} is on your team.`,
         detail: delivery.reason,
-        inviteLink: delivery.link,
+        inviteLink: delivery.link ?? undefined,
       };
 }
 
@@ -306,8 +306,23 @@ interface IssueInput {
  */
 async function issueInvite(
   input: IssueInput,
-): Promise<{ sent: boolean; link: string; reason?: string }> {
+): Promise<{ sent: boolean; link: string | null; reason?: string }> {
   const db = getDb();
+  // A self-serve trial company may not invite anyone until its registrant
+  // has proved their email address — otherwise anyone could sign up in
+  // someone else's name and start inviting "their" staff.
+  const tenant = await db.tenant.findUnique({
+    where: { id: input.session.tenant.id },
+    select: { selfSignup: true, ownerEmailVerifiedAt: true },
+  });
+  if (tenant?.selfSignup && !tenant.ownerEmailVerifiedAt) {
+    return {
+      sent: false,
+      link: null,
+      reason:
+        "Confirm your email address first — use the link we sent when you signed up (or “Send it again” on your dashboard). No invitation was sent; you can send it once confirmed.",
+    };
+  }
   const now = new Date();
   const token = generateInviteToken();
   const link = inviteUrl(await appOrigin(), token);
@@ -422,12 +437,12 @@ export async function resendInviteAction(input: {
         ok: true,
         message: "Invitation sent again.",
         detail: `To ${membership.user.email}. The previous link no longer works.`,
-        inviteLink: delivery.link,
+        inviteLink: delivery.link ?? undefined,
       }
     : {
         ok: false,
         error: delivery.reason ?? "The email didn't go through.",
-        inviteLink: delivery.link,
+        inviteLink: delivery.link ?? undefined,
       };
 }
 

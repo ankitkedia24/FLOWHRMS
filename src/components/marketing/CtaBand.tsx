@@ -52,18 +52,18 @@ export function CtaBand() {
         </Reveal>
         <Reveal delay={100}>
           <p className="mx-auto mb-[34px] max-w-[48ch] text-[18px] leading-[1.55] text-[color:var(--m-on-navy-2)]">
-            A 30-minute walkthrough using your shifts, branches and one real week of work.
+            Set up your company in minutes and try it with your own team — every feature, free for 30 days.
           </p>
         </Reveal>
         <Reveal delay={200}>
           <Link
-            href="/demo"
+            href="/start"
             className="m-btn-primary m-btn-on-navy px-9 py-[17px] text-[17px] font-bold shadow-[0_4px_14px_rgba(240,78,48,.4)]"
           >
-            Request a demo
+            Start free trial
           </Link>
           <div className="mt-4 text-[13px] text-[color:var(--m-on-navy)]">
-            No card. No setup fee for the pilot branch.
+            30 days free. No card, no call, no setup fee.
           </div>
         </Reveal>
       </div>

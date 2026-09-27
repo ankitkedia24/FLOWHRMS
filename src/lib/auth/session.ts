@@ -93,6 +93,10 @@ export const getAppSession = cache(async (): Promise<AppSession | null> => {
       slug: membership.tenant.slug,
       name: membership.tenant.name,
       timezone: membership.tenant.timezone,
+      plan: membership.tenant.plan,
+      trialEndsAt: membership.tenant.trialEndsAt,
+      selfSignup: membership.tenant.selfSignup,
+      ownerEmailVerifiedAt: membership.tenant.ownerEmailVerifiedAt,
     },
     membership: {
       id: membership.id,

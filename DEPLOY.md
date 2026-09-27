@@ -294,6 +294,23 @@ typed twice on purpose — this removes a company and everything in it.
 
 ---
 
+## 7b. Consent notices — before every deploy that changes them
+
+Sign-up, invitation acceptance and the consent screen record consent to
+the **published** copy of each notice (DPDP; see docs/md/DPDP-COMPLIANCE.md),
+and refuse if the deployed text and the published text differ. So, in this
+order, whenever a migration or a notice changes:
+
+```bash
+npm run db:migrate            # schema first (additive migrations)
+npx tsx scripts/setup-rls.ts  # keep every table behind row-level security
+npm run publish-notices       # then the exact texts people will consent to
+```
+
+`publish-notices` is safe to repeat. It refuses to re-publish a changed text
+under an old version number — bump `version` in src/lib/consent/documents.ts
+instead; everyone is then asked to consent again on their next visit.
+
 ## 8. Before you hand over the URL (30 min)
 
 - [ ] Sign in as the owner on a **real phone**, not a desktop browser

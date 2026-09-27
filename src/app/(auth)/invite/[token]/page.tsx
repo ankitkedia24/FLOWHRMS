@@ -53,6 +53,7 @@ export default async function AcceptInvitePage({
             <AcceptInviteForm
               token={decodeURIComponent(token)}
               employeeName={preview.employeeName ?? "you"}
+              consentKeys={preview.consentKeys ?? []}
             />
           </div>
         </>

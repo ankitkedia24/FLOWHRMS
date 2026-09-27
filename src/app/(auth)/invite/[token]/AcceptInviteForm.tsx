@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Alert } from "@/components/ui/Alert";
 import { acceptInviteAction } from "@/lib/invites/accept";
+import { ConsentChecklist, allRequiredGranted } from "@/components/consent/ConsentChecklist";
+import { CURRENT_DOCUMENTS, type DocumentKey } from "@/lib/consent/documents";
 
 /**
  * Setting a password from an invitation.
@@ -21,10 +23,20 @@ import { acceptInviteAction } from "@/lib/invites/accept";
 export function AcceptInviteForm({
   token,
   employeeName,
+  variant = "employee",
+  consentKeys = [],
 }: {
   token: string;
   employeeName: string;
+  /** "owner": the person just registered the company themselves. */
+  variant?: "employee" | "owner";
+  /** Notices to accept before the password is set (DPDP). */
+  consentKeys?: DocumentKey[];
 }) {
+  const [granted, setGranted] = useState<Partial<Record<DocumentKey, string[]>>>({});
+  const consentReady = consentKeys.every((k) =>
+    allRequiredGranted(CURRENT_DOCUMENTS[k], granted[k] ?? []),
+  );
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [password, setPassword] = useState("");
@@ -41,7 +53,11 @@ export function AcceptInviteForm({
         event.preventDefault();
         setError(null);
         startTransition(async () => {
-          const result = await acceptInviteAction({ token, password });
+          const result = await acceptInviteAction({
+            token,
+            password,
+            consents: granted as Record<string, string[]>,
+          });
           if (!result.ok) {
             setError(result.error);
             return;
@@ -55,6 +71,23 @@ export function AcceptInviteForm({
         <Alert variant="error" title="That didn't work">
           {error}
         </Alert>
+      )}
+
+      {consentKeys.length > 0 && (
+        <div className="flex flex-col gap-4">
+          <p className="text-body text-text-secondary">
+            First, please read how your personal data is used and tick each
+            box you agree to.
+          </p>
+          {consentKeys.map((key) => (
+            <ConsentChecklist
+              key={key}
+              doc={CURRENT_DOCUMENTS[key]}
+              granted={granted[key] ?? []}
+              onChange={(next) => setGranted((g) => ({ ...g, [key]: next }))}
+            />
+          ))}
+        </div>
       )}
 
       <Input
@@ -83,19 +116,28 @@ export function AcceptInviteForm({
         type="submit"
         size="xl"
         loading={pending}
-        disabled={password.length < 8}
+        disabled={password.length < 8 || !consentReady}
         disabledReason={
-          password.length < 8 ? "Enter at least 8 characters first." : undefined
+          !consentReady
+            ? "Tick every box marked Required above first."
+            : password.length < 8
+              ? "Enter at least 8 characters first."
+              : undefined
         }
         aria-label={`Set password and sign in as ${employeeName}`}
       >
         {pending ? "Setting up…" : "Set password and sign in"}
       </Button>
 
-      <p className="text-caption text-text-tertiary">
-        By continuing you agree that your employer can see your attendance,
-        leave and task records in FlowHRMS.
-      </p>
+      {variant === "employee" && consentKeys.length === 0 && (
+        <p className="text-caption text-text-tertiary">
+          How your records are used is described in the{" "}
+          <a href="/privacy/notice/employee" target="_blank" className="underline underline-offset-2">
+            notice to employees
+          </a>
+          .
+        </p>
+      )}
     </form>
   );
 }

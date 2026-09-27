@@ -62,6 +62,31 @@ export default async function PlatformLayout({
               >
                 Add a company
               </Link>
+              {/* DPDP: proof of consent, rights requests, and the texts. */}
+              <Link
+                href="/platform/consents"
+                className="inline-flex min-h-11 items-center rounded-button px-3 text-label text-text-secondary hover:bg-surface-sunken hover:text-text-primary"
+              >
+                Consents
+              </Link>
+              <Link
+                href="/platform/data-requests"
+                className="inline-flex min-h-11 items-center rounded-button px-3 text-label text-text-secondary hover:bg-surface-sunken hover:text-text-primary"
+              >
+                Data requests
+              </Link>
+              <Link
+                href="/platform/notices"
+                className="inline-flex min-h-11 items-center rounded-button px-3 text-label text-text-secondary hover:bg-surface-sunken hover:text-text-primary"
+              >
+                Notices
+              </Link>
+              <Link
+                href="/platform/settings"
+                className="inline-flex min-h-11 items-center rounded-button px-3 text-label text-text-secondary hover:bg-surface-sunken hover:text-text-primary"
+              >
+                Settings
+              </Link>
             </nav>
             <div className="ms-auto flex items-center gap-2">
               <Link

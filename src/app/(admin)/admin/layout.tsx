@@ -15,6 +15,8 @@ import { OfflineProvider } from "@/lib/offline/OfflineProvider";
 import { AdminOfflineBar } from "@/components/offline/OfflineBar";
 import { ActionQueueProvider } from "@/lib/actions/ActionQueueProvider";
 import { ActionTiles } from "@/components/actions/ActionTiles";
+import { TrialBanner } from "@/components/shell/TrialBanner";
+import { trialDaysLeft } from "@/lib/signup/validate";
 
 /**
  * Admin shell: cool surface, 240px sidebar (lg+) / 72px rail (md) / drawer
@@ -54,6 +56,22 @@ export default async function AdminLayout({
     ...platformCrossLinks({ isPlatformAdmin: session.user.isPlatformAdmin }),
   ];
   const configItems = adminConfigItems(navInput);
+
+  const trial =
+    session.tenant.plan === "TRIAL" && session.tenant.trialEndsAt
+      ? {
+          daysLeft: trialDaysLeft(session.tenant.trialEndsAt, new Date()),
+          endsLabel: new Intl.DateTimeFormat("en-IN", {
+            day: "numeric",
+            month: "short",
+            timeZone: session.tenant.timezone,
+          }).format(session.tenant.trialEndsAt),
+        }
+      : null;
+  const needsVerification =
+    session.tenant.selfSignup &&
+    !session.tenant.ownerEmailVerifiedAt &&
+    session.membership.roleKey === "OWNER";
   const nav = {
     items,
     configItems,
@@ -79,6 +97,14 @@ export default async function AdminLayout({
                 notificationCount={unread}
                 nav={nav}
               />
+              {(trial || needsVerification) && (
+                <TrialBanner
+                  daysLeft={trial?.daysLeft ?? null}
+                  endsLabel={trial?.endsLabel ?? null}
+                  needsVerification={needsVerification}
+                  email={session.user.email}
+                />
+              )}
               {/* Admin work is never queued — the bar says so plainly. */}
               <AdminOfflineBar />
               <main

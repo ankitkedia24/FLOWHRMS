@@ -66,10 +66,10 @@ export default function MarketingLayout({
               Sign in
             </Link>
             <Link
-              href="/demo"
+              href="/start"
               className="inline-flex h-10 items-center rounded-button bg-brand-primary px-4 font-heading text-label text-text-on-primary hover:bg-brand-primary-hover"
             >
-              Request a demo
+              Start free trial
             </Link>
           </nav>
         </div>

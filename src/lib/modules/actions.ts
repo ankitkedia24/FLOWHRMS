@@ -76,6 +76,21 @@ export async function setModuleEnabledAction(
   const enabledMap = entitlements.modules as EnabledMap;
 
   if (parsed.data.enabled) {
+    // Flowacord decides what is in a company's plan (platform area); the
+    // company switches only within it.
+    const setting = await db.tenantModuleSetting.findFirst({
+      where: { tenantId: session.tenant.id, module: { key: moduleKey } },
+      select: { allowedByPlatform: true },
+    });
+    if (setting && !setting.allowedByPlatform) {
+      return {
+        ok: false,
+        error: `${moduleDef.name} isn't included in your plan. Write to help@flowacord.com to add it.`,
+      };
+    }
+  }
+
+  if (parsed.data.enabled) {
     // Dependency check: never a silent failure.
     const missing = missingRequirements(enabledMap, moduleKey);
     if (missing.length > 0) {

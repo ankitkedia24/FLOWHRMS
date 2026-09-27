@@ -22,13 +22,26 @@ const PUBLIC_PATHS = [
   "/modules",
   "/pricing",
   "/demo",
+  // Self-serve trial sign-up and the documents it asks people to accept.
+  "/start",
+  "/terms",
+  "/privacy",
+  "/verify-email",
 ];
 
 /**
  * Pages with no notion of a viewer. These skip the auth check entirely, so
  * the public site stays up even when Supabase does not.
  */
-const MARKETING_PATHS = ["/product", "/modules", "/pricing", "/demo"];
+const MARKETING_PATHS = [
+  "/product",
+  "/modules",
+  "/pricing",
+  "/demo",
+  "/terms",
+  "/privacy",
+  "/verify-email",
+];
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some(

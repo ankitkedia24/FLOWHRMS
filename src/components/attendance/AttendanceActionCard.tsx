@@ -60,6 +60,9 @@ type GeoState =
   | { phase: "denied" }
   | { phase: "not-required" };
 
+const CHECK_OUT_REMINDER =
+  "You've checked in today. Don't forget to check out at the end of the day.";
+
 export function AttendanceActionCard({ context, firstName }: Props) {
   const { show } = useToast();
   // Connection state and the queue are shared with the offline bar, so
@@ -344,6 +347,9 @@ export function AttendanceActionCard({ context, firstName }: Props) {
             <p className="text-secondary text-warm-text">
               Working now · {formatDuration(elapsedMinutes)}
             </p>
+            <p className="mt-1 text-secondary text-warm-text">
+              {CHECK_OUT_REMINDER}
+            </p>
             <Button
               size="xl"
               className="mt-3"
@@ -489,14 +495,22 @@ export function AttendanceActionCard({ context, firstName }: Props) {
             left.
           </Alert>
         ) : !checkedOut ? (
-          <Button
-            size="xl"
-            loading={pending}
-            onClick={handleCheckOut}
-            leadingIcon={<LogOut aria-hidden="true" className="size-5" />}
-          >
-            Check Out
-          </Button>
+          <div className="flex flex-col gap-2">
+            {/* A forgotten check-out is the commonest attendance mistake,
+                and it costs the person their hours. Say it while the
+                button is right there. */}
+            <p className="text-secondary text-text-secondary">
+              {CHECK_OUT_REMINDER}
+            </p>
+            <Button
+              size="xl"
+              loading={pending}
+              onClick={handleCheckOut}
+              leadingIcon={<LogOut aria-hidden="true" className="size-5" />}
+            >
+              Check Out
+            </Button>
+          </div>
         ) : (
           <div className="flex flex-col gap-3">
             <div className="rounded-md bg-surface-sunken p-4">

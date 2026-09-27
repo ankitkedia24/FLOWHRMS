@@ -13,6 +13,11 @@ export interface AppSession {
     slug: string;
     name: string;
     timezone: string;
+    /** TRIAL companies pause when trialEndsAt passes. */
+    plan: "TRIAL" | "PAID" | "INTERNAL";
+    trialEndsAt: Date | null;
+    selfSignup: boolean;
+    ownerEmailVerifiedAt: Date | null;
   };
   membership: {
     id: string;

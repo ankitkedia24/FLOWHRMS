@@ -86,19 +86,19 @@ export function MarketingNav() {
             Sign in
           </Link>
           <Link
-            href="/demo"
+            href="/start"
             className="rounded-[12px] bg-[color:var(--m-red)] px-5 py-[11px] text-[14.5px] font-semibold text-white shadow-[0_2px_6px_rgba(240,78,48,.3)] transition-[transform,background] duration-[180ms] hover:-translate-y-0.5 hover:bg-[color:var(--m-red-hover)] hover:text-white"
           >
-            Request a demo
+            Start free trial
           </Link>
         </div>
 
         <div className="flex items-center gap-2.5 md:hidden">
           <Link
-            href="/demo"
-            className="rounded-[11px] bg-[color:var(--m-red)] px-4 py-2.5 text-sm font-semibold text-white"
+            href="/start"
+            className="whitespace-nowrap rounded-[11px] bg-[color:var(--m-red)] px-4 py-2.5 text-sm font-semibold text-white"
           >
-            Demo
+            Free trial
           </Link>
           <button
             ref={opener}
@@ -149,11 +149,11 @@ export function MarketingNav() {
               Sign in
             </Link>
             <Link
-              href="/demo"
+              href="/start"
               onClick={close}
               className="mt-auto rounded-[12px] bg-[color:var(--m-red)] p-[15px] text-center font-semibold text-white"
             >
-              Request a demo
+              Start free trial
             </Link>
           </div>
         </>

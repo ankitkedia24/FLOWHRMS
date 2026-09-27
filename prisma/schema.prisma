@@ -61,6 +61,12 @@ enum TenantStatus {
   ARCHIVED
 }
 
+enum TenantPlan {
+  TRIAL
+  PAID
+  INTERNAL
+}
+
 enum DemoRequestStatus {
   NEW
   CONTACTED
@@ -111,6 +117,24 @@ model Tenant {
   timezone  String       @default("Asia/Kolkata")
   /// Tenant logo in private storage (V1 theming = logo only).
   logoPath  String?
+  /// TRIAL companies pause when trialEndsAt passes (data kept); PAID and
+  /// INTERNAL (sample, demo and pre-trial companies) never do.
+  plan        TenantPlan @default(INTERNAL)
+  trialEndsAt DateTime?
+  /// Registered through /start rather than by the Flowacord team.
+  selfSignup  Boolean    @default(false)
+  /// Self-signup only: until the registrant proves their email, the
+  /// company cannot invite staff.
+  ownerEmailVerifiedAt DateTime?
+  /// What the registrant told us at sign-up.
+  industry        String?
+  staffCount      Int?
+  addressPincode  String?
+  addressCity     String?
+  addressState    String?
+  addressCountry  String?
+  signupRole      String?
+  signupHeardFrom String?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
@@ -1008,6 +1032,9 @@ model TenantModuleSetting {
   tenantId  String   @db.Uuid
   moduleId  String   @db.Uuid
   enabled   Boolean  @default(false)
+  /// Set from the Flowacord platform area. When false the company cannot
+  /// switch the module on itself ("Not in your plan").
+  allowedByPlatform Boolean @default(true)
   updatedAt DateTime @updatedAt
   updatedById String? @db.Uuid
 
@@ -1527,4 +1554,163 @@ model ExpenseCounter {
   next     Int    @default(1)
 
   @@map("expense_counters")
+}
+
+// ---------------------------------------------------------------- consent (DPDP)
+//
+// Proof of notice and consent under the Digital Personal Data Protection
+// Act, 2023 and DPDP Rules, 2025. Section 6(10) puts the burden of proving
+// that notice was given and consent obtained on the Data Fiduciary, so
+// every consent is a permanent record of WHAT was shown (the exact
+// published text, by hash) and WHAT was agreed. See docs/md/DPDP-COMPLIANCE.md.
+
+enum ConsentNoticeStatus {
+  PUBLISHED
+  RETIRED
+}
+
+/// One published version of a notice or policy document. Never edited once
+/// written — a database trigger refuses changes to its text. A wording
+/// change is a new version, and everyone re-consents to it.
+model ConsentNotice {
+  id            String              @id @default(uuid()) @db.Uuid
+  /// account_holder | customer_terms | employee | terms | privacy
+  key           String
+  version       Int
+  language      String              @default("en")
+  title         String
+  /// The exact document shown, as canonical JSON (src/lib/consent/documents.ts).
+  body          String
+  /// sha256 of `body` — what a consent record points at.
+  sha256        String
+  status        ConsentNoticeStatus @default(PUBLISHED)
+  /// Drafted in-house; false until a lawyer has reviewed this version.
+  /// Shown only in the platform area, never to customers.
+  legalReviewed Boolean             @default(false)
+  legalReviewedAt DateTime?
+  legalReviewedBy String?
+  publishedAt   DateTime            @default(now())
+
+  records ConsentRecord[]
+
+  @@unique([key, version, language])
+  @@map("consent_notices")
+}
+
+enum ConsentSubject {
+  ACCOUNT_HOLDER
+  EMPLOYEE
+}
+
+enum ConsentAction {
+  GRANTED
+  /// Optional choices changed; required consent still given.
+  UPDATED
+  WITHDRAWN
+}
+
+/// Append-only. A trigger refuses UPDATE, DELETE and TRUNCATE, and each
+/// row carries the hash of the one before it, so a removed or altered row
+/// breaks the chain visibly. Deliberately no foreign keys to users or
+/// tenants: the proof must outlive a deleted account or company.
+model ConsentRecord {
+  id            String         @id @default(uuid()) @db.Uuid
+  /// Chain order.
+  seq           Int            @unique @default(autoincrement())
+  noticeId      String         @db.Uuid
+  noticeKey     String
+  noticeVersion Int
+  noticeHash    String
+  userId        String?        @db.Uuid
+  email         String
+  tenantId      String?        @db.Uuid
+  tenantName    String?
+  subject       ConsentSubject
+  action        ConsentAction
+  /// [{ key, label, required, granted }]
+  purposes      Json
+  /// Other documents accepted with this one: { terms: {version, sha256}, … }
+  documents     Json?
+  /// How consent was expressed, e.g. "checkbox+submit:/start".
+  method        String
+  language      String         @default("en")
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime
+  prevHash      String
+  recordHash    String         @unique
+
+  notice ConsentNotice @relation(fields: [noticeId], references: [id])
+
+  @@index([email])
+  @@index([userId])
+  @@index([tenantId])
+  @@index([noticeKey, noticeVersion])
+  @@map("consent_records")
+}
+
+enum DataRequestType {
+  ACCESS
+  CORRECTION
+  ERASURE
+  GRIEVANCE
+  WITHDRAWAL
+}
+
+enum DataRequestStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+/// A Data Principal exercising a right (DPDP Act ss. 11–13). Answered within
+/// 90 days (Rule 14). No foreign keys, for the same reason as consent.
+model DataRequest {
+  id          String            @id @default(uuid()) @db.Uuid
+  userId      String?           @db.Uuid
+  email       String
+  tenantId    String?           @db.Uuid
+  tenantName  String?
+  type        DataRequestType
+  details     String
+  status      DataRequestStatus @default(OPEN)
+  dueAt       DateTime
+  response    String?
+  handledById String?           @db.Uuid
+  handledAt   DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([status, dueAt])
+  @@index([email])
+  @@map("data_requests")
+}
+
+// ---------------------------------------------------------------- platform
+
+/// Flowacord-wide settings, e.g. the trial length and module package.
+model PlatformSetting {
+  key         String   @id
+  value       Json
+  updatedById String?  @db.Uuid
+  updatedAt   DateTime @updatedAt
+
+  @@map("platform_settings")
+}
+
+/// A one-time link proving someone controls an email address. Only the
+/// sha256 of the token is stored, as with invitations.
+model EmailVerification {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String    @db.Uuid
+  userId    String    @db.Uuid
+  email     String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([tenantId])
+  @@map("email_verifications")
 }

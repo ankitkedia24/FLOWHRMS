@@ -107,7 +107,7 @@ export function Pricing() {
               </ul>
 
               <Link
-                href="/demo"
+                href="/start"
                 className="mt-[26px] rounded-[13px] p-3.5 text-center text-[15px] font-bold transition-transform duration-[180ms] hover:-translate-y-0.5"
                 style={
                   dark
@@ -123,7 +123,7 @@ export function Pricing() {
                       }
                 }
               >
-                Request a demo
+                Start free trial
               </Link>
             </div>
           );

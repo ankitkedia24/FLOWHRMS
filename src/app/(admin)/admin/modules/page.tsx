@@ -37,6 +37,19 @@ export default async function ModuleManagementPage() {
   );
   const enabledMap = entitlements.modules as EnabledMap;
 
+  // Modules Flowacord has not included for this company (trial package or
+  // plan). The company cannot switch these on itself.
+  const notAllowed = new Set(
+    devFixtureOffline()
+      ? []
+      : (
+          await getDb().tenantModuleSetting.findMany({
+            where: { tenantId: session.tenant.id, allowedByPlatform: false },
+            select: { module: { select: { key: true } } },
+          })
+        ).map((s) => s.module.key),
+  );
+
   const [employees, admins] = devFixtureOffline()
     ? [0, 0]
     : await Promise.all([
@@ -101,8 +114,9 @@ export default async function ModuleManagementPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             {group.modules.map((moduleDef) => {
               const enabled = isEnabled(moduleDef.key);
+              const notInPlan = !enabled && notAllowed.has(moduleDef.key);
               const optionalUnavailable =
-                moduleDef.category === "OPTIONAL" && !enabled;
+                notInPlan || (moduleDef.category === "OPTIONAL" && !enabled);
               const features = FEATURES.filter((f) => f.module === moduleDef.key);
               const deps = dependencyLine(moduleDef.key);
               const missing = missingRequirements(enabledMap, moduleDef.key);
@@ -140,8 +154,9 @@ export default async function ModuleManagementPage() {
 
                   {optionalUnavailable ? (
                     <p className="text-secondary text-text-secondary">
-                      Ask your Flowacord contact to enable this after its rules are
-                      approved.
+                      {notInPlan
+                        ? "Not included in your plan. Write to help@flowacord.com or call +91 89088 88880 to add it."
+                        : "Ask your Flowacord contact to enable this after its rules are approved."}
                     </p>
                   ) : (
                     <ModuleSwitch

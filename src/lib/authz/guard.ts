@@ -5,6 +5,8 @@ import type { ModuleKey, PermissionKey } from "@/lib/catalog";
 import { getAppSession } from "@/lib/auth/session";
 import type { AppSession } from "@/lib/auth/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { outstandingNotices } from "@/lib/consent/record";
+import { trialExpired } from "@/lib/signup/validate";
 import { loadEntitlements } from "./entitlements";
 import { evaluateAccess, type AccessDecision } from "./flags";
 
@@ -30,6 +32,15 @@ export async function requireSession(): Promise<AppSession> {
       : null;
     redirect(authUser ? "/unauthorized" : "/sign-in");
   }
+  // DPDP Act s.6: no processing without consent to the notice that applies
+  // to this person, at its current version. Everything in the app passes
+  // through here, so this is the one place it is enforced. /consent itself
+  // does not call requireSession.
+  if ((await outstandingNotices(session)).length > 0) redirect("/consent");
+  // A trial that has run out pauses the company: data is kept, nothing can
+  // be done until Flowacord extends it or it moves to a paid plan.
+  // /trial-ended itself does not call requireSession.
+  if (trialExpired(session.tenant, new Date())) redirect("/trial-ended");
   return session;
 }
 

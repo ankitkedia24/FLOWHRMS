@@ -51,10 +51,10 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
               Modules
             </Link>
             <Link
-              href="/demo"
+              href="/start"
               className="text-[color:var(--m-on-navy)] hover:text-[color:var(--m-cream)]"
             >
-              Request a demo
+              Start free trial
             </Link>
           </div>
           <div className="flex flex-col gap-1 text-[color:var(--m-on-navy-2)] sm:text-right">

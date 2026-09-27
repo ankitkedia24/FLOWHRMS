@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { createTenantAction } from "@/lib/platform/actions";
 import { slugify } from "@/lib/platform/slug";
+import { SetupProgress } from "@/components/brand/SetupProgress";
 
 /**
  * Create a customer company.
@@ -62,6 +63,22 @@ export function NewTenantForm({
         setError(result.error);
       }
     });
+  }
+
+  if (pending) {
+    return (
+      <Card>
+        <SetupProgress
+          companyName={name}
+          steps={[
+            `Creating ${name.trim() || "the company"}`,
+            "Setting up roles and permissions",
+            "Switching on modules",
+            "Preparing the owner's invitation",
+          ]}
+        />
+      </Card>
+    );
   }
 
   if (done) {

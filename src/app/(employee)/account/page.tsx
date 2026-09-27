@@ -58,6 +58,19 @@ export default async function AccountPage() {
         )}
       </Card>
 
+      <Card>
+        <CardHeader
+          title="Privacy & consent"
+          meta="What you agreed to, your choices, and requests about your data."
+        />
+        <Link
+          href="/account/privacy"
+          className="text-body text-brand-primary underline-offset-2 hover:underline"
+        >
+          Open Privacy &amp; consent
+        </Link>
+      </Card>
+
       <p className="text-caption text-text-secondary">
         Forgotten it? Sign out and use{" "}
         <Link

@@ -143,3 +143,48 @@ export function passwordChangedEmail(input: PasswordChangedEmailInput): {
 
   return { subject, text, html };
 }
+
+export interface VerifyEmailInput {
+  name: string;
+  companyName: string;
+  url: string;
+  trialEndsAt: Date;
+}
+
+/**
+ * Sent right after a self-serve sign-up. The person is already signed in;
+ * this only proves the address is theirs, which unlocks inviting staff.
+ */
+export function verifyEmailMessage(input: VerifyEmailInput): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  const firstName = input.name.trim().split(/\s+/)[0] || "there";
+  const ends = formatInviteDate(input.trialEndsAt, "Asia/Kolkata");
+  const subject = "Confirm your email for FlowHRMS";
+  const lines = [
+    `Hello ${firstName},`,
+    "",
+    `Your free trial of FlowHRMS for ${input.companyName} has started and runs until ${ends}.`,
+    "",
+    "Please confirm this is your email address:",
+    input.url,
+    "",
+    "Until you do, you can set everything up but can't invite your team. The link works for 7 days.",
+    "",
+    "If you didn't sign up, ignore this email — nothing more will happen, and you can tell us at help@flowacord.com.",
+  ];
+  const text = lines.join("\n");
+  const html = `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;line-height:1.6;color:#1A1A1A;max-width:520px">
+<p>Hello ${escapeHtml(firstName)},</p>
+<p>Your free trial of FlowHRMS for <strong>${escapeHtml(input.companyName)}</strong> has started and runs until <strong>${escapeHtml(ends)}</strong>.</p>
+<p style="margin:28px 0">
+  <a href="${escapeHtml(input.url)}" style="display:inline-block;background:#7166F3;color:#FFFFFF;text-decoration:none;padding:14px 24px;border-radius:12px;font-weight:600">Confirm my email</a>
+</p>
+<p style="font-size:14px;color:#5A5A5A">Or paste this into your browser:<br><span style="word-break:break-all">${escapeHtml(input.url)}</span></p>
+<p>Until you confirm, you can set everything up but can't invite your team. The link works for 7 days.</p>
+<p style="font-size:14px;color:#5A5A5A">If you didn't sign up, ignore this email — nothing more will happen, and you can tell us at help@flowacord.com.</p>
+</div>`;
+  return { subject, text, html };
+}
