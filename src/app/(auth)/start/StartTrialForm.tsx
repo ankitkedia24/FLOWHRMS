@@ -127,6 +127,8 @@ export function StartTrialForm() {
         <SetupProgress
           companyName={companyName}
           done={ready !== null}
+          readyTitle="Your free trial has started"
+          readyMessage={`${companyName.trim() || "Your company"} is ready. Next, choose your password.`}
           onComplete={() => {
             if (ready) {
               setPhase({ name: "done", result: ready });
@@ -234,7 +236,6 @@ export function StartTrialForm() {
               required
               autoFocus
               autoComplete="organization"
-              placeholder="Amit Book Depot"
               value={companyName}
               error={errors.companyName}
               onChange={(e) => setCompanyName(e.target.value)}
@@ -245,7 +246,6 @@ export function StartTrialForm() {
               type="number"
               inputMode="numeric"
               min={1}
-              placeholder="15"
               value={staffCount}
               error={errors.staffCount}
               onChange={(e) => setStaffCount(e.target.value)}
@@ -271,7 +271,6 @@ export function StartTrialForm() {
               inputMode="numeric"
               maxLength={6}
               autoComplete="postal-code"
-              placeholder="751001"
               value={pincode}
               error={errors.pincode}
               onChange={(e) => {
@@ -301,7 +300,6 @@ export function StartTrialForm() {
               label="City or town"
               required
               autoComplete="address-level2"
-              placeholder="Bhubaneswar"
               value={city}
               error={errors.city}
               onChange={(e) => setCity(e.target.value)}
@@ -324,7 +322,6 @@ export function StartTrialForm() {
               required
               type="email"
               autoComplete="email"
-              placeholder="you@company.in"
               helper="You'll sign in with this. We'll send a link to confirm it."
               value={email}
               error={errors.email}
@@ -337,7 +334,6 @@ export function StartTrialForm() {
               inputMode="tel"
               autoComplete="tel-national"
               prefix={<span className="text-text-secondary">+91</span>}
-              placeholder="98765 43210"
               value={mobile}
               error={errors.mobile}
               onChange={(e) => setMobile(e.target.value)}

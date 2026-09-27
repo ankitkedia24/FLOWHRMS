@@ -74,6 +74,8 @@ export function NewTenantForm({
           companyName={name}
           done={Boolean(done)}
           onComplete={() => setRevealed(true)}
+          readyTitle={`${name.trim() || "The company"} has been created`}
+          readyMessage="Showing the owner's invitation next."
           steps={[
             `Creating ${name.trim() || "the company"}`,
             "Setting up roles and permissions",
