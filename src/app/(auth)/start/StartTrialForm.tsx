@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CircleCheck, ArrowLeft } from "lucide-react";
 import { Alert } from "@/components/ui/Alert";
@@ -59,6 +59,8 @@ export function StartTrialForm() {
   const [companyConsent, setCompanyConsent] = useState<string[]>([]);
   const [website, setWebsite] = useState("");
   const [checking, setChecking] = useState(false);
+  /** The last email / number looked up, so each value is checked once. */
+  const checked = useRef<{ email?: string; mobile?: string }>({});
 
   const values = {
     companyName, staffCount, industry, pincode, state, city,
@@ -96,6 +98,32 @@ export function StartTrialForm() {
     });
     return taken || Boolean(found.email || found.mobile);
   }
+
+  function checkOnce(field: "email" | "mobile", value: string) {
+    const valid =
+      field === "email"
+        ? detailsStep.shape.email.safeParse(value).success
+        : detailsStep.shape.mobile.safeParse(value).success;
+    if (!valid || checked.current[field] === value) return;
+    checked.current[field] = value;
+    void checkTaken({ [field]: value });
+  }
+
+  // Check shortly after the value settles — typed, pasted or filled in by
+  // the browser's autofill (which never focuses or leaves the field).
+  useEffect(() => {
+    if (step !== 3) return;
+    const timer = setTimeout(() => checkOnce("email", email), 700);
+    return () => clearTimeout(timer);
+    // checkOnce reads the latest state itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email, step]);
+  useEffect(() => {
+    if (step !== 3) return;
+    const timer = setTimeout(() => checkOnce("mobile", mobile), 700);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mobile, step]);
 
   async function next() {
     setFormError(null);
@@ -359,9 +387,7 @@ export function StartTrialForm() {
               value={email}
               error={errors.email}
               onChange={(e) => setEmail(e.target.value)}
-              onBlur={() => {
-                if (detailsStep.shape.email.safeParse(email).success) void checkTaken({ email });
-              }}
+              onBlur={() => checkOnce("email", email)}
             />
             <Input
               label="Mobile number"
@@ -373,9 +399,7 @@ export function StartTrialForm() {
               value={mobile}
               error={errors.mobile}
               onChange={(e) => setMobile(e.target.value)}
-              onBlur={() => {
-                if (detailsStep.shape.mobile.safeParse(mobile).success) void checkTaken({ mobile });
-              }}
+              onBlur={() => checkOnce("mobile", mobile)}
             />
             <Select
               label="Your role in the company"
