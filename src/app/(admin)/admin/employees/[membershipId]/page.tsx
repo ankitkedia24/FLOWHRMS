@@ -12,6 +12,8 @@ import { formatClockTime } from "@/lib/attendance/policy";
 import { computeInviteStatus } from "@/lib/invites/policy";
 import { ROLE_CONSEQUENCE, ROLE_PICKER_ORDER, privilegeRank } from "@/lib/catalog";
 import { EmployeeForm } from "./EmployeeForm";
+import { loadWorkCalendar } from "@/lib/attendance/work-calendar";
+import { companyDefaultShiftLabel } from "@/lib/attendance/shifts";
 import { DocumentsPanel } from "./DocumentsPanel";
 import { SensitivePanel } from "./SensitivePanel";
 import { InvitePanel } from "./InvitePanel";
@@ -111,6 +113,7 @@ export default async function EmployeeProfilePage({
   });
   const canSetSalary = payrollAccess.decision.allowed;
 
+  const workCalendar = await loadWorkCalendar(session.tenant.id);
   const [branches, shifts, managers, recentAttendance, payPolicy, payComponents] = await Promise.all([
     db.branch.findMany({
       where: { tenantId: session.tenant.id, isActive: true },
@@ -119,7 +122,13 @@ export default async function EmployeeProfilePage({
     }),
     db.shift.findMany({
       where: { tenantId: session.tenant.id },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        startMinutes: true,
+        endMinutes: true,
+        isDefault: true,
+      },
       orderBy: { startMinutes: "asc" },
     }),
     db.tenantMembership.findMany({
@@ -224,9 +233,13 @@ export default async function EmployeeProfilePage({
           reportingToId: member.reportingToId,
           canCheckInAtAnyBranch: member.canCheckInAtAnyBranch,
           status: member.status,
+          hasOwnWeeklyOff: member.hasOwnWeeklyOff,
+          weeklyOffDays: member.weeklyOffDays,
         }}
         branches={branches}
-        shifts={shifts}
+        shifts={shifts.map((s) => ({ id: s.id, name: s.name }))}
+        defaultShiftLabel={companyDefaultShiftLabel(shifts)}
+        companyWeeklyOff={workCalendar.weeklyOffDays}
         managers={managers.map((m) => ({
           id: m.id,
           name: m.user.displayName,

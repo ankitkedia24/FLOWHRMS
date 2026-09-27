@@ -10,6 +10,13 @@ import { Card, CardHeader } from "@/components/ui/Card";
 import { DEFAULT_LATE_POLICY, type LatePolicy } from "@/lib/payroll/engine";
 import { LocationsCard } from "./LocationsCard";
 import { PolicyForms } from "./PolicyForms";
+import { WorkCalendarCard } from "./WorkCalendarCard";
+import { dateKey } from "@/lib/attendance/calendar";
+import { workDateInTimezone } from "@/lib/attendance/policy";
+import {
+  loadWorkCalendar,
+  loadWorkCalendarVersion,
+} from "@/lib/attendance/work-calendar";
 
 export const metadata: Metadata = { title: "Attendance policy" };
 
@@ -54,12 +61,30 @@ export default async function AttendancePolicyPage() {
       db.shift.findMany({
         where: { tenantId: session.tenant.id },
         orderBy: { startMinutes: "asc" },
+        include: {
+          _count: {
+            select: { memberships: { where: { status: { not: "DEACTIVATED" } } } },
+          },
+        },
       }),
       db.branch.findMany({
         where: { tenantId: session.tenant.id },
         orderBy: [{ isActive: "desc" }, { name: "asc" }],
         include: {
           _count: { select: { memberships: { where: { status: "ACTIVE" } } } },
+        },
+      }),
+    ]);
+
+  const [workCalendar, workCalendarVersion, peopleWithOwnWeeklyOff] =
+    await Promise.all([
+      loadWorkCalendar(session.tenant.id),
+      loadWorkCalendarVersion(session.tenant.id),
+      db.tenantMembership.count({
+        where: {
+          tenantId: session.tenant.id,
+          status: { not: "DEACTIVATED" },
+          hasOwnWeeklyOff: true,
         },
       }),
     ]);
@@ -99,6 +124,14 @@ export default async function AttendancePolicyPage() {
         }))}
       />
 
+      <WorkCalendarCard
+        weeklyOffDays={workCalendar.weeklyOffDays}
+        holidays={workCalendar.holidays}
+        version={workCalendarVersion}
+        peopleWithOwnWeeklyOff={peopleWithOwnWeeklyOff}
+        today={dateKey(workDateInTimezone(new Date(), session.tenant.timezone))}
+      />
+
       <PolicyForms
         attendance={{ ...DEFAULT_ATTENDANCE, ...(attendance ?? {}) }}
         attendanceVersion={attendanceVersion}
@@ -112,13 +145,15 @@ export default async function AttendancePolicyPage() {
           startMinutes: shift.startMinutes,
           endMinutes: shift.endMinutes,
           graceMinutes: shift.graceMinutes,
+          isDefault: shift.isDefault,
+          assignedCount: shift._count.memberships,
         }))}
       />
 
       <Card>
         <CardHeader title="Not in this version" />
         <ul className="flex list-disc flex-col gap-1 pl-5 text-secondary text-text-secondary">
-          <li>Holiday calendar and earned-leave balances</li>
+          <li>Earned-leave balances</li>
           <li>Biometric, face, QR or RFID attendance</li>
           <li>Continuous or background location tracking</li>
         </ul>

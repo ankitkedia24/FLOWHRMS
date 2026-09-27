@@ -9,10 +9,13 @@ import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
 import {
+  makeDefaultShiftAction,
   saveAttendancePolicyAction,
   savePayrollPolicyAction,
   saveShiftAction,
 } from "@/lib/policies/actions";
+import { StatusChip } from "@/components/ui/StatusChip";
+import { BUILT_IN_SHIFT, formatShiftRange } from "@/lib/attendance/shifts";
 
 /**
  * Policy editors. Each states the effect of its rule in plain words so an
@@ -24,6 +27,9 @@ interface Shift {
   startMinutes: number;
   endMinutes: number;
   graceMinutes: number;
+  isDefault: boolean;
+  /** People assigned to this shift directly (not via the default). */
+  assignedCount: number;
 }
 
 function toTime(minutes: number): string {
@@ -165,7 +171,8 @@ export function PolicyForms({
             <Checkbox
               checked={deductAbsent}
               onChange={(e) => setDeductAbsent(e.target.checked)}
-              label="Days with no attendance and no approved leave reduce pay"
+              label="Missed working days reduce pay"
+              helper="A working day with no check-in and no approved leave. Weekly offs and holidays are never counted."
             />
           </div>
         </div>
@@ -206,6 +213,8 @@ export function PolicyForms({
                   startMinutes: 9 * 60 + 30,
                   endMinutes: 18 * 60 + 30,
                   graceMinutes: Number(grace || 10),
+                  isDefault: false,
+                  assignedCount: 0,
                 })
               }
             >
@@ -213,28 +222,73 @@ export function PolicyForms({
             </Button>
           }
         />
-        <ul className="flex flex-col">
+        <p className="text-secondary text-text-secondary">
+          {shifts.some((s) => s.isDefault)
+            ? "Everyone without a shift of their own works the default shift. Set a person's own shift on their employee record."
+            : shifts.length === 0
+              ? `Until you add a shift, everyone works ${formatShiftRange(BUILT_IN_SHIFT.startMinutes, BUILT_IN_SHIFT.endMinutes)}. The first shift you add becomes the company default.`
+              : `No shift is the default yet, so everyone without their own shift works ${formatShiftRange(BUILT_IN_SHIFT.startMinutes, BUILT_IN_SHIFT.endMinutes)}. Make one the default.`}
+        </p>
+        <ul className="mt-2 flex flex-col">
           {shifts.map((shift) => (
             <li
               key={shift.id}
               className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle py-2.5 last:border-0"
             >
               <div>
-                <p className="text-body font-semibold text-text-primary">
+                <p className="flex flex-wrap items-center gap-2 text-body font-semibold text-text-primary">
                   {shift.name}
+                  {shift.isDefault && (
+                    <StatusChip
+                      status={{ key: "shift-default", label: "Company default", tone: "info" }}
+                      size="sm"
+                    />
+                  )}
                 </p>
                 <p className="font-mono text-data text-text-secondary tabular-nums">
                   {toTime(shift.startMinutes)} – {toTime(shift.endMinutes)} ·
                   grace {shift.graceMinutes} min
+                  {shift.assignedCount > 0
+                    ? ` · ${shift.assignedCount} assigned`
+                    : ""}
                 </p>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShiftDraft(shift)}
-              >
-                Edit
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                {!shift.isDefault && (
+                  <Button
+                    size="sm"
+                    variant="tertiary"
+                    loading={pending}
+                    onClick={() =>
+                      startTransition(async () => {
+                        const result = await makeDefaultShiftAction({
+                          shiftId: shift.id,
+                        });
+                        if (result.ok) {
+                          show({
+                            variant: "success",
+                            message: result.detail
+                              ? `${result.message} ${result.detail}`
+                              : result.message,
+                          });
+                          router.refresh();
+                        } else {
+                          show({ variant: "error", message: result.error });
+                        }
+                      })
+                    }
+                  >
+                    Make default
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShiftDraft(shift)}
+                >
+                  Edit
+                </Button>
+              </div>
             </li>
           ))}
         </ul>

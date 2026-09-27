@@ -538,6 +538,15 @@ export function AttendanceActionCard({ context, firstName }: Props) {
 
       {/* Shift line + status of the existing record. */}
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        {/* A day off is paid whether or not they come in; checking in is
+            still allowed, for the days someone is needed anyway. */}
+        {context.offToday && !checkedIn && (
+          <p className="w-full text-body text-text-secondary">
+            {context.offToday.kind === "holiday"
+              ? `Today is a holiday — ${context.offToday.name}. Check in only if you're working today.`
+              : "Today is your weekly off. Check in only if you're working today."}
+          </p>
+        )}
         {context.shift && (
           <p className="text-caption text-text-secondary">
             Shift {formatShiftTime(context.shift.startMinutes)} –{" "}

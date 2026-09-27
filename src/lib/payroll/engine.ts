@@ -57,6 +57,14 @@ export const DEFAULT_LATE_POLICY: LatePolicy = {
 export interface AttendanceSummary {
   /** Days in the payroll month. */
   calendarDays: number;
+  /**
+   * The calendar days split by the work calendar. Weekly offs and holidays
+   * are paid and never absent; only working days can be. Optional so a
+   * summary built before the work calendar existed still calculates.
+   */
+  workingDays?: number;
+  weeklyOffDays?: number;
+  holidayDays?: number;
   /** Days with a check-in that is not an unresolved exception. */
   presentDays: number;
   /** Approved leave the approver marked paid. */
@@ -86,6 +94,9 @@ export interface PayslipComponentLine {
 
 export interface PayrollLineResult {
   calendarDays: number;
+  workingDays?: number;
+  weeklyOffDays?: number;
+  holidayDays?: number;
   presentDays: number;
   paidLeaveDays: number;
   unpaidDays: number;
@@ -204,6 +215,9 @@ export function calculatePayrollLine(input: {
 
   return {
     calendarDays,
+    workingDays: attendance.workingDays,
+    weeklyOffDays: attendance.weeklyOffDays,
+    holidayDays: attendance.holidayDays,
     presentDays: attendance.presentDays,
     paidLeaveDays: attendance.paidLeaveDays,
     unpaidDays,

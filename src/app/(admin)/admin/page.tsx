@@ -11,6 +11,7 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { STATUS } from "@/lib/status";
 import { workDateInTimezone } from "@/lib/attendance/policy";
 import { periodLabel } from "@/lib/payroll/engine";
+import { membersOffOn } from "@/lib/attendance/work-calendar";
 import { currentPeriod } from "@/lib/payroll/service";
 import { cn } from "@/lib/cn";
 
@@ -68,7 +69,12 @@ export default async function AdminDashboardPage() {
           attendanceOn
             ? db.attendanceRecord.findMany({
                 where: { tenantId: session.tenant.id, workDate },
-                select: { checkInAt: true, lateMinutes: true, reviewStatus: true },
+                select: {
+                  membershipId: true,
+                  checkInAt: true,
+                  lateMinutes: true,
+                  reviewStatus: true,
+                },
               })
             : [],
           attendanceOn
@@ -106,9 +112,18 @@ export default async function AdminDashboardPage() {
         ])
       : [0, [], 0, 0, 0, 0, []];
 
-  const present = records.filter((r) => r.checkInAt).length;
+  const presentIds = new Set(
+    records.filter((r) => r.checkInAt).map((r) => r.membershipId),
+  );
+  const present = presentIds.size;
   const late = records.filter((r) => r.lateMinutes > 0).length;
-  const notRecorded = Math.max(0, headcount - present);
+  // Nobody is "not recorded" on their day off (weekly off or holiday).
+  const offToday =
+    db && attendanceOn
+      ? await membersOffOn(session.tenant.id, workDate)
+      : new Set<string>();
+  const offAndAbsent = [...offToday].filter((id) => !presentIds.has(id)).length;
+  const notRecorded = Math.max(0, headcount - present - offAndAbsent);
 
   const metrics = attendanceOn
     ? [
@@ -151,7 +166,7 @@ export default async function AdminDashboardPage() {
                   {metric.value}
                 </p>
                 <p className="text-caption text-text-tertiary">
-                  of {headcount} employees
+                  of {headcount} {headcount === 1 ? "employee" : "employees"}
                 </p>
               </Card>
             ))}

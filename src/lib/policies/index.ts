@@ -27,7 +27,10 @@ export type PolicyKey =
   // Expense claim rules (EXPENSES-MODULE.md §8): categories, deadline,
   // settlement default, retention. Every claim stamps the version that
   // applied at submission.
-  | "expenses";
+  | "expenses"
+  // Weekly offs and holidays (src/lib/attendance/calendar.ts). Its own key
+  // so adding a holiday does not look like the late policy changed.
+  | "work_calendar";
 
 export async function getPolicy<T>(
   tenantId: string,

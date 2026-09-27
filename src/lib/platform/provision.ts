@@ -225,7 +225,14 @@ export async function provisionTenant(
     });
 
     return { tenant, token };
-  });
+  },
+  // Roles, permissions, modules and features are ~60 writes. Prisma's 5 s
+  // default was being exceeded on an ordinary day (5.1 s measured, 27 Sept
+  // 2026), and a timeout rolls the whole company back — "Add a company"
+  // then fails for no reason the operator can see. Same allowance style as
+  // purge.ts.
+  { timeout: 30_000, maxWait: 10_000 },
+  );
 
   return {
     ok: true,

@@ -7,6 +7,7 @@ import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
 import { privilegeRank } from "@/lib/catalog";
 import { isSimpleStructure } from "@/lib/payroll/simple";
+import { describeWeekdays, normaliseWeekdays } from "@/lib/attendance/calendar";
 
 /**
  * Employee records (MODULES.md → Employee Management).
@@ -37,7 +38,14 @@ const profileSchema = z.object({
   shiftId: z.string().uuid().nullable(),
   reportingToId: z.string().uuid().nullable(),
   canCheckInAtAnyBranch: z.boolean(),
-  status: z.enum(["ACTIVE", "SUSPENDED", "DEACTIVATED"]),
+  // INVITED is only ever kept, never chosen: it is what someone is until
+  // they accept their invitation.
+  status: z.enum(["ACTIVE", "SUSPENDED", "DEACTIVATED", "INVITED"]),
+  hasOwnWeeklyOff: z.boolean().optional(),
+  weeklyOffDays: z
+    .array(z.number().int().min(0).max(6))
+    .max(6, "Leave them at least one working day in the week.")
+    .optional(),
 });
 
 export async function saveEmployeeAction(
@@ -109,6 +117,24 @@ export async function saveEmployeeAction(
     return { ok: false, error: "A person cannot report to themselves." };
   }
 
+  // An invited person becomes active by accepting, not by an edit: making
+  // them "Active" here would put someone who has never signed in onto the
+  // attendance board and into payroll. They can only stay invited or leave.
+  const invited = membership.status === "INVITED";
+  if (invited && !["INVITED", "DEACTIVATED"].includes(parsed.data.status)) {
+    return {
+      ok: false,
+      error: "They haven't accepted their invitation yet. They become active when they do.",
+    };
+  }
+  if (!invited && parsed.data.status === "INVITED") {
+    return { ok: false, error: "Choose Active, Suspended or Has left." };
+  }
+  const hasOwnWeeklyOff = parsed.data.hasOwnWeeklyOff ?? membership.hasOwnWeeklyOff;
+  const weeklyOffDays = hasOwnWeeklyOff
+    ? normaliseWeekdays(parsed.data.weeklyOffDays ?? membership.weeklyOffDays)
+    : [];
+
   const before = {
     displayName: membership.user.displayName,
     employeeCode: membership.employeeCode,
@@ -117,6 +143,9 @@ export async function saveEmployeeAction(
     shift: membership.shift?.name ?? null,
     canCheckInAtAnyBranch: membership.canCheckInAtAnyBranch,
     status: membership.status,
+    weeklyOff: membership.hasOwnWeeklyOff
+      ? describeWeekdays(membership.weeklyOffDays)
+      : "company default",
   };
 
   await db.$transaction([
@@ -137,6 +166,8 @@ export async function saveEmployeeAction(
         reportingToId: parsed.data.reportingToId,
         canCheckInAtAnyBranch: parsed.data.canCheckInAtAnyBranch,
         status: parsed.data.status,
+        hasOwnWeeklyOff,
+        weeklyOffDays,
       },
     }),
   ]);
@@ -159,6 +190,7 @@ export async function saveEmployeeAction(
       shift: updated.shift?.name ?? null,
       canCheckInAtAnyBranch: parsed.data.canCheckInAtAnyBranch,
       status: parsed.data.status,
+      weeklyOff: hasOwnWeeklyOff ? describeWeekdays(weeklyOffDays) : "company default",
     },
   });
 

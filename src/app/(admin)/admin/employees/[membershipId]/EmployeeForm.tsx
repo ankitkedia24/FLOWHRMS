@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
 import { saveEmployeeAction } from "@/lib/employees/actions";
+import { describeWeekdays, WEEKDAYS } from "@/lib/attendance/calendar";
 
 /**
  * Employee details (screen A5). This is where a person's home location,
@@ -29,18 +30,26 @@ interface Member {
   reportingToId: string | null;
   canCheckInAtAnyBranch: boolean;
   status: string;
+  hasOwnWeeklyOff: boolean;
+  weeklyOffDays: number[];
 }
 
 export function EmployeeForm({
   member,
   branches,
   shifts,
+  defaultShiftLabel,
+  companyWeeklyOff,
   managers,
   canManage,
 }: {
   member: Member;
   branches: Array<{ id: string; name: string }>;
   shifts: Array<{ id: string; name: string }>;
+  /** What "Company default" is, e.g. "Company default (Shop shift, 10:00–20:00)". */
+  defaultShiftLabel: string;
+  /** The company's weekly off days, for the "Company default" label. */
+  companyWeeklyOff: number[];
   managers: Array<{ id: string; name: string }>;
   canManage: boolean;
 }) {
@@ -52,6 +61,8 @@ export function EmployeeForm({
   const set = <K extends keyof Member>(key: K, value: Member[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
+  const invited = member.status === "INVITED";
+  const ownOffAll = form.hasOwnWeeklyOff && form.weeklyOffDays.length >= 7;
   const roamingChanged =
     form.canCheckInAtAnyBranch !== member.canCheckInAtAnyBranch;
   const branchChanged = form.branchId !== member.branchId;
@@ -126,8 +137,27 @@ export function EmployeeForm({
             value={form.shiftId ?? ""}
             onChange={(e) => set("shiftId", e.target.value || null)}
             options={[
-              { value: "", label: "Company default" },
+              { value: "", label: defaultShiftLabel },
               ...shifts.map((s) => ({ value: s.id, label: s.name })),
+            ]}
+          />
+          <Select
+            label="Weekly off"
+            disabled={!canManage}
+            value={form.hasOwnWeeklyOff ? "OWN" : "COMPANY"}
+            onChange={(e) => {
+              const own = e.target.value === "OWN";
+              set("hasOwnWeeklyOff", own);
+              if (own && form.weeklyOffDays.length === 0) {
+                set("weeklyOffDays", companyWeeklyOff);
+              }
+            }}
+            options={[
+              {
+                value: "COMPANY",
+                label: `Company default (${companyWeeklyOff.length ? describeWeekdays(companyWeeklyOff) : "no weekly off"})`,
+              },
+              { value: "OWN", label: "Their own days" },
             ]}
           />
           <Select
@@ -146,13 +176,51 @@ export function EmployeeForm({
             disabled={!canManage}
             value={form.status}
             onChange={(e) => set("status", e.target.value)}
-            options={[
-              { value: "ACTIVE", label: "Active" },
-              { value: "SUSPENDED", label: "Suspended" },
-              { value: "DEACTIVATED", label: "Has left" },
-            ]}
+            options={
+              invited
+                ? [
+                    { value: "INVITED", label: "Invited — hasn't joined yet" },
+                    { value: "DEACTIVATED", label: "Has left" },
+                  ]
+                : [
+                    { value: "ACTIVE", label: "Active" },
+                    { value: "SUSPENDED", label: "Suspended" },
+                    { value: "DEACTIVATED", label: "Has left" },
+                  ]
+            }
           />
         </div>
+
+        {form.hasOwnWeeklyOff && (
+          <fieldset className="mt-3">
+            <legend className="text-label text-text-primary">
+              Their weekly off
+            </legend>
+            <div className="mt-1 grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-x-4">
+              {WEEKDAYS.map((name, day) => (
+                <Checkbox
+                  key={name}
+                  label={name}
+                  disabled={!canManage}
+                  checked={form.weeklyOffDays.includes(day)}
+                  onChange={(e) =>
+                    set(
+                      "weeklyOffDays",
+                      e.target.checked
+                        ? [...new Set([...form.weeklyOffDays, day])].sort()
+                        : form.weeklyOffDays.filter((d) => d !== day),
+                    )
+                  }
+                />
+              ))}
+            </div>
+            <p className="mt-1 text-caption text-text-secondary">
+              {ownOffAll
+                ? "Leave them at least one working day in the week."
+                : "Paid days off. Company holidays apply to them too."}
+            </p>
+          </fieldset>
+        )}
 
         <div className="mt-3">
           <Checkbox
@@ -188,9 +256,13 @@ export function EmployeeForm({
         <div className="mt-4">
           <Button
             loading={pending}
-            disabled={!form.displayName.trim()}
+            disabled={!form.displayName.trim() || ownOffAll}
             disabledReason={
-              !form.displayName.trim() ? "Give the person a name." : undefined
+              !form.displayName.trim()
+                ? "Give the person a name."
+                : ownOffAll
+                  ? "Leave them at least one working day in the week."
+                  : undefined
             }
             onClick={() =>
               startTransition(async () => {
@@ -204,7 +276,13 @@ export function EmployeeForm({
                   shiftId: form.shiftId,
                   reportingToId: form.reportingToId,
                   canCheckInAtAnyBranch: form.canCheckInAtAnyBranch,
-                  status: form.status as "ACTIVE" | "SUSPENDED" | "DEACTIVATED",
+                  status: form.status as
+                    | "ACTIVE"
+                    | "SUSPENDED"
+                    | "DEACTIVATED"
+                    | "INVITED",
+                  hasOwnWeeklyOff: form.hasOwnWeeklyOff,
+                  weeklyOffDays: form.weeklyOffDays,
                 });
                 if (result.ok) {
                   show({ variant: "success", message: result.message });

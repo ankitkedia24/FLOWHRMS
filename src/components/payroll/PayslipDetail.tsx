@@ -14,6 +14,10 @@ export interface PayslipData {
   employeeName: string;
   employeeCode: string | null;
   calendarDays: number;
+  /** 0 on payslips approved before the work calendar existed. */
+  workingDays: number;
+  weeklyOffDays: number;
+  holidayDays: number;
   presentDays: number;
   paidLeaveDays: number;
   unpaidDays: number;
@@ -52,6 +56,18 @@ export function PayslipDetail({ data }: { data: PayslipData }) {
         <CardHeader title="Attendance used" />
         <dl className="flex flex-col gap-2">
           <Row label="Days in period" value={String(data.calendarDays)} />
+          {data.workingDays > 0 && (
+            <>
+              <Row label="Working days" value={String(data.workingDays)} />
+              <Row
+                label="Weekly offs (paid)"
+                value={String(data.weeklyOffDays)}
+              />
+              {data.holidayDays > 0 && (
+                <Row label="Holidays (paid)" value={String(data.holidayDays)} />
+              )}
+            </>
+          )}
           <Row label="Present" value={String(data.presentDays)} />
           {data.paidLeaveDays > 0 && (
             <Row label="Paid leave" value={String(data.paidLeaveDays)} />

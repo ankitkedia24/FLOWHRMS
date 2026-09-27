@@ -76,7 +76,7 @@ export function EmployeeSearch({
         />
       </div>
       <p className="sr-only" aria-live="polite">
-        {resultCount} employees found
+        {resultCount} {resultCount === 1 ? "person" : "people"} found
       </p>
     </div>
   );

@@ -10,6 +10,8 @@ FlowHRMS serves Indian SMEs first, especially operational businesses such as har
 
 The V1 core is Employee Management, GPS Attendance, Leave Approval, Attendance-Based Payroll, Tasks, Daily Reporting, Notifications, Employee Documents, Reports, and Module Management. No predefined holiday calendar, earned-leave balance, visitor register, or V2 integrations are included in V1 unless later approved.
 
+**Approved 27 Sept 2026 — work calendar.** Each company sets its weekly off days (Sunday by default) and its own holiday list; any employee may have their own weekly off. Weekly offs and holidays are paid, never counted as absent, and a check-in on one is never late. Leave counts working days only (no sandwich rule). There is still no *predefined* holiday list — the company enters its own. Earned-leave balances remain out of scope.
+
 ## Working order
 1. Approve this Pack 01.
 2. Create and approve the FlowHRMS brand, logo, design tokens, mobile-first UI kit, landing page, and prototype in Claude Design.

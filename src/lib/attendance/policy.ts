@@ -13,6 +13,8 @@
  * receive the already-resolved server timestamp.
  */
 
+import { dateKey, offDayOn, type OffDay, type WorkCalendar } from "./calendar";
+
 export type LocationOutcome =
   | "INSIDE"
   | "OUTSIDE"
@@ -454,6 +456,24 @@ export interface AttendanceContext {
   /** ATTENDANCE.multiple_punch — may they come back after checking out? */
   multiplePunchAllowed: boolean;
   today: TodayAttendance | null;
+  /**
+   * The company calendar and this person's weekly offs. A check-in on a day
+   * off is recorded but is never late. Optional: absent means "no days off",
+   * which is how contexts built before the work calendar behaved.
+   */
+  workCalendar?: { calendar: WorkCalendar; weeklyOffDays: number[] };
+  /** Today's day off, if it is one — resolved on the server for display. */
+  offToday?: OffDay | null;
+}
+
+/** The day off `now` falls on for this person, if any. */
+export function offDayAt(context: AttendanceContext, now: Date): OffDay | null {
+  if (!context.workCalendar) return null;
+  return offDayOn(
+    dateKey(workDateInTimezone(now, context.timezone)),
+    context.workCalendar.calendar,
+    context.workCalendar.weeklyOffDays,
+  );
 }
 
 export interface CheckInState {
@@ -479,10 +499,11 @@ export function computeCheckInState(
     coords,
   });
 
-  const lateBy = lateMinutes(
-    minutesInTimezone(now, context.timezone),
-    context.shift,
-  );
+  // Coming in on a weekly off or a holiday is never "late" — there was no
+  // shift to be late for.
+  const lateBy = offDayAt(context, now)
+    ? 0
+    : lateMinutes(minutesInTimezone(now, context.timezone), context.shift);
 
   return {
     location,

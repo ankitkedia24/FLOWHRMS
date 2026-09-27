@@ -5,6 +5,9 @@ import type { AppSession } from "@/lib/auth/types";
 import { loadEntitlements } from "@/lib/authz/entitlements";
 import { evaluateAccess } from "@/lib/authz/flags";
 import { getPolicy, getPolicyVersion } from "@/lib/policies";
+import { dateKey, offDayOn, personWeeklyOff } from "./calendar";
+import { loadWorkCalendar } from "./work-calendar";
+import { BUILT_IN_SHIFT } from "./shifts";
 import {
   candidateBranches,
   effectiveRadiusM,
@@ -26,12 +29,7 @@ import {
 export type { AttendanceContext, TodayAttendance } from "./policy";
 export { computeCheckInState } from "./policy";
 
-const DEFAULT_SHIFT = {
-  name: "General shift",
-  startMinutes: 9 * 60 + 30,
-  endMinutes: 18 * 60 + 30,
-  graceMinutes: 10,
-};
+const DEFAULT_SHIFT = BUILT_IN_SHIFT;
 
 const DEFAULT_RADIUS_M = 300;
 
@@ -135,6 +133,9 @@ export async function loadAttendanceContext(
     feature: "multiple_punch",
   }).allowed;
 
+  const workCalendar = await loadWorkCalendar(session.tenant.id);
+  const personOff = personWeeklyOff(workCalendar, membership ?? null);
+
   const workDate = workDateInTimezone(new Date(), session.tenant.timezone);
   const record = await db.attendanceRecord.findUnique({
     where: {
@@ -168,6 +169,8 @@ export async function loadAttendanceContext(
     },
     locationRequired,
     multiplePunchAllowed,
+    workCalendar: { calendar: workCalendar, weeklyOffDays: personOff },
+    offToday: offDayOn(dateKey(workDate), workCalendar, personOff),
     today: record
       ? {
           recordId: record.id,

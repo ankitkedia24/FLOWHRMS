@@ -3,6 +3,9 @@ import "server-only";
 import { getDb } from "@/lib/db";
 import type { AppSession } from "@/lib/auth/types";
 import { getPolicy } from "@/lib/policies";
+import { personWeeklyOff } from "@/lib/attendance/calendar";
+import { loadWorkCalendar } from "@/lib/attendance/work-calendar";
+import { summariseAttendance } from "./summary";
 import {
   DEFAULT_LATE_POLICY,
   calculatePayrollLine,
@@ -34,6 +37,11 @@ export interface PayrollPreview {
   periodMonth: Date;
   calendarDays: number;
   latePolicy: LatePolicy;
+  /** The company calendar this period was counted against. */
+  workCalendar: {
+    weeklyOffDays: number[];
+    holidaysInPeriod: Array<{ date: string; name: string }>;
+  };
   lines: PayrollLineDraft[];
   /** Attendance exceptions still unreviewed in the period. */
   unreviewedExceptions: number;
@@ -94,7 +102,10 @@ export async function buildPayrollPreview(
       calendarDays,
     ),
   );
-  const latePolicy = await loadLatePolicy(tenantId);
+  const [latePolicy, workCalendar] = await Promise.all([
+    loadLatePolicy(tenantId),
+    loadWorkCalendar(tenantId),
+  ]);
 
   const [members, components, structures, attendance, leave, unreviewed, existingRun] =
     await Promise.all([
@@ -181,37 +192,16 @@ export async function buildPayrollPreview(
       continue;
     }
 
-    const records = attendance.filter((r) => r.membershipId === member.id);
-    const presentDays = records.filter((r) => r.checkInAt).length;
-    const lateDays = records.filter(
-      (r) => r.lateMinutes > 0 && r.exemptionStatus !== "EXEMPTED",
-    ).length;
-    const lateMinutes = records.reduce(
-      (sum, r) => sum + (r.exemptionStatus === "EXEMPTED" ? 0 : r.lateMinutes),
-      0,
-    );
-
-    const memberLeave = leave.filter((l) => l.membershipId === member.id);
-    const paidLeaveDays = memberLeave
-      .filter((l) => l.paid === true)
-      .reduce((sum, l) => sum + overlapDays(l, periodMonth, periodEnd), 0);
-    const unpaidLeaveDays = memberLeave
-      .filter((l) => l.paid !== true)
-      .reduce((sum, l) => sum + overlapDays(l, periodMonth, periodEnd), 0);
-
-    // Days with neither attendance nor approved leave.
-    const accountedDays = presentDays + paidLeaveDays + unpaidLeaveDays;
-    const absentDays = Math.max(0, calendarDays - accountedDays);
-
-    const summary: AttendanceSummary = {
-      calendarDays,
-      presentDays,
-      paidLeaveDays,
-      unpaidLeaveDays,
-      absentDays,
-      lateDays,
-      lateMinutes,
-    };
+    // Weekly offs and holidays are paid and never absent — only working
+    // days can be (src/lib/payroll/summary.ts).
+    const summary: AttendanceSummary = summariseAttendance({
+      periodStart: periodMonth,
+      periodEnd,
+      calendar: workCalendar,
+      weeklyOffDays: personWeeklyOff(workCalendar, member),
+      records: attendance.filter((r) => r.membershipId === member.id),
+      leave: leave.filter((l) => l.membershipId === member.id),
+    });
 
     const definitions: ComponentDefinition[] = structure.lines
       .map((line) => {
@@ -279,10 +269,18 @@ export async function buildPayrollPreview(
     }));
 
   const payable = lines.filter((l) => l.result);
+  const periodStartKey = periodMonth.toISOString().slice(0, 10);
+  const periodEndKey = periodEnd.toISOString().slice(0, 10);
   return {
     periodMonth,
     calendarDays,
     latePolicy,
+    workCalendar: {
+      weeklyOffDays: workCalendar.weeklyOffDays,
+      holidaysInPeriod: workCalendar.holidays.filter(
+        (h) => h.date >= periodStartKey && h.date <= periodEndKey,
+      ),
+    },
     lines,
     unreviewedExceptions: unreviewed,
     adjustmentsOnExcludedLines,
@@ -293,17 +291,4 @@ export async function buildPayrollPreview(
     ),
     netTotal: payable.reduce((sum, l) => sum + (l.result?.net ?? 0), 0),
   };
-}
-
-/** Whole days of a leave request that fall inside the period. */
-function overlapDays(
-  leave: { startDate: Date; endDate: Date; type: string; unpaidDays: number },
-  periodStartDate: Date,
-  periodEndDate: Date,
-): number {
-  if (leave.type === "HALF_DAY") return 0.5;
-  const start = leave.startDate > periodStartDate ? leave.startDate : periodStartDate;
-  const end = leave.endDate < periodEndDate ? leave.endDate : periodEndDate;
-  const days = Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1;
-  return Math.max(0, days);
 }

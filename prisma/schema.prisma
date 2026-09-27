@@ -193,6 +193,10 @@ model TenantMembership {
   /// then reach tenant admins only, and the directory says so.
   departmentId String?          @db.Uuid
   employmentType EmploymentType @default(FULL_TIME)
+  /// When true, `weeklyOffDays` replaces the company's weekly off for this
+  /// person (0 = Sunday … 6 = Saturday). Shop staff often take a weekday.
+  hasOwnWeeklyOff Boolean       @default(false)
+  weeklyOffDays   Int[]         @default([])
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
@@ -665,7 +669,8 @@ model EmployeeDocument {
 model TenantPolicy {
   id        String   @id @default(uuid()) @db.Uuid
   tenantId  String   @db.Uuid
-  /// attendance | leave | payroll | notifications
+  /// attendance | leave | payroll | notifications | pay_setup | performance
+  /// | expenses | work_calendar
   key       String
   version   Int      @default(1)
   value     Json
@@ -814,6 +819,11 @@ model PayrollLine {
   statusReason String?
 
   calendarDays   Int     @default(0)
+  /// Calendar days split for the payslip. 0 on lines approved before the
+  /// work calendar existed, which show the older "days in period" view.
+  workingDays    Int     @default(0)
+  weeklyOffDays  Int     @default(0)
+  holidayDays    Int     @default(0)
   presentDays    Decimal @default(0) @db.Decimal(6, 2)
   paidLeaveDays  Decimal @default(0) @db.Decimal(6, 2)
   unpaidDays     Decimal @default(0) @db.Decimal(6, 2)

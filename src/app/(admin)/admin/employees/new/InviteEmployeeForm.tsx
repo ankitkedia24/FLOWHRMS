@@ -47,6 +47,7 @@ export function InviteEmployeeForm({
   managers,
   branches,
   shifts,
+  defaultShiftLabel,
   emailConfigured,
 }: {
   roles: Option[];
@@ -54,6 +55,8 @@ export function InviteEmployeeForm({
   managers: Option[];
   branches: Option[];
   shifts: Option[];
+  /** What "no shift of their own" means, e.g. "Company default (Shop shift, 10:00–20:00)". */
+  defaultShiftLabel: string;
   emailConfigured: boolean;
 }) {
   const router = useRouter();
@@ -301,7 +304,7 @@ export function InviteEmployeeForm({
             label="Shift"
             optional
             options={shifts}
-            placeholder="Company default"
+            placeholder={defaultShiftLabel}
             value={form.shiftId}
             onChange={(e) => set("shiftId")(e.target.value)}
           />

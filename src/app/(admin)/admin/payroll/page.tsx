@@ -18,6 +18,7 @@ import { listClaimsAwaitingPayroll } from "@/lib/expenses/queries";
 import { claimRef } from "@/lib/expenses/state";
 import { PayrollControls } from "./PayrollControls";
 import { SettleIntoRun } from "./SettleIntoRun";
+import { describeWeekdays } from "@/lib/attendance/calendar";
 
 export const metadata: Metadata = { title: "Payroll" };
 
@@ -206,6 +207,14 @@ export default async function AdminPayrollPage({
           <Row label="Period" value={label} />
           <Row label="Days in period" value={String(preview.calendarDays)} />
           <Row
+            label="Paid days off"
+            value={`${describeWeekdays(preview.workCalendar.weeklyOffDays)} off each week${
+              preview.workCalendar.holidaysInPeriod.length > 0
+                ? ` · ${preview.workCalendar.holidaysInPeriod.length} holiday${preview.workCalendar.holidaysInPeriod.length === 1 ? "" : "s"}`
+                : ""
+            } (people with their own weekly off use theirs)`}
+          />
+          <Row
             label="Attendance"
             value="Approved records for the period"
           />
@@ -222,7 +231,7 @@ export default async function AdminPayrollPage({
             label="Absent days"
             value={
               preview.latePolicy.deductAbsentDays
-                ? "Reduce pay"
+                ? "Missed working days reduce pay"
                 : "Do not reduce pay"
             }
           />

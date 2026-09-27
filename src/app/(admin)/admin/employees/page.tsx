@@ -47,6 +47,12 @@ export default async function AdminEmployeesPage({
   const params = await searchParams;
   const query = (params.q ?? "").trim();
   const showInactive = params.status === "all";
+  // Pending invitations are people the owner just added — hiding them made
+  // a new employee vanish from the list the moment they were saved. Only
+  // people who have left are hidden by default.
+  const statusWhere = showInactive
+    ? {}
+    : { status: { not: "DEACTIVATED" as const } };
 
   const branchOptions = await loadBranchOptions(session.tenant.id);
   const branchFilter = resolveBranchFilter(
@@ -60,7 +66,7 @@ export default async function AdminEmployeesPage({
     : await getDb().tenantMembership.findMany({
         where: {
           tenantId: session.tenant.id,
-          ...(showInactive ? {} : { status: "ACTIVE" }),
+          ...statusWhere,
           ...(branchFilter ? { branchId: branchFilter } : {}),
           ...(query.length >= 2
             ? {
@@ -101,7 +107,7 @@ export default async function AdminEmployeesPage({
   const total = devFixtureOffline()
     ? 0
     : await getDb().tenantMembership.count({
-        where: { tenantId: session.tenant.id, status: "ACTIVE" },
+        where: { tenantId: session.tenant.id, ...statusWhere },
       });
 
   const filtered = query.length >= 2 || branchFilter || showInactive;
@@ -131,7 +137,7 @@ export default async function AdminEmployeesPage({
       />
 
       <p className="text-secondary text-text-secondary" aria-live="polite">
-        Showing {members.length} of {total} employees
+        Showing {members.length} of {total} {total === 1 ? "person" : "people"}
         {selectedBranchName && ` at ${selectedBranchName}`}
       </p>
 

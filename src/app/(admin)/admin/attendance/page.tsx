@@ -16,6 +16,7 @@ import {
   workDateInTimezone,
 } from "@/lib/attendance/policy";
 import { ExceptionQueue } from "./ExceptionQueue";
+import { membersOffOn } from "@/lib/attendance/work-calendar";
 import { BranchFilter } from "@/components/filters/BranchFilter";
 import {
   branchName,
@@ -90,10 +91,18 @@ export default async function AdminAttendancePage({
         }),
       ]);
 
-  const present = records.filter((r) => r.checkInAt).length;
+  const presentIds = new Set(
+    records.filter((r) => r.checkInAt).map((r) => r.membershipId),
+  );
+  const present = presentIds.size;
   const late = records.filter((r) => r.lateMinutes > 0).length;
   const pending = records.filter((r) => r.reviewStatus === "PENDING").length;
-  const notRecorded = Math.max(0, headcount - present);
+  // Nobody is "not recorded" on their day off (weekly off or holiday).
+  const offToday = devFixtureOffline()
+    ? new Set<string>()
+    : await membersOffOn(session.tenant.id, workDate, peopleWhere);
+  const offAndAbsent = [...offToday].filter((id) => !presentIds.has(id)).length;
+  const notRecorded = Math.max(0, headcount - present - offAndAbsent);
 
   const metrics = [
     { label: "Present", value: present, dot: "bg-status-success-fg" },
@@ -124,7 +133,7 @@ export default async function AdminAttendancePage({
                 {metric.value}
               </p>
               <p className="text-caption text-text-tertiary">
-                of {headcount} employees
+                of {headcount} {headcount === 1 ? "employee" : "employees"}
               </p>
             </Card>
           ))}

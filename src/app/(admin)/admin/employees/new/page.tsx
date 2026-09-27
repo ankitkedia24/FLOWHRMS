@@ -10,6 +10,7 @@ import { supabaseAdminConfigured } from "@/lib/supabase/admin";
 import { ROLE_CONSEQUENCE, ROLE_PICKER_ORDER } from "@/lib/catalog";
 import { Alert } from "@/components/ui/Alert";
 import { InviteEmployeeForm } from "./InviteEmployeeForm";
+import { companyDefaultShiftLabel } from "@/lib/attendance/shifts";
 
 export const metadata: Metadata = { title: "Add employee" };
 
@@ -106,6 +107,7 @@ export default async function NewEmployeePage() {
         }))}
         branches={branches.map((b) => ({ value: b.id, label: b.name }))}
         shifts={shifts.map((s) => ({ value: s.id, label: s.name }))}
+        defaultShiftLabel={companyDefaultShiftLabel(shifts)}
         emailConfigured={emailConfigured()}
       />
     </div>
