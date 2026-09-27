@@ -3,6 +3,7 @@ import {
   CalendarDays,
   ChartNoAxesColumn,
   CircleUser,
+  BadgeCheck,
   Clock,
   CreditCard,
   FileClock,
@@ -52,4 +53,5 @@ export const NAV_ICONS: Record<NavIcon, typeof Clock> = {
   expenses: Wallet,
   account: KeyRound,
   subscription: CreditCard,
+  designations: BadgeCheck,
 };

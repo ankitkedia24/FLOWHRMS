@@ -20,6 +20,8 @@ Source: `src/lib/consent/documents.ts`. Published copies with sha256 fingerprint
 | `customer_terms` — Registering a company | Same | 18+; authorised to register; accepts Terms & Privacy Policy; company is Fiduciary for employee data | — |
 | `employee` — Notice to employees | Invitation acceptance (`/invite/[token]`) | Work records for attendance/leave/tasks/pay/HR; **location only at check-in/out** (separate box) | — |
 
+Employee notice **version 2** (28 Sept 2026) adds the profile photograph and blood group, collected for the employee ID card. Existing employees re-consent once, at their next visit.
+
 Rule 3 checklist, for each notice:
 - It stands on its own and has its own page.
 - It lists the personal data item by item, with a purpose for each.

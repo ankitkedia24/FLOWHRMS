@@ -5,12 +5,22 @@ import { SignOutButton } from "@/components/offline/SignOutButton";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { STATUS } from "@/lib/status";
+import { getDb } from "@/lib/db";
+import { devFixtureOffline } from "@/lib/auth/fixture";
+import { mediaUrl } from "@/lib/media/urls";
 
 export const metadata: Metadata = { title: "Profile" };
 
 /** Employee profile shell (screen E16). */
 export default async function EmployeeProfilePage() {
   const session = await requireSession();
+  const me = devFixtureOffline()
+    ? null
+    : await getDb().tenantMembership.findUnique({
+        where: { id: session.membership.id },
+        select: { photoPath: true, designation: true },
+      });
+  const photoUrl = await mediaUrl(me?.photoPath);
 
   return (
     <div className="flex flex-col gap-4">
@@ -18,6 +28,10 @@ export default async function EmployeeProfilePage() {
 
       <Card>
         <div className="flex items-center gap-4">
+          {photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- signed storage URL
+            <img src={photoUrl} alt="" className="size-14 shrink-0 rounded-avatar object-cover" />
+          ) : (
           <span
             aria-hidden="true"
             className="flex size-14 items-center justify-center rounded-avatar bg-brand-primary-subtle font-heading text-h3 text-brand-primary"
@@ -29,12 +43,13 @@ export default async function EmployeeProfilePage() {
               .join("")
               .toUpperCase()}
           </span>
+          )}
           <div className="min-w-0">
             <p className="text-body-lg font-semibold text-text-primary">
               {session.user.displayName}
             </p>
             <p className="text-secondary text-text-secondary">
-              {session.membership.roleName} · {session.tenant.name}
+              {me?.designation ?? session.membership.roleName} · {session.tenant.name}
             </p>
             {session.membership.employeeCode && (
               <p className="font-mono text-mono text-text-tertiary uppercase">
@@ -77,6 +92,15 @@ export default async function EmployeeProfilePage() {
       <Card>
         <CardHeader title="Your records" />
         <ul className="flex flex-col gap-2">
+          <li>
+            <a
+              href="/print/id-cards?member=me"
+              target="_blank"
+              className="text-body text-brand-primary underline-offset-2 hover:underline"
+            >
+              My ID card
+            </a>
+          </li>
           <li>
             <Link
               href="/leave"

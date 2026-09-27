@@ -83,6 +83,7 @@ export async function purgeTenant(
       });
       await tx.department.deleteMany({ where: t });
       await tx.tenantMembership.deleteMany({ where: t });
+      await tx.designation.deleteMany({ where: t });
       await tx.branch.deleteMany({ where: t });
       await tx.shift.deleteMany({ where: t });
 

@@ -21,8 +21,8 @@ const ALL_MODULES: ModuleKey[] = [
   "NOTIFICATIONS",
 ];
 
-const ALL_CAN = { modules: true, roles: true, settings: true, audit: true, billing: true };
-const NO_CAN = { modules: false, roles: false, settings: false, audit: false, billing: false };
+const ALL_CAN = { modules: true, roles: true, settings: true, audit: true, billing: true, designations: true };
+const NO_CAN = { modules: false, roles: false, settings: false, audit: false, billing: false, designations: false };
 
 describe("admin destinations", () => {
   it("offers every module screen when everything is on", () => {
@@ -56,7 +56,7 @@ describe("admin destinations", () => {
   it("shows only the configuration a role holds", () => {
     const hrefs = adminConfigItems({
       enabledModules: ALL_MODULES,
-      can: { modules: false, roles: false, settings: true, audit: false, billing: false },
+      can: { modules: false, roles: false, settings: true, audit: false, billing: false, designations: false },
     }).map((i) => i.href);
     expect(hrefs).toContain("/admin/settings");
     expect(hrefs).toContain("/admin/settings/departments");

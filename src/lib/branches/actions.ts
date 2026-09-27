@@ -16,7 +16,8 @@ import { checkAccess } from "@/lib/authz/guard";
  */
 
 export type ActionResult =
-  | { ok: true; message: string; detail?: string }
+  /** `id`: the saved record, so a form can select what it just created. */
+  | { ok: true; message: string; detail?: string; id?: string }
   | { ok: false; error: string };
 
 const schema = z.object({
@@ -135,6 +136,7 @@ export async function saveBranchAction(
   return {
     ok: true,
     message: `${branch.name} saved.`,
+    id: branch.id,
     detail: parsed.data.isActive ? radiusNote.trim() : "It is turned off.",
   };
 }

@@ -10,14 +10,15 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { STATUS, statusLate, type Status } from "@/lib/status";
 import { formatClockTime } from "@/lib/attendance/policy";
 import { computeInviteStatus } from "@/lib/invites/policy";
-import { ROLE_CONSEQUENCE, ROLE_PICKER_ORDER, privilegeRank } from "@/lib/catalog";
 import { EmployeeForm } from "./EmployeeForm";
 import { loadWorkCalendar } from "@/lib/attendance/work-calendar";
-import { companyDefaultShiftLabel } from "@/lib/attendance/shifts";
+import { loadEmployeeFormOptions } from "@/lib/employees/form-options";
+import { mediaUrl } from "@/lib/media/urls";
+import { PhotoCard } from "./PhotoCard";
 import { DocumentsPanel } from "./DocumentsPanel";
 import { SensitivePanel } from "./SensitivePanel";
 import { InvitePanel } from "./InvitePanel";
-import { RolePanel } from "./RolePanel";
+import { DesignationPanel } from "./DesignationPanel";
 import { SetSalaryCard } from "@/components/payroll/SetSalaryCard";
 import { getPolicy } from "@/lib/policies";
 import { resolvePayMode, type PaySetupPolicy } from "@/lib/payroll/simple";
@@ -79,28 +80,12 @@ export default async function EmployeeProfilePage({
 
   const canManage = session.permissions.has("employees.manage");
 
-  // Roles offered least-powerful-first, each labelled with what it grants,
-  // and anything above the viewer's own authority marked so the ceiling is
-  // visible rather than discovered by being refused.
-  const myRank = privilegeRank(session.membership.roleKey);
-  const roleOptions = (
-    devFixtureOffline()
-      ? []
-      : await db.role.findMany({ where: { tenantId: session.tenant.id } })
-  )
-    .sort((a, b) => {
-      const rank = (key: string) => {
-        const i = ROLE_PICKER_ORDER.indexOf(key);
-        return i === -1 ? ROLE_PICKER_ORDER.length : i;
-      };
-      return rank(a.key) - rank(b.key) || a.name.localeCompare(b.name);
-    })
-    .map((r) => ({
-      value: r.id,
-      label: r.name,
-      consequence: ROLE_CONSEQUENCE[r.key] ?? "Decides what they can see and do.",
-      aboveYou: privilegeRank(r.key) > myRank,
-    }));
+  // Designations (least access first, anything above the viewer marked),
+  // departments, locations and shifts — and what may be added on the spot.
+  const [formOptions, photoUrl] = await Promise.all([
+    loadEmployeeFormOptions(session),
+    mediaUrl(member.photoPath),
+  ]);
   const canSeeDocuments = session.permissions.has("documents.view");
   const tz = session.tenant.timezone;
 
@@ -114,23 +99,7 @@ export default async function EmployeeProfilePage({
   const canSetSalary = payrollAccess.decision.allowed;
 
   const workCalendar = await loadWorkCalendar(session.tenant.id);
-  const [branches, shifts, managers, recentAttendance, payPolicy, payComponents] = await Promise.all([
-    db.branch.findMany({
-      where: { tenantId: session.tenant.id, isActive: true },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
-    db.shift.findMany({
-      where: { tenantId: session.tenant.id },
-      select: {
-        id: true,
-        name: true,
-        startMinutes: true,
-        endMinutes: true,
-        isDefault: true,
-      },
-      orderBy: { startMinutes: "asc" },
-    }),
+  const [managers, recentAttendance, payPolicy, payComponents] = await Promise.all([
     db.tenantMembership.findMany({
       where: {
         tenantId: session.tenant.id,
@@ -172,8 +141,7 @@ export default async function EmployeeProfilePage({
           {member.user.displayName}
         </h1>
         <p className="mt-1 text-secondary text-text-secondary">
-          {member.role.name}
-          {member.designation && ` · ${member.designation}`}
+          {member.designation ?? member.role.name}
           {member.branch && ` · ${member.branch.name}`}
         </p>
       </div>
@@ -206,13 +174,25 @@ export default async function EmployeeProfilePage({
         canManage={canManage}
       />
 
-      <RolePanel
+      <PhotoCard
+        tenantId={session.tenant.id}
+        membershipId={member.id}
+        name={member.user.displayName}
+        photoUrl={photoUrl}
+        canManage={canManage}
+      />
+
+      <DesignationPanel
         membershipId={member.id}
         employeeName={member.user.displayName}
+        currentDesignationId={member.designationId}
+        currentDesignationName={member.designation}
         currentRoleId={member.roleId}
         currentRoleName={member.role.name}
-        roles={roleOptions}
+        designations={formOptions.designations}
+        accessLevels={formOptions.accessLevels}
         canManage={canManage}
+        canCreate={formOptions.can.addDesignation}
         isSelf={member.userId === session.user.id}
       />
 
@@ -224,7 +204,8 @@ export default async function EmployeeProfilePage({
           email: member.user.email,
           phone: member.user.phone,
           employeeCode: member.employeeCode,
-          designation: member.designation,
+          departmentId: member.departmentId,
+          bloodGroup: member.bloodGroup,
           joinedOn: member.joinedOn
             ? member.joinedOn.toISOString().slice(0, 10)
             : "",
@@ -236,9 +217,7 @@ export default async function EmployeeProfilePage({
           hasOwnWeeklyOff: member.hasOwnWeeklyOff,
           weeklyOffDays: member.weeklyOffDays,
         }}
-        branches={branches}
-        shifts={shifts.map((s) => ({ id: s.id, name: s.name }))}
-        defaultShiftLabel={companyDefaultShiftLabel(shifts)}
+        options={formOptions}
         companyWeeklyOff={workCalendar.weeklyOffDays}
         managers={managers.map((m) => ({
           id: m.id,

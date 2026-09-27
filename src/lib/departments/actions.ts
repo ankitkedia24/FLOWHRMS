@@ -19,7 +19,8 @@ import { DECIDING_PERMISSION } from "@/lib/actions/audience";
  */
 
 export type ActionResult =
-  | { ok: true; message: string; detail?: string }
+  /** `id`: the saved record, so a form can select what it just created. */
+  | { ok: true; message: string; detail?: string; id?: string }
   | { ok: false; error: string };
 
 const schema = z.object({
@@ -125,6 +126,7 @@ export async function saveDepartmentAction(
     ok: true,
     message: data.id ? `${saved.name} saved.` : `${saved.name} added.`,
     detail: headWarning,
+    id: saved.id,
   };
 }
 

@@ -10,6 +10,8 @@ import {
 import { BottomNav } from "@/components/shell/BottomNav";
 import { Sidebar } from "@/components/shell/Sidebar";
 import { EmployeeTopBar } from "@/components/shell/TopBar";
+import { SplashScreen } from "@/components/shell/SplashScreen";
+import { loadBranding } from "@/lib/branding/load";
 import { ToastProvider } from "@/components/ui/Toast";
 import { OfflineProvider } from "@/lib/offline/OfflineProvider";
 import { OfflineBar } from "@/components/offline/OfflineBar";
@@ -40,6 +42,7 @@ export default async function EmployeeLayout({
     session.user.id,
   );
 
+  const branding = await loadBranding(session.tenant.id);
   const items = employeeNavItems({
     enabledModules: enabledModuleKeys(entitlements),
   });
@@ -60,6 +63,13 @@ export default async function EmployeeLayout({
   return (
     <div data-surface="employee" className="flex min-h-dvh">
       <ToastProvider>
+        {branding.splash && (
+          <SplashScreen
+            src={branding.splash.url}
+            mime={branding.splash.mime}
+            storageKey={`fh-splash:${session.tenant.id}:${branding.splash.version}`}
+          />
+        )}
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-surface-default focus:px-3 focus:py-2"
@@ -72,6 +82,7 @@ export default async function EmployeeLayout({
             <div className="flex min-w-0 flex-1 flex-col">
               <EmployeeTopBar
                 title={session.tenant.name}
+                logoUrl={branding.logoUrl}
                 notificationCount={unread}
                 nav={nav}
               />

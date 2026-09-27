@@ -8,7 +8,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Card } from "@/components/ui/Card";
 import { RoleEditor } from "./RoleEditor";
 
-export const metadata: Metadata = { title: "Roles & permissions" };
+export const metadata: Metadata = { title: "Access levels" };
 
 /**
  * Roles and permissions (screen A19).
@@ -28,7 +28,7 @@ export default async function RolesPage() {
     return (
       <div className="flex flex-col gap-5">
         <h1 className="font-heading text-h1 text-text-primary">
-          Roles &amp; permissions
+          Access levels
         </h1>
         <Alert variant="info" title="Connect a database to edit roles." />
       </div>
@@ -53,8 +53,12 @@ export default async function RolesPage() {
   return (
     <div className="flex flex-col gap-5">
       <h1 className="font-heading text-h1 text-text-primary">
-        Roles &amp; permissions
+        Access levels
       </h1>
+      <p className="-mt-3 text-body text-text-secondary">
+        What each access level can see and do. Every designation is tied to one of these —
+        manage job titles in <a href="/admin/settings/designations" className="text-brand-primary underline-offset-2 hover:underline">Designations</a>.
+      </p>
 
       <Alert variant="info" title="Record scope is applied before every permission">
         A permission only ever applies within the records a person can

@@ -18,6 +18,8 @@ import { ActionTiles } from "@/components/actions/ActionTiles";
 import { TrialBanner, type PlanNotice } from "@/components/shell/TrialBanner";
 import { accessState } from "@/lib/billing/pricing";
 import { canManageBilling } from "@/lib/billing/policy";
+import { loadBranding } from "@/lib/branding/load";
+import { SplashScreen } from "@/components/shell/SplashScreen";
 
 /**
  * Admin shell: cool surface, 240px sidebar (lg+) / 72px rail (md) / drawer
@@ -48,6 +50,7 @@ export default async function AdminLayout({
       settings: session.permissions.has("settings.manage"),
       audit: session.permissions.has("audit.view"),
       billing: canManageBilling(session),
+      designations: session.permissions.has("employees.manage"),
     },
   };
   // An admin has attendance, leave and payslips of their own, and nothing
@@ -58,6 +61,7 @@ export default async function AdminLayout({
     ...platformCrossLinks({ isPlatformAdmin: session.user.isPlatformAdmin }),
   ];
   const configItems = adminConfigItems(navInput);
+  const branding = await loadBranding(session.tenant.id);
 
   const day = (at: Date) =>
     new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: session.tenant.timezone }).format(at);
@@ -84,6 +88,13 @@ export default async function AdminLayout({
   return (
     <div data-surface="admin" className="flex min-h-dvh">
       <ToastProvider>
+        {branding.splash && (
+          <SplashScreen
+            src={branding.splash.url}
+            mime={branding.splash.mime}
+            storageKey={`fh-splash:${session.tenant.id}:${branding.splash.version}`}
+          />
+        )}
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-surface-default focus:px-3 focus:py-2"
@@ -96,6 +107,7 @@ export default async function AdminLayout({
             <div className="flex min-w-0 flex-1 flex-col">
               <AdminTopBar
                 tenantName={session.tenant.name}
+                logoUrl={branding.logoUrl}
                 notificationCount={unread}
                 nav={nav}
               />

@@ -85,6 +85,8 @@ const TENANT_TABLES = [
   "billing_plans",
   "billing_payments",
   "invoice_counters",
+  // Job titles and the access each carries.
+  "designations",
 ];
 
 const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;

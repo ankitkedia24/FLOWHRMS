@@ -93,7 +93,7 @@ export function RoleEditor({
       {isOwner ? (
         <p className="mt-3 inline-flex items-center gap-2 text-secondary text-text-secondary">
           <Lock aria-hidden="true" className="size-4" />
-          The Tenant Owner always keeps full access to their own company.
+          The Owner always keeps full access to their own company.
         </p>
       ) : !open ? (
         <div className="mt-3">

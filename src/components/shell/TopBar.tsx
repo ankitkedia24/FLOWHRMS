@@ -22,12 +22,22 @@ interface NavProps {
   roleName: string;
 }
 
+/** The company's own logo, beside its name. */
+function CompanyLogo({ url }: { url: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- signed storage URL
+    <img src={url} alt="" className="h-7 w-auto max-w-[96px] shrink-0 object-contain" />
+  );
+}
+
 export function AdminTopBar({
   tenantName,
+  logoUrl = null,
   notificationCount = 0,
   nav,
 }: {
   tenantName: string;
+  logoUrl?: string | null;
   notificationCount?: number;
   nav: NavProps;
 }) {
@@ -40,6 +50,7 @@ export function AdminTopBar({
     >
       <div className="flex min-w-0 items-center gap-2">
         <MobileNav {...nav} />
+        {logoUrl && <CompanyLogo url={logoUrl} />}
         <span className="truncate text-label text-text-secondary">
           {tenantName}
         </span>
@@ -53,10 +64,12 @@ export function AdminTopBar({
 
 export function EmployeeTopBar({
   title,
+  logoUrl = null,
   notificationCount = 0,
   nav,
 }: {
   title: string;
+  logoUrl?: string | null;
   notificationCount?: number;
   nav: NavProps;
 }) {
@@ -68,7 +81,7 @@ export function EmployeeTopBar({
       )}
     >
       <MobileNav {...nav} />
-      <FlowacordMark size={24} className="md:hidden" />
+      {logoUrl ? <CompanyLogo url={logoUrl} /> : <FlowacordMark size={24} className="md:hidden" />}
       <span className="min-w-0 flex-1 truncate text-label text-text-primary">
         {title}
       </span>

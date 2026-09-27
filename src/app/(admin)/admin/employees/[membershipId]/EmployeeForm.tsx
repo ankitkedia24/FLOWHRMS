@@ -11,6 +11,14 @@ import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
 import { saveEmployeeAction } from "@/lib/employees/actions";
 import { describeWeekdays, WEEKDAYS } from "@/lib/attendance/calendar";
+import { BLOOD_GROUPS } from "@/lib/employees/profile";
+import type { EmployeeFormOptions } from "@/lib/employees/form-options";
+import {
+  InlineCreateSelect,
+  NewDepartmentForm,
+  NewLocationForm,
+  NewShiftForm,
+} from "@/components/employees/QuickCreate";
 
 /**
  * Employee details (screen A5). This is where a person's home location,
@@ -23,7 +31,8 @@ interface Member {
   email: string | null;
   phone: string | null;
   employeeCode: string | null;
-  designation: string | null;
+  departmentId: string | null;
+  bloodGroup: string | null;
   joinedOn: string;
   branchId: string | null;
   shiftId: string | null;
@@ -36,18 +45,14 @@ interface Member {
 
 export function EmployeeForm({
   member,
-  branches,
-  shifts,
-  defaultShiftLabel,
+  options,
   companyWeeklyOff,
   managers,
   canManage,
 }: {
   member: Member;
-  branches: Array<{ id: string; name: string }>;
-  shifts: Array<{ id: string; name: string }>;
-  /** What "Company default" is, e.g. "Company default (Shop shift, 10:00–20:00)". */
-  defaultShiftLabel: string;
+  /** Departments, locations and shifts, and which of them may be added here. */
+  options: EmployeeFormOptions;
   /** The company's weekly off days, for the "Company default" label. */
   companyWeeklyOff: number[];
   managers: Array<{ id: string; name: string }>;
@@ -57,6 +62,10 @@ export function EmployeeForm({
   const { show } = useToast();
   const [pending, startTransition] = useTransition();
   const [form, setForm] = useState(member);
+  // Grows as departments, locations and shifts are added inline.
+  const [opts, setOpts] = useState(options);
+  const add = (list: "departments" | "branches" | "shifts") => (option: { value: string; label: string }) =>
+    setOpts((o) => ({ ...o, [list]: [...o[list], option].sort((a, b) => a.label.localeCompare(b.label)) }));
 
   const set = <K extends keyof Member>(key: K, value: Member[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -93,12 +102,32 @@ export function EmployeeForm({
           value={form.employeeCode ?? ""}
           onChange={(e) => set("employeeCode", e.target.value)}
         />
-        <Input
-          label="Designation"
+        <InlineCreateSelect
+          label="Department"
           optional
           disabled={!canManage}
-          value={form.designation ?? ""}
-          onChange={(e) => set("designation", e.target.value)}
+          value={form.departmentId ?? ""}
+          onChange={(v) => set("departmentId", v || null)}
+          options={[{ value: "", label: "Not in a department" }, ...opts.departments]}
+          createLabel="Add a new department"
+          canCreate={opts.can.addDepartment}
+          renderCreate={(done) => (
+            <NewDepartmentForm
+              onDone={(created) => {
+                if (created) add("departments")(created);
+                done(created);
+              }}
+            />
+          )}
+        />
+        <Select
+          label="Blood group"
+          optional
+          disabled={!canManage}
+          value={form.bloodGroup ?? ""}
+          onChange={(e) => set("bloodGroup", e.target.value || null)}
+          options={[{ value: "", label: "Not given" }, ...BLOOD_GROUPS.map((g) => ({ value: g, label: g }))]}
+          helper="Printed on the ID card."
         />
         <Input
           label="Joined on"
@@ -120,26 +149,42 @@ export function EmployeeForm({
       <div className="mt-4 border-t border-border-subtle pt-4">
         <p className="micro-label mb-2 text-text-tertiary">Where they work</p>
         <div className="grid gap-x-6 md:grid-cols-2">
-          <Select
+          <InlineCreateSelect
             label="Home location"
             disabled={!canManage}
             value={form.branchId ?? ""}
-            onChange={(e) => set("branchId", e.target.value || null)}
+            onChange={(v) => set("branchId", v || null)}
             helper="Their usual place of work. Check-ins are matched to it."
-            options={[
-              { value: "", label: "No location set" },
-              ...branches.map((b) => ({ value: b.id, label: b.name })),
-            ]}
+            options={[{ value: "", label: "No location set" }, ...opts.branches]}
+            createLabel="Add a new work location"
+            canCreate={opts.can.addLocation}
+            wide
+            renderCreate={(done) => (
+              <NewLocationForm
+                defaultRadiusM={opts.defaultRadiusM}
+                onDone={(created) => {
+                  if (created) add("branches")(created);
+                  done(created);
+                }}
+              />
+            )}
           />
-          <Select
+          <InlineCreateSelect
             label="Shift"
             disabled={!canManage}
             value={form.shiftId ?? ""}
-            onChange={(e) => set("shiftId", e.target.value || null)}
-            options={[
-              { value: "", label: defaultShiftLabel },
-              ...shifts.map((s) => ({ value: s.id, label: s.name })),
-            ]}
+            onChange={(v) => set("shiftId", v || null)}
+            options={[{ value: "", label: opts.defaultShiftLabel }, ...opts.shifts]}
+            createLabel="Add a new shift"
+            canCreate={opts.can.addShift}
+            renderCreate={(done) => (
+              <NewShiftForm
+                onDone={(created) => {
+                  if (created) add("shifts")(created);
+                  done(created);
+                }}
+              />
+            )}
           />
           <Select
             label="Weekly off"
@@ -270,7 +315,8 @@ export function EmployeeForm({
                   membershipId: form.id,
                   displayName: form.displayName.trim(),
                   employeeCode: form.employeeCode?.trim() || undefined,
-                  designation: form.designation?.trim() || undefined,
+                  departmentId: form.departmentId,
+                  bloodGroup: (form.bloodGroup || null) as "A+" | null,
                   joinedOn: form.joinedOn || undefined,
                   branchId: form.branchId,
                   shiftId: form.shiftId,

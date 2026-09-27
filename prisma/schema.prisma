@@ -117,6 +117,15 @@ model Tenant {
   timezone  String       @default("Asia/Kolkata")
   /// Tenant logo in private storage (V1 theming = logo only).
   logoPath  String?
+  /// Optional opening animation the company uploads (GIF, MP4 or WebM, at
+  /// most 4 seconds), played once when the app opens.
+  splashPath    String?
+  splashMime    String?
+  splashEnabled Boolean @default(false)
+  /// ID card: the company's own background design, and where the photo and
+  /// text sit on it (src/lib/idcard/layout.ts).
+  idCardBackgroundPath String?
+  idCardLayout         Json?
   /// TRIAL companies pause when trialEndsAt passes (data kept); PAID and
   /// INTERNAL (sample, demo and pre-trial companies) never do.
   plan        TenantPlan @default(INTERNAL)
@@ -180,6 +189,7 @@ model Tenant {
   rewardRedemptions RewardRedemption[]
   kudos             Kudos[]
   expenseClaims     ExpenseClaim[]
+  designations      Designation[]
   billingPlan       BillingPlan?          @relation(fields: [billingPlanId], references: [id])
 
   @@map("tenants")
@@ -224,7 +234,15 @@ model TenantMembership {
   /// Reporting manager.
   reportingToId String?         @db.Uuid
   /// Workforce profile (MODULES.md → Employee Management).
+  /// The job title as shown everywhere (payslip, ID card, directory). Kept in
+  /// step with designationId, which is what the admin actually picks.
   designation  String?
+  /// The company's designation; it also decides the access level (roleId).
+  designationId String?         @db.Uuid
+  /// Profile photo in the private company-media bucket (ID card, directory).
+  photoPath    String?
+  /// Optional, for the ID card: A+, O-, …
+  bloodGroup   String?
   joinedOn     DateTime?        @db.Date
   /// Organisational unit. Null = unassigned; action tiles about this person
   /// then reach tenant admins only, and the directory says so.
@@ -240,6 +258,7 @@ model TenantMembership {
   tenant Tenant  @relation(fields: [tenantId], references: [id])
   user   User    @relation(fields: [userId], references: [id])
   role   Role    @relation(fields: [roleId], references: [id])
+  designationRef Designation? @relation(fields: [designationId], references: [id])
   branch Branch? @relation(fields: [branchId], references: [id])
   shift  Shift?  @relation(fields: [shiftId], references: [id])
   reportingTo TenantMembership?  @relation("reporting", fields: [reportingToId], references: [id])
@@ -947,6 +966,7 @@ model Role {
   tenant      Tenant           @relation(fields: [tenantId], references: [id])
   permissions RolePermission[]
   memberships TenantMembership[]
+  designations Designation[]
 
   @@unique([tenantId, key])
   @@map("roles")
@@ -1159,6 +1179,28 @@ model Department {
   @@unique([tenantId, name])
   @@index([tenantId, isActive])
   @@map("departments")
+}
+
+/// A job title the company uses — "Delivery Executive", "Store Manager" —
+/// tied once to an access level (a Role). Adding a person means picking a
+/// designation; what they can see follows from it (27 Sept 2026: one field
+/// instead of separate Role and Designation).
+model Designation {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  name      String
+  roleId    String   @db.Uuid
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id])
+  role        Role               @relation(fields: [roleId], references: [id])
+  memberships TenantMembership[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isActive])
+  @@map("designations")
 }
 
 // ----------------------------------------------------------------- invites

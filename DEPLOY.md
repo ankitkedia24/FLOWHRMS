@@ -346,6 +346,24 @@ edited in Platform → **Plans**. Payments never renew by themselves: a paid
 period ends at `paidUntil`, everything keeps working for 7 more days, then
 the company pauses until it pays (nothing is deleted).
 
+## 7d. Google Maps — address search when adding a work location
+
+Adding a work location offers "Use my current location" and typed
+coordinates without any setup. Searching an address and dragging a pin
+needs a Google Maps key:
+
+1. Google Cloud Console → a project with billing on → enable **Maps
+   JavaScript API**, **Places API (New)** and **Geocoding API**.
+2. Credentials → Create API key → restrict it: *Websites* =
+   `https://hrms.flowacord.com/*` and `http://localhost:3100/*`; *APIs* =
+   the three above.
+3. Add `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` to `.env.local` and Hostinger →
+   Environment variables, then **rebuild** (a `NEXT_PUBLIC_` value is baked
+   in at build time).
+
+This key is meant to be seen by browsers; the website restriction is what
+protects it. The free monthly allowance covers normal use.
+
 ## 8. Before you hand over the URL (30 min)
 
 - [ ] Sign in as the owner on a **real phone**, not a desktop browser

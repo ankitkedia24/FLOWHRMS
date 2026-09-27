@@ -260,6 +260,31 @@ const EMPLOYEE_V1: ConsentDocument = {
   ],
 };
 
+/**
+ * Version 2 (27 Sept 2026): adds the profile photograph and blood group,
+ * collected for the employee ID card. A new data item needs a new notice,
+ * so everyone re-consents once (DPDP Act s.5, s.6).
+ */
+const EMPLOYEE_V2: ConsentDocument = {
+  ...EMPLOYEE_V1,
+  version: 2,
+  sections: EMPLOYEE_V1.sections.map((section) =>
+    section.heading === "The personal data recorded and why" && section.rows
+      ? {
+          ...section,
+          rows: [
+            ...section.rows.slice(0, 2),
+            [
+              "Your photograph, and your blood group if you give it",
+              "For your employee ID card and profile, so colleagues and visitors can recognise you, and for emergencies.",
+            ],
+            ...section.rows.slice(2),
+          ],
+        }
+      : section,
+  ),
+};
+
 const TERMS_V1: ConsentDocument = {
   key: "terms",
   version: 1,
@@ -422,7 +447,7 @@ const PRIVACY_V1: ConsentDocument = {
 export const CURRENT_DOCUMENTS: Record<DocumentKey, ConsentDocument> = {
   account_holder: ACCOUNT_HOLDER_V1,
   customer_terms: CUSTOMER_TERMS_V1,
-  employee: EMPLOYEE_V1,
+  employee: EMPLOYEE_V2,
   terms: TERMS_V1,
   privacy: PRIVACY_V1,
 };

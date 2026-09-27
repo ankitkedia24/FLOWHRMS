@@ -10,6 +10,10 @@ import { checkAccess } from "@/lib/authz/guard";
 import { getSupabaseAdmin, ADMIN_KEY_MISSING } from "@/lib/supabase/admin";
 import { sendMail } from "@/lib/email/send";
 import { inviteEmail } from "@/lib/email/templates";
+import { privilegeRank } from "@/lib/catalog";
+import { BLOOD_GROUPS } from "@/lib/employees/profile";
+import { mediaExists } from "@/lib/media/urls";
+import { mediaPathOk } from "@/lib/media/bucket";
 import {
   generateInviteToken,
   hashInviteToken,
@@ -59,7 +63,6 @@ const inviteSchema = z.object({
   email: z.string().trim().max(200).optional().or(z.literal("")),
   employeeCode: z.string().trim().max(40).optional().or(z.literal("")),
   departmentId: z.string().uuid().nullable().optional(),
-  designation: z.string().trim().max(120).optional().or(z.literal("")),
   reportingToId: z.string().uuid().nullable().optional(),
   joinedOn: z
     .string()
@@ -67,9 +70,13 @@ const inviteSchema = z.object({
     .optional()
     .or(z.literal("")),
   employmentType: z.enum(EMPLOYMENT_TYPES),
-  roleId: z.string().uuid("Choose a role."),
+  /** The designation decides both the job title and the access level. */
+  designationId: z.string().uuid("Choose a designation."),
   branchId: z.string().uuid().nullable().optional(),
   shiftId: z.string().uuid().nullable().optional(),
+  /** Uploaded by the browser to company-media/<tenant>/photos/ first. */
+  photoPath: z.string().max(200).nullable().optional(),
+  bloodGroup: z.enum(BLOOD_GROUPS).nullable().optional(),
 });
 
 /** Absolute origin for links that leave the app. */
@@ -117,11 +124,24 @@ export async function inviteEmployeeAction(
 
   // Everything referenced must belong to this tenant. The ids come from a
   // form and are therefore untrusted (Product Constitution §2).
-  const role = await db.role.findFirst({
-    where: { id: data.roleId, tenantId },
-    include: { permissions: { include: { permission: true } } },
+  const designation = await db.designation.findFirst({
+    where: { id: data.designationId, tenantId, isActive: true },
+    include: { role: true },
   });
-  if (!role) return { ok: false, error: "That role is no longer available." };
+  if (!designation) return { ok: false, error: "That designation is no longer available." };
+  const role = designation.role;
+  // Nobody may add a person with more access than they have themselves —
+  // otherwise "Add employee" is a way to mint an Owner.
+  if (privilegeRank(role.key) > privilegeRank(session.membership.roleKey)) {
+    return {
+      ok: false,
+      error: `You can't add someone with more access than your own. ${designation.name} has ${role.name} access.`,
+    };
+  }
+
+  if (data.photoPath && (!mediaPathOk(data.photoPath, tenantId, "photos") || !(await mediaExists(data.photoPath)))) {
+    return { ok: false, error: "The photo didn't upload properly. Take or choose it again." };
+  }
 
   for (const [label, id, count] of [
     ["department", data.departmentId, () => db.department.count({ where: { id: data.departmentId!, tenantId } })],
@@ -229,7 +249,10 @@ export async function inviteEmployeeAction(
         status: "INVITED",
         employeeCode,
         departmentId: data.departmentId ?? null,
-        designation: data.designation || null,
+        designation: designation.name,
+        designationId: designation.id,
+        photoPath: data.photoPath ?? null,
+        bloodGroup: data.bloodGroup ?? null,
         reportingToId: data.reportingToId ?? null,
         joinedOn: data.joinedOn ? new Date(`${data.joinedOn}T00:00:00.000Z`) : null,
         employmentType: data.employmentType,
@@ -247,6 +270,7 @@ export async function inviteEmployeeAction(
     after: {
       name: data.displayName,
       role: role.name,
+      designation: designation.name,
       employeeCode,
       hasEmail: Boolean(email),
       employmentType: data.employmentType,

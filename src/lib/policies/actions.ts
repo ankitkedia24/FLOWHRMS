@@ -20,7 +20,8 @@ import {
  */
 
 export type ActionResult =
-  | { ok: true; message: string; detail?: string }
+  /** `id`: the saved record, so a form can select what it just created. */
+  | { ok: true; message: string; detail?: string; id?: string }
   | { ok: false; error: string };
 
 const attendanceSchema = z.object({
@@ -235,6 +236,7 @@ export async function saveShiftAction(
     message: shift.isDefault && !parsed.data.shiftId
       ? `${shift.name} saved as the company default.`
       : `${shift.name} saved.`,
+    id: shift.id,
   };
 }
 

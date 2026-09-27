@@ -200,6 +200,22 @@ export async function provisionTenant(
     });
     if (!ownerRoleId) throw new Error("No OWNER role template in the catalog.");
 
+    // A starting list of designations, one per access level, so the first
+    // "Add employee" has something to pick. The owner's own title (from
+    // sign-up, e.g. "Partner / Director") is added with Owner access.
+    const ownerTitle = input.trial?.profile.signupRole?.trim() || null;
+    const designations = await tx.designation.createManyAndReturn({
+      data: [
+        ...ROLE_TEMPLATES.map((tpl) => ({ tenantId: tenant.id, name: tpl.name, roleId: roleIdByKey.get(tpl.key)! })),
+        ...(ownerTitle && !ROLE_TEMPLATES.some((t) => t.name === ownerTitle)
+          ? [{ tenantId: tenant.id, name: ownerTitle, roleId: ownerRoleId }]
+          : []),
+      ],
+      select: { id: true, name: true },
+    });
+    const ownerDesignation =
+      designations.find((d) => d.name === (ownerTitle ?? "Owner")) ?? designations.find((d) => d.name === "Owner")!;
+
     // A trial package decides both what is on and what the company may
     // turn on itself; otherwise the catalog default applies and everything
     // is theirs to switch.
@@ -246,7 +262,8 @@ export async function provisionTenant(
         roleId: ownerRoleId,
         status: "INVITED",
         employmentType: "FULL_TIME",
-        designation: input.trial?.profile.signupRole ?? null,
+        designation: ownerDesignation.name,
+        designationId: ownerDesignation.id,
       },
     });
 

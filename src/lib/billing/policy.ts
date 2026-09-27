@@ -5,7 +5,7 @@ import { isGstin, stateForGstin } from "./pricing";
 
 /**
  * Who may see the plan and pay for it: the Owner, and the two admin roles
- * the Owner hands company matters to — Tenant Super Admin (company
+ * the Owner hands company matters to — Super Admin (company
  * settings) and Admin. Managers, HR and staff never see prices or invoices.
  */
 export function canManageBilling(session: Pick<AppSession, "membership" | "permissions">): boolean {

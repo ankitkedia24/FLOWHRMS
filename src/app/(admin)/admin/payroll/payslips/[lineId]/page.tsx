@@ -5,6 +5,7 @@ import { checkAccess } from "@/lib/authz/guard";
 import { devFixtureOffline } from "@/lib/auth/fixture";
 import { loadPayslip } from "@/lib/payroll/payslip";
 import { PayslipDetail } from "@/components/payroll/PayslipDetail";
+import { loadBranding } from "@/lib/branding/load";
 
 export const metadata: Metadata = { title: "Payslip" };
 
@@ -41,7 +42,10 @@ export default async function AdminPayslipPage({
           {payslip.employeeName}
         </h1>
       </div>
-      <PayslipDetail data={payslip} />
+      <PayslipDetail
+        data={payslip}
+        company={{ name: session.tenant.name, logoUrl: (await loadBranding(session.tenant.id)).logoUrl }}
+      />
     </div>
   );
 }

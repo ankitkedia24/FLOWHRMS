@@ -25,7 +25,17 @@ const MIME = ["image/jpeg", "image/png", "image/heic", "image/webp", "applicatio
  * address proofs — the most sensitive files FlowHRMS holds — so they get the
  * same treatment as proof, never a public path (Constitution §7).
  */
-const BUCKETS = ["task-proof", "employee-documents", "expense-receipts"];
+const BUCKETS = ["task-proof", "employee-documents", "expense-receipts", "company-media"];
+
+/**
+ * company-media holds a company's logo, its opening animation, its ID card
+ * design and employee photos. Private like the rest — photos are personal
+ * data — and read through short-lived signed URLs (src/lib/media/urls.ts).
+ * It alone accepts GIF and short videos, for the opening animation.
+ */
+const MIME_BY_BUCKET: Record<string, string[]> = {
+  "company-media": ["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/webm"],
+};
 
 const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
 if (!connectionString) {
@@ -48,7 +58,7 @@ async function main() {
          set public = false,
              file_size_limit = excluded.file_size_limit,
              allowed_mime_types = excluded.allowed_mime_types`,
-      [bucket, MAX_BYTES, MIME],
+      [bucket, MAX_BYTES, MIME_BY_BUCKET[bucket] ?? MIME],
     );
 
     // Policies are dropped and recreated so this script stays idempotent.
@@ -80,7 +90,7 @@ async function main() {
     `select policyname, cmd, roles::text
      from pg_policies
      where schemaname = 'storage' and tablename = 'objects'
-       and (policyname like 'task_proof%' or policyname like 'employee_documents%' or policyname like 'expense_receipts%')
+       and (policyname like 'task_proof%' or policyname like 'employee_documents%' or policyname like 'expense_receipts%' or policyname like 'company_media%')
      order by policyname`,
   );
 

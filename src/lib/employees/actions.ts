@@ -8,6 +8,9 @@ import { checkAccess } from "@/lib/authz/guard";
 import { privilegeRank } from "@/lib/catalog";
 import { isSimpleStructure } from "@/lib/payroll/simple";
 import { describeWeekdays, normaliseWeekdays } from "@/lib/attendance/calendar";
+import { BLOOD_GROUPS } from "@/lib/employees/profile";
+import { mediaPathOk } from "@/lib/media/bucket";
+import { mediaExists, removeMedia } from "@/lib/media/urls";
 
 /**
  * Employee records (MODULES.md → Employee Management).
@@ -28,7 +31,8 @@ const profileSchema = z.object({
   membershipId: z.string().uuid(),
   displayName: z.string().trim().min(1, "Give the person a name.").max(120),
   employeeCode: z.string().trim().max(40).optional(),
-  designation: z.string().trim().max(120).optional(),
+  departmentId: z.string().uuid().nullable().optional(),
+  bloodGroup: z.enum(BLOOD_GROUPS).nullable().optional(),
   joinedOn: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -70,11 +74,13 @@ export async function saveEmployeeAction(
   const db = getDb();
   const membership = await db.tenantMembership.findFirst({
     where: { id: parsed.data.membershipId, tenantId: session.tenant.id },
-    include: { user: true, branch: true, shift: true },
+    include: { user: true, branch: true, shift: true, department: true },
   });
   if (!membership) {
     return { ok: false, error: "That employee is no longer available." };
   }
+  const departmentId =
+    parsed.data.departmentId === undefined ? membership.departmentId : parsed.data.departmentId;
 
   // Every referenced record must belong to this tenant — the ids arrive
   // from a form (Constitution §2).
@@ -104,6 +110,14 @@ export async function saveEmployeeAction(
             id: parsed.data.reportingToId!,
             tenantId: session.tenant.id,
           },
+        }),
+    ],
+    [
+      "department",
+      departmentId,
+      () =>
+        db.department.count({
+          where: { id: departmentId!, tenantId: session.tenant.id },
         }),
     ],
   ] as const) {
@@ -138,7 +152,8 @@ export async function saveEmployeeAction(
   const before = {
     displayName: membership.user.displayName,
     employeeCode: membership.employeeCode,
-    designation: membership.designation,
+    department: membership.department?.name ?? null,
+    bloodGroup: membership.bloodGroup,
     branch: membership.branch?.name ?? null,
     shift: membership.shift?.name ?? null,
     canCheckInAtAnyBranch: membership.canCheckInAtAnyBranch,
@@ -157,7 +172,9 @@ export async function saveEmployeeAction(
       where: { id: membership.id },
       data: {
         employeeCode: parsed.data.employeeCode || null,
-        designation: parsed.data.designation || null,
+        departmentId,
+        bloodGroup:
+          parsed.data.bloodGroup === undefined ? membership.bloodGroup : parsed.data.bloodGroup,
         joinedOn: parsed.data.joinedOn
           ? new Date(`${parsed.data.joinedOn}T00:00:00.000Z`)
           : null,
@@ -174,7 +191,7 @@ export async function saveEmployeeAction(
 
   const updated = await db.tenantMembership.findUniqueOrThrow({
     where: { id: membership.id },
-    include: { branch: true, shift: true },
+    include: { branch: true, shift: true, department: true },
   });
 
   await recordAuditEvent(session, {
@@ -185,7 +202,8 @@ export async function saveEmployeeAction(
     after: {
       displayName: parsed.data.displayName,
       employeeCode: parsed.data.employeeCode || null,
-      designation: parsed.data.designation || null,
+      department: updated.department?.name ?? null,
+      bloodGroup: updated.bloodGroup,
       branch: updated.branch?.name ?? null,
       shift: updated.shift?.name ?? null,
       canCheckInAtAnyBranch: parsed.data.canCheckInAtAnyBranch,
@@ -329,35 +347,33 @@ export async function revealSensitiveAction(
   };
 }
 
-// ------------------------------------------------------------ role change
+// ------------------------------------------------------ designation change
 
-const roleChangeSchema = z.object({
+const designationChangeSchema = z.object({
   membershipId: z.string().uuid(),
-  roleId: z.string().uuid("Choose a role."),
+  designationId: z.string().uuid("Choose a designation."),
   reason: z.string().trim().max(500).optional(),
 });
 
 /**
- * Change what someone is allowed to do.
+ * Give someone a different designation. The designation carries an access
+ * level, so when that changes this is a change in what the person can SEE,
+ * with the same four refusals it always had:
  *
- * Separate from `saveEmployeeAction` on purpose: this is the only field on
- * the profile that changes what a person can SEE, so it carries its own
- * guards, its own audit action, and its own confirmation in the UI.
- *
- * Four refusals, each a real way this goes wrong:
- *
- * 1. **Not your own role.** Otherwise an admin can quietly promote
+ * 1. **Not your own access.** Otherwise an admin can quietly promote
  *    themselves, and the audit trail shows them approving it.
  * 2. **Not above your own rank.** Anyone who can add employees could
  *    otherwise mint an Owner — escalation dressed as ordinary admin work.
  * 3. **Not the last Owner.** A company must never be left with nobody who
  *    can manage it (edge-cases.md → "last owner").
- * 4. **Not a role from another tenant.** The id arrives from a form.
+ * 4. **Not another company's designation.** The id arrives from a form.
+ *
+ * A new title with the same access is just a title change.
  */
-export async function changeEmployeeRoleAction(
-  input: z.input<typeof roleChangeSchema>,
+export async function changeEmployeeDesignationAction(
+  input: z.input<typeof designationChangeSchema>,
 ): Promise<ActionResult> {
-  const parsed = roleChangeSchema.safeParse(input);
+  const parsed = designationChangeSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the details." };
   }
@@ -377,74 +393,121 @@ export async function changeEmployeeRoleAction(
   });
   if (!membership) return { ok: false, error: "That employee is no longer available." };
 
-  const nextRole = await db.role.findFirst({
-    where: { id: parsed.data.roleId, tenantId: session.tenant.id },
+  const next = await db.designation.findFirst({
+    where: { id: parsed.data.designationId, tenantId: session.tenant.id, isActive: true },
+    include: { role: true },
   });
-  if (!nextRole) return { ok: false, error: "That role is no longer available." };
-
-  if (nextRole.id === membership.roleId) {
-    return { ok: false, error: `${membership.user.displayName} already has that role.` };
+  if (!next) return { ok: false, error: "That designation is no longer available." };
+  if (next.id === membership.designationId) {
+    return { ok: false, error: `${membership.user.displayName} is already ${next.name}.` };
   }
 
-  if (membership.userId === session.user.id) {
-    return {
-      ok: false,
-      error:
-        "You can't change your own role. Ask another owner or admin to do it.",
-    };
-  }
-
+  const accessChanges = next.roleId !== membership.roleId;
   const myRank = privilegeRank(session.membership.roleKey);
-  if (privilegeRank(nextRole.key) > myRank) {
-    return {
-      ok: false,
-      error: `You can't give someone more authority than you have. ${nextRole.name} is above your own role.`,
-    };
-  }
-
-  // Losing the last owner locks everyone out of company management.
-  if (membership.role.key === "OWNER" && nextRole.key !== "OWNER") {
-    const otherOwners = await db.tenantMembership.count({
-      where: {
-        tenantId: session.tenant.id,
-        status: "ACTIVE",
-        role: { key: "OWNER" },
-        id: { not: membership.id },
-      },
-    });
-    if (otherOwners === 0) {
+  if (accessChanges) {
+    if (membership.userId === session.user.id) {
       return {
         ok: false,
-        error:
-          "This is the only owner. Make someone else an owner first, or the company would be left with nobody who can manage it.",
+        error: "You can't change your own access. Ask another owner or admin to do it.",
       };
+    }
+    if (privilegeRank(next.role.key) > myRank) {
+      return {
+        ok: false,
+        error: `You can't give someone more access than you have. ${next.name} has ${next.role.name} access, which is above yours.`,
+      };
+    }
+    if (privilegeRank(membership.role.key) > myRank) {
+      return {
+        ok: false,
+        error: `${membership.user.displayName} has more access than you, so only someone above them can change it.`,
+      };
+    }
+    // Losing the last owner locks everyone out of company management.
+    if (membership.role.key === "OWNER" && next.role.key !== "OWNER") {
+      const otherOwners = await db.tenantMembership.count({
+        where: {
+          tenantId: session.tenant.id,
+          status: "ACTIVE",
+          role: { key: "OWNER" },
+          id: { not: membership.id },
+        },
+      });
+      if (otherOwners === 0) {
+        return {
+          ok: false,
+          error:
+            "This is the only owner. Make someone else an owner first, or the company would be left with nobody who can manage it.",
+        };
+      }
     }
   }
 
   await db.tenantMembership.update({
     where: { id: membership.id },
-    data: { roleId: nextRole.id },
+    data: { designationId: next.id, designation: next.name, roleId: next.roleId },
   });
 
   await recordAuditEvent(session, {
-    action: "employee.role_changed",
+    action: accessChanges ? "employee.role_changed" : "employee.designation_changed",
     entityType: "tenant_membership",
     entityId: membership.id,
     reason: parsed.data.reason,
-    before: { role: membership.role.key, roleName: membership.role.name },
-    after: { role: nextRole.key, roleName: nextRole.name },
+    before: { designation: membership.designation, role: membership.role.key, roleName: membership.role.name },
+    after: { designation: next.name, role: next.role.key, roleName: next.role.name },
     metadata: { employee: membership.user.displayName },
   });
 
   revalidatePath("/admin/employees");
   revalidatePath(`/admin/employees/${membership.id}`);
 
-  const opensAdmin = privilegeRank(nextRole.key) >= 2;
+  if (!accessChanges) {
+    return { ok: true, message: `${membership.user.displayName} is now ${next.name}.` };
+  }
+  const opensAdmin = privilegeRank(next.role.key) >= 2;
   return {
     ok: true,
-    message: `${membership.user.displayName} is now ${nextRole.name}.`,
+    message: `${membership.user.displayName} is now ${next.name}, with ${next.role.name} access.`,
     detail: opensAdmin
       ? "They can open the admin area. It takes effect the next time they load a page."
       : "They see only their own records now. It takes effect the next time they load a page.",
   };
+}
+
+// ---------------------------------------------------------------- photo
+
+const photoSchema = z.object({
+  membershipId: z.string().uuid(),
+  photoPath: z.string().max(200).nullable(),
+});
+
+/** Set or remove someone's photo. Saved straight away, like a document. */
+export async function setEmployeePhotoAction(input: z.input<typeof photoSchema>): Promise<ActionResult> {
+  const parsed = photoSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That photo couldn't be saved." };
+  const { session, decision } = await checkAccess({ module: "EMPLOYEES", permission: "employees.manage" });
+  if (!decision.allowed) return { ok: false, error: decision.message ?? "You don't have access to this." };
+
+  const db = getDb();
+  const membership = await db.tenantMembership.findFirst({
+    where: { id: parsed.data.membershipId, tenantId: session.tenant.id },
+    include: { user: true },
+  });
+  if (!membership) return { ok: false, error: "That employee is no longer available." };
+  const path = parsed.data.photoPath;
+  if (path && (!mediaPathOk(path, session.tenant.id, "photos") || !(await mediaExists(path)))) {
+    return { ok: false, error: "The photo didn't upload properly. Try again." };
+  }
+
+  await db.tenantMembership.update({ where: { id: membership.id }, data: { photoPath: path } });
+  if (membership.photoPath && membership.photoPath !== path) await removeMedia([membership.photoPath]);
+  await recordAuditEvent(session, {
+    action: path ? "employee.photo_set" : "employee.photo_removed",
+    entityType: "tenant_membership",
+    entityId: membership.id,
+    metadata: { employee: membership.user.displayName },
+  });
+  revalidatePath("/admin/employees");
+  revalidatePath(`/admin/employees/${membership.id}`);
+  return { ok: true, message: path ? "Photo saved." : "Photo removed." };
 }

@@ -226,14 +226,14 @@ export const ROLE_TEMPLATES: ReadonlyArray<{
 }> = [
   {
     key: "OWNER",
-    name: "Tenant Owner",
+    name: "Owner",
     description:
       "Full company control, including payroll approval and retention choices.",
     permissions: [...ALL_PERMISSION_KEYS],
   },
   {
     key: "SUPER_ADMIN",
-    name: "Tenant Super Admin",
+    name: "Super Admin",
     description:
       "Delegated operational authority. Payroll and bank access are granted separately.",
     permissions: [

@@ -6,6 +6,8 @@ import { getDb } from "@/lib/db";
 import { devFixtureOffline } from "@/lib/auth/fixture";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { CompanyForm } from "./CompanyForm";
+import { BrandingCard } from "./BrandingCard";
+import { loadSettingsBranding } from "@/lib/branding/load";
 
 export const metadata: Metadata = { title: "Company settings" };
 
@@ -27,6 +29,10 @@ export default async function CompanySettingsPage() {
           where: { tenantId: session.tenant.id, isActive: true },
         }),
       };
+
+  // The logo and animation live in private storage (company-media), shown
+  // through short-lived signed links.
+  const branding = devFixtureOffline() ? null : await loadSettingsBranding(session.tenant.id);
 
   return (
     <div className="flex max-w-[760px] flex-col gap-5">
@@ -79,15 +85,13 @@ export default async function CompanySettingsPage() {
         </div>
       </Card>
 
-      <Card>
-        <CardHeader title="Company logo" />
-        <p className="text-secondary text-text-secondary">
-          A logo appears on payslips and reports. Uploading one is not
-          switched on yet — where tenant files are stored and retained needs
-          to be settled first, and we would rather not accept a file we
-          cannot yet promise to keep safely.
-        </p>
-      </Card>
+      {branding && (
+        <BrandingCard
+          tenantId={session.tenant.id}
+          logoUrl={branding.logoUrl}
+          splash={branding.splash}
+        />
+      )}
 
       <Card>
         <CardHeader title="Data and privacy" />

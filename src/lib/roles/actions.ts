@@ -53,7 +53,7 @@ export async function saveRolePermissionsAction(
     return {
       ok: false,
       error:
-        "The Tenant Owner role always keeps full access. Change another role instead.",
+        "The Owner always keeps full access. Change another access level instead.",
     };
   }
 

@@ -41,7 +41,8 @@ export type NavIcon =
   | "performance"
   | "expenses"
   | "account"
-  | "subscription";
+  | "subscription"
+  | "designations";
 
 export interface NavItem {
   href: string;
@@ -58,6 +59,8 @@ export interface AdminNavInput {
     audit: boolean;
     /** Owner, Super Admin or Admin: sees the plan and can pay for it. */
     billing: boolean;
+    /** Can add employees, and so manage the designations they're given. */
+    designations: boolean;
   };
 }
 
@@ -89,9 +92,14 @@ export function adminConfigItems({ can }: AdminNavInput): NavItem[] {
       label: "Module Management",
       icon: "modules" as const,
     },
+    can.designations && {
+      href: "/admin/settings/designations",
+      label: "Designations",
+      icon: "designations" as const,
+    },
     can.roles && {
       href: "/admin/roles",
-      label: "Roles & permissions",
+      label: "Access levels",
       icon: "roles" as const,
     },
     can.settings && {

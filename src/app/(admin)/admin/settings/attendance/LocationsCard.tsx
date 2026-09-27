@@ -12,6 +12,7 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { useToast } from "@/components/ui/Toast";
 import { STATUS } from "@/lib/status";
 import { saveBranchAction } from "@/lib/branches/actions";
+import { LocationPicker } from "@/components/maps/LocationPicker";
 
 /**
  * Company locations (screen A24 — "company, logo, branches, retention").
@@ -160,28 +161,29 @@ export function LocationsCard({
               value={draft.name}
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
             />
-            <Input
-              label="Address"
-              optional
-              value={draft.address}
-              onChange={(e) => setDraft({ ...draft, address: e.target.value })}
-            />
-            <Input
-              label="Latitude"
-              optional
-              inputMode="decimal"
-              placeholder="19.0760"
-              helper="Leave both coordinates blank if you don't want the permitted area checked here."
-              value={draft.lat}
-              onChange={(e) => setDraft({ ...draft, lat: e.target.value })}
-            />
-            <Input
-              label="Longitude"
-              optional
-              inputMode="decimal"
-              placeholder="72.8777"
-              value={draft.lng}
-              onChange={(e) => setDraft({ ...draft, lng: e.target.value })}
+            {/* Search, current location or pin — and leave the point empty
+                if this location's check-ins shouldn't be area-checked. */}
+            <LocationPicker
+              key={draft.id || "new"}
+              value={{
+                address: draft.address,
+                lat: draft.lat.trim() === "" ? null : Number(draft.lat),
+                lng: draft.lng.trim() === "" ? null : Number(draft.lng),
+              }}
+              onChange={(next) =>
+                setDraft((d) =>
+                  d
+                    ? {
+                        ...d,
+                        address: next.address,
+                        lat: next.lat == null ? "" : String(next.lat),
+                        lng: next.lng == null ? "" : String(next.lng),
+                      }
+                    : d,
+                )
+              }
+              radiusM={Number(draft.radiusM) >= 50 ? Number(draft.radiusM) : defaultRadiusM}
+              onPlaceName={(n) => setDraft((d) => (d && !d.name.trim() ? { ...d, name: n } : d))}
             />
             <Input
               label="Permitted area radius"

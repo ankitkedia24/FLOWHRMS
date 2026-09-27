@@ -118,6 +118,13 @@ export default async function AdminEmployeesPage({
         <h1 className="font-heading text-h1 text-text-primary">Employees</h1>
         <div className="flex flex-wrap items-end gap-3">
           <BranchFilter options={branchOptions} selected={branchFilter} />
+          <a
+            href="/print/id-cards?all=1"
+            target="_blank"
+            className="inline-flex h-11 items-center gap-2 rounded-button border-[1.5px] border-border-strong bg-surface-default px-4 text-label text-text-primary hover:bg-surface-sunken"
+          >
+            Print ID cards
+          </a>
           {session.permissions.has("employees.manage") && (
             <Link
               href="/admin/employees/new"
