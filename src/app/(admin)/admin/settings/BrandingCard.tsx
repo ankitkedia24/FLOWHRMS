@@ -156,7 +156,8 @@ export function BrandingCard({
             </p>
             <p className="mt-1 max-w-[52ch] text-caption text-text-secondary">
               Your own short animation — a GIF, MP4 or WebM of {SPLASH_MAX_SECONDS} seconds or less, under 5 MB — played
-              once each time someone opens the app. A tap skips it.
+              full screen once each time someone opens the app, with its sound where the phone allows it (otherwise a
+              “Tap for sound” button appears). A tap anywhere else skips it.
             </p>
           </div>
           {splash && (
