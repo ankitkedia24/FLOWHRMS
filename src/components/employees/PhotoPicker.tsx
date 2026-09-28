@@ -3,13 +3,14 @@
 import { useRef, useState } from "react";
 import { Camera, ImageUp, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { squarePhoto, uploadMedia } from "@/lib/media/upload";
+import { uploadMedia } from "@/lib/media/upload";
+import { ImageCropper } from "@/components/media/ImageCropper";
 
 /**
  * An employee's photo: taken on the spot with the phone camera, or chosen
- * from the gallery. Cropped square and shrunk before it leaves the phone,
- * then kept private (signed links only). Used on the ID card, the profile
- * and the directory.
+ * from the gallery, then cropped by the person uploading it (square: drag,
+ * zoom, rotate) and shrunk before it leaves the phone. Kept private (signed
+ * links only). Used on the ID card, the profile and the directory.
  */
 export function PhotoPicker({
   tenantId,
@@ -31,17 +32,23 @@ export function PhotoPicker({
   const [preview, setPreview] = useState<string | null>(initialUrl);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cropping, setCropping] = useState<File | null>(null);
 
-  async function take(file: File | undefined) {
+  function take(file: File | undefined) {
+    if (camera.current) camera.current.value = "";
+    if (gallery.current) gallery.current.value = "";
     if (!file) return;
     setError(null);
     if (!file.type.startsWith("image/")) {
       setError("Choose a photo (JPG or PNG).");
       return;
     }
+    setCropping(file);
+  }
+
+  async function upload(blob: Blob) {
     setBusy(true);
     try {
-      const blob = await squarePhoto(file);
       const local = URL.createObjectURL(blob);
       const up = await uploadMedia(tenantId, "photos", blob, "jpg");
       if (!up.ok) {
@@ -55,8 +62,6 @@ export function PhotoPicker({
       setError("That photo couldn't be read. Try another one.");
     } finally {
       setBusy(false);
-      if (camera.current) camera.current.value = "";
-      if (gallery.current) gallery.current.value = "";
     }
   }
 
@@ -133,9 +138,21 @@ export function PhotoPicker({
         accept="image/*"
         capture="user"
         className="hidden"
-        onChange={(e) => void take(e.target.files?.[0])}
+        onChange={(e) => take(e.target.files?.[0])}
       />
-      <input ref={gallery} type="file" accept="image/*" className="hidden" onChange={(e) => void take(e.target.files?.[0])} />
+      <input ref={gallery} type="file" accept="image/*" className="hidden" onChange={(e) => take(e.target.files?.[0])} />
+      {cropping && (
+        <ImageCropper
+          file={cropping}
+          shape="square"
+          title="Crop the photo"
+          onCancel={() => setCropping(null)}
+          onDone={(blob) => {
+            setCropping(null);
+            void upload(blob);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -12,7 +12,8 @@ import { SplashScreen } from "@/components/shell/SplashScreen";
 import { setCompanyLogoAction, setSplashAction, setSplashEnabledAction } from "@/lib/branding/actions";
 import { SPLASH_MAX_BYTES, SPLASH_MAX_SECONDS } from "@/lib/media/bucket";
 import { gifDurationSeconds, videoDurationSeconds } from "@/lib/media/duration";
-import { fitImage, uploadMedia } from "@/lib/media/upload";
+import { uploadMedia } from "@/lib/media/upload";
+import { ImageCropper } from "@/components/media/ImageCropper";
 
 /**
  * The company's own look (screen A24): its logo — shown in the app's top
@@ -34,28 +35,31 @@ export function BrandingCard({
   const splashInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<"logo" | "splash" | "toggle" | null>(null);
   const [preview, setPreview] = useState(0);
+  const [croppingLogo, setCroppingLogo] = useState<File | null>(null);
 
   const report = (r: { ok: true; message: string } | { ok: false; error: string }) => {
     show({ variant: r.ok ? "success" : "error", message: r.ok ? r.message : r.error });
     if (r.ok) router.refresh();
   };
 
-  async function pickLogo(file: File | undefined) {
+  function pickLogo(file: File | undefined) {
+    if (logoInput.current) logoInput.current.value = "";
     if (!file) return;
     if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
       show({ variant: "error", message: "Use a PNG, JPG or WebP image. PNG keeps a transparent background." });
       return;
     }
+    // Trim it first; the cropper hands back a PNG no larger than 512 px.
+    setCroppingLogo(file);
+  }
+
+  async function uploadLogo(blob: Blob) {
     setBusy("logo");
     try {
-      const blob = await fitImage(file, 512, "image/png");
       const up = await uploadMedia(tenantId, "logo", blob, "png");
       report(up.ok ? await setCompanyLogoAction({ path: up.path }) : { ok: false, error: up.error });
-    } catch {
-      show({ variant: "error", message: "That image couldn't be read. Try another file." });
     } finally {
       setBusy(null);
-      if (logoInput.current) logoInput.current.value = "";
     }
   }
 
@@ -143,8 +147,20 @@ export function BrandingCard({
           type="file"
           accept="image/png,image/jpeg,image/webp"
           className="hidden"
-          onChange={(e) => void pickLogo(e.target.files?.[0])}
+          onChange={(e) => pickLogo(e.target.files?.[0])}
         />
+        {croppingLogo && (
+          <ImageCropper
+            file={croppingLogo}
+            shape="free"
+            title="Crop your logo"
+            onCancel={() => setCroppingLogo(null)}
+            onDone={(blob) => {
+              setCroppingLogo(null);
+              void uploadLogo(blob);
+            }}
+          />
+        )}
       </section>
 
       <section className="mt-5 border-t border-border-subtle pt-5">
