@@ -1,6 +1,20 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /**
+   * Hostinger serves the standalone server ("Detected Next.js standalone
+   * server output"). Before the monorepo it switched this on itself by
+   * editing the root next.config; with the app in apps/web it no longer
+   * can, and the deploy failed with "no standalone server or static
+   * output". So the app asks for it, and scripts/mirror-web-build.mjs lays
+   * the output out where Hostinger looks (DEPLOY.md §3b).
+   *
+   * Traced from the monorepo root: packages are hoisted to the root
+   * node_modules, and the shared packages live in /packages.
+   */
+  output: "standalone",
+  outputFileTracingRoot: path.join(__dirname, "../.."),
   transpilePackages: ["@flowhrms/types", "@flowhrms/validation"],
   logging: {
     /**
