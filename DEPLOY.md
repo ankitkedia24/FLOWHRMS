@@ -191,11 +191,17 @@ into the web app's:
 | Hostinger runs | Root script does |
 |---|---|
 | `npm install` | installs every workspace, then `postinstall` → `prisma generate` |
-| `npm run build` | `prisma generate`, then `next build --webpack` in `apps/web` |
-| `npm start` | `node scripts/start-server.mjs` in `apps/web` (serves `apps/web/.next`) |
+| `npm run build` | `prisma generate`, `next build --webpack` in `apps/web`, then copies `apps/web/.next` (without its cache) and `apps/web/public` to the root (`scripts/mirror-web-build.mjs`) |
+| Next.js at the root | Hostinger then runs Next itself from the root, serving the root `.next` and `public` — it does **not** call `npm start` |
 
-- Leave Hostinger's build and start commands as they were. If its settings
-  ask for an output directory, it is `apps/web/.next`.
+- Why the copy: Hostinger (Framework *Next.js*, output directory `.next`,
+  root `./`) looks for `.next` at the root and failed with "No output
+  directory found after build" on 29 Sept 2026 although the build had
+  succeeded. The runtime log shows Next's own banner and never our
+  `[flowhrms] starting` line, so the root copy is what it serves.
+- Leave Hostinger's settings as they are (root `./`, output `.next`).
+- To run exactly what Hostinger runs, locally: `npm run build`, then
+  `npm run start:root`.
 - Environment variables are unchanged (set in Hostinger's panel).
 - Locally, `.env.local` lives in `apps/web/.env.local`; `prisma.config.ts`
   reads it from there as well.

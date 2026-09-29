@@ -8,8 +8,9 @@
   ],
   "scripts": {
     "postinstall": "prisma generate",
-    "build": "prisma generate && npm run build --workspace=@flowhrms/web",
+    "build": "prisma generate && npm run build --workspace=@flowhrms/web && node scripts/mirror-web-build.mjs",
     "start": "npm run start --workspace=@flowhrms/web",
+    "start:root": "next start",
     "dev": "npm run dev --workspace=@flowhrms/web",
     "dev:web": "npm run dev --workspace=@flowhrms/web",
     "dev:mobile": "npm run start --workspace=@flowhrms/mobile",

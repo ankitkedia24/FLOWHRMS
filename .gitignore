@@ -21,6 +21,9 @@ apps/web/src/generated/
 # next.js
 /.next/
 /out/
+# Root copy of apps/web/public made by `npm run build` for Hostinger
+# (scripts/mirror-web-build.mjs). The real files live in apps/web/public.
+/public/
 
 # production
 /build
