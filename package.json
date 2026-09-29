@@ -7,6 +7,10 @@
     "packages/*"
   ],
   "scripts": {
+    "postinstall": "prisma generate",
+    "build": "prisma generate && npm run build --workspace=@flowhrms/web",
+    "start": "npm run start --workspace=@flowhrms/web",
+    "dev": "npm run dev --workspace=@flowhrms/web",
     "dev:web": "npm run dev --workspace=@flowhrms/web",
     "dev:mobile": "npm run start --workspace=@flowhrms/mobile",
     "dev:mobile:tunnel": "npm run start --workspace=@flowhrms/mobile -- --tunnel",

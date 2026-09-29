@@ -179,6 +179,29 @@ NEXT_PUBLIC_SITE_URL=https://yourdomain.com
 You now have a URL like `flowhrms-xyz.vercel.app`. It will load the marketing
 pages. Sign-in will not work correctly until step 5.
 
+### 3b. Hostinger — the repository is a monorepo (since 29 Sept 2026)
+
+Production (hrms.flowacord.com) deploys from `ankitkedia24/FLOWHRMS` on
+Hostinger. Since the monorepo change the web app lives in `apps/web`, the
+mobile app in `apps/mobile`, shared code in `packages/*`, and Prisma stays at
+the root (`prisma/`, `prisma.config.ts`). Hostinger runs its usual three
+commands **at the repository root**, and the root `package.json` turns each
+into the web app's:
+
+| Hostinger runs | Root script does |
+|---|---|
+| `npm install` | installs every workspace, then `postinstall` → `prisma generate` |
+| `npm run build` | `prisma generate`, then `next build --webpack` in `apps/web` |
+| `npm start` | `node scripts/start-server.mjs` in `apps/web` (serves `apps/web/.next`) |
+
+- Leave Hostinger's build and start commands as they were. If its settings
+  ask for an output directory, it is `apps/web/.next`.
+- Environment variables are unchanged (set in Hostinger's panel).
+- Locally, `.env.local` lives in `apps/web/.env.local`; `prisma.config.ts`
+  reads it from there as well.
+- `npm install` also installs the Expo mobile app's packages; that is
+  expected and only makes the install slower.
+
 ---
 
 ## 4. Point a domain at it (30 min, plus DNS propagation)
