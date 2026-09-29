@@ -88,6 +88,9 @@ export const DECIDING_PERMISSION: Record<ActionKind, PermissionKey> = {
   REWARD_REDEMPTION: "employees.manage",
   // Approving spend is its own authority (EXPENSES-MODULE.md §5).
   EXPENSE_CLAIM: "expenses.approve",
+  // The reporting manager decides by being the reporting manager
+  // (FIELD-VISITS-MODULE.md §4); this is who else may, when there is none.
+  FIELD_TRIP: "fieldvisits.view",
 };
 
 /**

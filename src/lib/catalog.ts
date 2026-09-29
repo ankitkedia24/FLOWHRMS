@@ -5,8 +5,9 @@
  *
  * Source documents: MODULES.md, FEATURE-FLAGS.md, USER-ROLES.md (Pack 01),
  * as amended — Amendment 3 (EXPENSES-MODULE.md) adds the two expenses
- * permissions. Do not add modules, features, roles or permissions beyond
- * those documents (design handoff README §8).
+ * permissions; Amendment 4 (FIELD-VISITS-MODULE.md) adds the Field visits
+ * module and `fieldvisits.view`. Do not add modules, features, roles or
+ * permissions beyond those documents (design handoff README §8).
  */
 
 export type ModuleCategory = "CORE" | "STANDARD" | "OPTIONAL";
@@ -113,6 +114,14 @@ export const MODULES = {
     category: "OPTIONAL" as ModuleCategory,
     sortOrder: 150,
   },
+  FIELD_VISITS: {
+    key: "FIELD_VISITS",
+    name: "Field visits",
+    description:
+      "Going out, visits and the way back, recorded only at each tap — never continuous tracking. Road distance feeds travel claims (FIELD-VISITS-MODULE.md).",
+    category: "OPTIONAL" as ModuleCategory,
+    sortOrder: 160,
+  },
 } as const;
 
 export type ModuleKey = keyof typeof MODULES;
@@ -130,6 +139,8 @@ export const MODULE_DEPENDENCIES: ReadonlyArray<{
   { module: "PAYROLL", requires: "ATTENDANCE" },
   { module: "LEAVE", requires: "EMPLOYEES" },
   { module: "TASKS", requires: "EMPLOYEES" },
+  // A trip happens inside an open working day (FIELD-VISITS-MODULE.md §2).
+  { module: "FIELD_VISITS", requires: "ATTENDANCE" },
   { module: "PERFORMANCE", requires: "ATTENDANCE", anyOfGroup: "perf-source" },
   { module: "PERFORMANCE", requires: "TASKS", anyOfGroup: "perf-source" },
 ];
@@ -206,6 +217,10 @@ export const PERMISSIONS = [
   // spend is its own authority — deliberately not employees.manage.
   { key: "expenses.approve", name: "Approve and settle expense claims", isSensitive: false },
   { key: "expenses.view", name: "View expense claims", isSensitive: false },
+  // Field visits (MODULES.md Amendment 4): where people went is location
+  // data. Reporting managers and department heads see their own people
+  // without it; this is for seeing everyone.
+  { key: "fieldvisits.view", name: "See everyone's field visits", isSensitive: true },
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number]["key"];
@@ -259,6 +274,7 @@ export const ROLE_TEMPLATES: ReadonlyArray<{
       "settings.manage",
       "expenses.approve",
       "expenses.view",
+      "fieldvisits.view",
     ],
   },
   {
@@ -280,6 +296,7 @@ export const ROLE_TEMPLATES: ReadonlyArray<{
       "reports.view",
       "expenses.approve",
       "expenses.view",
+      "fieldvisits.view",
     ],
   },
   {

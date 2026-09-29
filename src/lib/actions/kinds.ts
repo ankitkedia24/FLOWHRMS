@@ -28,6 +28,10 @@ export const ACTION_KINDS = [
   // An expense claim asks the company for money back (EXPENSES-MODULE.md
   // §11) — an approval surface by definition.
   "EXPENSE_CLAIM",
+  // Going out on a field trip asks the reporting manager to approve
+  // (FIELD-VISITS-MODULE.md §4). The trip never waits for the answer; a
+  // declined trip is left out of travel claims.
+  "FIELD_TRIP",
 ] as const;
 
 export type ActionKind = (typeof ACTION_KINDS)[number];
@@ -70,6 +74,10 @@ export const APPROVE_INLINE: Record<
     allowed: false,
     because: "Approving means choosing the amount and where it settles.",
   },
+  // Approving a trip needs no further input, but the one-tap path only
+  // knows attendance and task proof so far. It opens the trip until the
+  // recording screens exist (FIELD-VISITS-MODULE.md §10, Phase 2).
+  FIELD_TRIP: { allowed: false, because: "Open the trip to approve or decline it." },
 };
 
 /** What the button that leaves the tile should say. */
@@ -87,6 +95,8 @@ export function openLabel(kind: ActionKind): string {
       return "Review redemption";
     case "EXPENSE_CLAIM":
       return "Review claim";
+    case "FIELD_TRIP":
+      return "Review trip";
   }
 }
 
@@ -106,4 +116,5 @@ export const MODULE_FOR_KIND: Record<ActionKind, ModuleKey> = {
   EMPLOYEE_INVITE: "EMPLOYEES",
   REWARD_REDEMPTION: "PERFORMANCE",
   EXPENSE_CLAIM: "EXPENSES",
+  FIELD_TRIP: "FIELD_VISITS",
 };

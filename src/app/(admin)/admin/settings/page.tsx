@@ -30,6 +30,12 @@ export default async function CompanySettingsPage() {
         }),
       };
 
+  // Field visits is optional, switched on per company by Flowacord; its
+  // rules link shows only where it is on.
+  const fieldVisitsOn = (
+    await checkAccess({ module: "FIELD_VISITS", permission: "policy.edit" })
+  ).decision.allowed;
+
   // The logo and animation live in private storage (company-media), shown
   // through short-lived signed links.
   const branding = devFixtureOffline() ? null : await loadSettingsBranding(session.tenant.id);
@@ -70,6 +76,14 @@ export default async function CompanySettingsPage() {
           >
             Expense rules
           </Link>
+          {fieldVisitsOn && (
+            <Link
+              href="/admin/settings/field-visits"
+              className="text-label text-brand-primary underline-offset-2 hover:underline"
+            >
+              Field visit rules
+            </Link>
+          )}
           <Link
             href="/admin/settings/notifications"
             className="text-label text-brand-primary underline-offset-2 hover:underline"

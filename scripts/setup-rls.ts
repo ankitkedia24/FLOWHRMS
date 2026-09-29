@@ -89,6 +89,11 @@ const TENANT_TABLES = [
   "designations",
   // Sign-up codes: hashes only, but tied to emails and phone numbers.
   "signup_verifications",
+  // Field visits (FIELD-VISITS-MODULE.md §8): where people went, and when.
+  "field_places",
+  "field_trips",
+  "field_visits",
+  "field_legs",
 ];
 
 const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;

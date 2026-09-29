@@ -49,6 +49,7 @@ const LABELS: Record<string, string> = {
   "expense.receipt_viewed": "Receipt opened",
   "feature.disabled": "Feature switched off",
   "feature.enabled": "Feature switched on",
+  "field_visits.policy_published": "Field visit rules updated",
   "leave.cancelled": "Leave cancelled",
   "leave.requested": "Leave requested",
   "membership.provisioned": "Owner account created",

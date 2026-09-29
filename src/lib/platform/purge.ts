@@ -55,6 +55,13 @@ export async function purgeTenant(
       await tx.taskProof.deleteMany({ where: t });
       await tx.task.deleteMany({ where: t });
       await tx.leaveRequest.deleteMany({ where: t });
+      // Field visits hang off the working day and the saved places, so they
+      // go first. Visits and legs cascade from their trip; deleting them
+      // explicitly keeps this list readable as the full inventory.
+      await tx.fieldLeg.deleteMany({ where: t });
+      await tx.fieldVisit.deleteMany({ where: t });
+      await tx.fieldTrip.deleteMany({ where: t });
+      await tx.fieldPlace.deleteMany({ where: t });
       // Punches cascade from their day record (schema onDelete: Cascade).
       await tx.attendanceRecord.deleteMany({ where: t });
       await tx.employeeDocument.deleteMany({ where: t });

@@ -30,7 +30,11 @@ export type PolicyKey =
   | "expenses"
   // Weekly offs and holidays (src/lib/attendance/calendar.ts). Its own key
   // so adding a holiday does not look like the late policy changed.
-  | "work_calendar";
+  | "work_calendar"
+  // Field visit rules (FIELD-VISITS-MODULE.md §6): the company's word for
+  // what people visit, purposes, photo, approvals, vehicles. Every trip
+  // stamps the version that applied when it started.
+  | "field_visits";
 
 export async function getPolicy<T>(
   tenantId: string,

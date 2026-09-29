@@ -192,6 +192,10 @@ model Tenant {
   kudos             Kudos[]
   expenseClaims     ExpenseClaim[]
   designations      Designation[]
+  fieldPlaces       FieldPlace[]
+  fieldTrips        FieldTrip[]
+  fieldVisits       FieldVisit[]
+  fieldLegs         FieldLeg[]
   billingPlan       BillingPlan?          @relation(fields: [billingPlanId], references: [id])
 
   @@map("tenants")
@@ -284,6 +288,7 @@ model TenantMembership {
   kudosSent         Kudos[]            @relation("kudosFrom")
   kudosReceived     Kudos[]            @relation("kudosTo")
   expenseClaims     ExpenseClaim[]
+  fieldTrips        FieldTrip[]
 
   @@unique([tenantId, userId])
   /// An employee code identifies one person within one company. NULLs stay
@@ -431,7 +436,8 @@ model AttendanceRecord {
   membership TenantMembership @relation(fields: [membershipId], references: [id])
   branch     Branch?          @relation(fields: [branchId], references: [id])
 
-  punches AttendancePunch[]
+  punches    AttendancePunch[]
+  fieldTrips FieldTrip[]
 
   @@unique([tenantId, membershipId, workDate])
   @@index([tenantId, workDate])
@@ -728,7 +734,7 @@ model TenantPolicy {
   id        String   @id @default(uuid()) @db.Uuid
   tenantId  String   @db.Uuid
   /// attendance | leave | payroll | notifications | pay_setup | performance
-  /// | expenses | work_calendar
+  /// | expenses | work_calendar | field_visits
   key       String
   version   Int      @default(1)
   value     Json
@@ -1274,6 +1280,7 @@ enum ActionRequestKind {
   EMPLOYEE_INVITE
   REWARD_REDEMPTION
   EXPENSE_CLAIM
+  FIELD_TRIP
 }
 
 enum ActionRequestStatus {
@@ -1611,6 +1618,208 @@ model ExpenseCounter {
   next     Int    @default(1)
 
   @@map("expense_counters")
+}
+
+// ---------------------------------------------------------------- field visits
+//
+// FIELD-VISITS-MODULE.md. Location is captured only at the four taps —
+// Going out, Reached, End visit, Back at office — never in between. A trip
+// lives inside an open working day, so its time is working time.
+
+enum FieldTripApproval {
+  /// The company's rules don't ask for approval of going out.
+  NOT_NEEDED
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+enum FieldTripEnd {
+  BACK_AT_OFFICE
+  CHECKED_OUT
+  /// The day closed with the trip still open; fixed by a correction.
+  NOT_RECORDED
+}
+
+enum FieldVisitEnd {
+  ENDED
+  CHECKED_OUT
+  NOT_RECORDED
+  CORRECTED
+}
+
+enum FieldLegMethod {
+  ROAD
+  /// Shown as an estimate until the road figure arrives.
+  STRAIGHT
+}
+
+enum FieldLegStatus {
+  PENDING
+  DONE
+  FAILED
+}
+
+/// A place people visit, shared across the company and called whatever the
+/// company calls it ("customer", "party", "site"). The spot comes from the
+/// first visit. One-time places are never saved here.
+model FieldPlace {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @db.Uuid
+  name        String
+  /// Lower-cased with spaces collapsed, to spot "Sharma  traders" as a repeat.
+  nameKey     String
+  address     String?
+  lat         Float
+  lng         Float
+  /// Retired places stay for history and are no longer offered.
+  isActive    Boolean  @default(true)
+  /// Membership that added it.
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant       @relation(fields: [tenantId], references: [id])
+  visits FieldVisit[]
+
+  @@index([tenantId, isActive])
+  @@index([tenantId, nameKey])
+  @@map("field_places")
+}
+
+/// Going out to back at office, inside one working day.
+model FieldTrip {
+  id           String @id @default(uuid()) @db.Uuid
+  tenantId     String @db.Uuid
+  membershipId String @db.Uuid
+  /// The working day this trip belongs to.
+  recordId     String @db.Uuid
+
+  startedAt       DateTime
+  /// The phone's own time, as on attendance punches.
+  startedClientAt DateTime?
+  startLat        Float?
+  startLng        Float?
+  startAccuracyM  Float?
+  /// "Going out" was skipped; the start is estimated from road travel time.
+  startEstimated  Boolean   @default(false)
+
+  /// Null while the person is out.
+  endedAt       DateTime?
+  endedClientAt DateTime?
+  endLat        Float?
+  endLng        Float?
+  endAccuracyM  Float?
+  endKind       FieldTripEnd?
+
+  /// Asked of the reporting manager; the trip never waits for it.
+  approval            FieldTripApproval @default(NOT_NEEDED)
+  approvalDecidedById String?           @db.Uuid
+  approvalDecidedAt   DateTime?
+  /// Shown to the person word for word.
+  approvalReason      String?
+
+  /// Version of the company's field visit rules when the trip started.
+  policyVersion   Int
+  offlineCaptured Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant     Tenant           @relation(fields: [tenantId], references: [id])
+  membership TenantMembership @relation(fields: [membershipId], references: [id])
+  record     AttendanceRecord @relation(fields: [recordId], references: [id])
+  visits     FieldVisit[]
+  legs       FieldLeg[]
+
+  @@index([tenantId, membershipId, startedAt])
+  @@index([tenantId, startedAt])
+  @@index([tenantId, approval])
+  @@map("field_trips")
+}
+
+/// Reached to End visit. Place and purpose are snapshots: renaming either
+/// later never rewrites a visit already made.
+model FieldVisit {
+  id           String @id @default(uuid()) @db.Uuid
+  tenantId     String @db.Uuid
+  tripId       String @db.Uuid
+  membershipId String @db.Uuid
+  /// 1 for the trip's first visit, then 2, 3.
+  sequence     Int
+
+  /// Null for a one-time place.
+  placeId     String? @db.Uuid
+  placeName   String
+  purposeKey  String?
+  purposeName String?
+
+  arrivedAt          DateTime
+  arrivedClientAt    DateTime?
+  arriveLat          Float?
+  arriveLng          Float?
+  arriveAccuracyM    Float?
+  /// From the saved place's spot; null for new and one-time places.
+  distanceFromPlaceM Float?
+  /// Further than the company's "away from saved spot" distance. Informs, never blocks.
+  isFar              Boolean   @default(false)
+
+  /// Null while the person is there.
+  leftAt        DateTime?
+  leftClientAt  DateTime?
+  leftLat       Float?
+  leftLng       Float?
+  leftAccuracyM Float?
+  endKind       FieldVisitEnd?
+
+  note            String?
+  /// In the private company-media bucket, when a photo was taken.
+  photoPath       String?
+  offlineCaptured Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant Tenant      @relation(fields: [tenantId], references: [id])
+  trip   FieldTrip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  place  FieldPlace? @relation(fields: [placeId], references: [id])
+
+  @@unique([tripId, sequence])
+  @@index([tenantId, membershipId, arrivedAt])
+  @@index([tenantId, placeId])
+  @@map("field_visits")
+}
+
+/// One stretch of road between two tapped spots. Distance is by road
+/// (Google Routes); a straight-line figure is only a marked estimate.
+model FieldLeg {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @db.Uuid
+  tripId   String @db.Uuid
+  /// 1 for the trip's first stretch, then 2, 3.
+  sequence Int
+
+  fromLat Float
+  fromLng Float
+  fromAt  DateTime
+  toLat   Float
+  toLng   Float
+  toAt    DateTime
+
+  meters          Int?
+  durationSeconds Int?
+  method          FieldLegMethod?
+  status          FieldLegStatus  @default(PENDING)
+  /// Encoded route line for the map.
+  polyline        String?
+  attempts        Int             @default(0)
+  computedAt      DateTime?
+  createdAt       DateTime        @default(now())
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id])
+  trip   FieldTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, sequence])
+  @@index([tenantId, status])
+  @@map("field_legs")
 }
 
 // ---------------------------------------------------------------- consent (DPDP)
