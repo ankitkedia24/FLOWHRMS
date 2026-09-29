@@ -31,6 +31,7 @@ export function LocationPicker({
   onChange,
   radiusM,
   onPlaceName,
+  radiusNote,
 }: {
   value: PickedLocation;
   onChange: (next: PickedLocation) => void;
@@ -38,6 +39,8 @@ export function LocationPicker({
   radiusM: number;
   /** A picked place's own name ("Sharma Traders"), to suggest as the location name. */
   onPlaceName?: (name: string) => void;
+  /** What the circle means here; defaults to the check-in area. */
+  radiusNote?: string;
 }) {
   const mapDiv = useRef<HTMLDivElement>(null);
   const searchDiv = useRef<HTMLDivElement>(null);
@@ -271,7 +274,7 @@ export function LocationPicker({
       {value.lat != null && value.lng != null && (
         <p className="flex items-center gap-1.5 text-caption text-text-secondary">
           <MapPin className="size-3.5" aria-hidden="true" />
-          Check-ins count within {radiusM} m of this point.
+          {radiusNote ?? `Check-ins count within ${radiusM} m of this point.`}
         </p>
       )}
     </div>

@@ -1,6 +1,6 @@
 # FlowHRMS — Field Visits module
 
-Version: 1.2 | Date: 29 September 2026 | Status: approved by the owner from UI mockups (29 Sept 2026). Phases 1–3 built the same day.
+Version: 1.3 | Date: 29 September 2026 | Status: approved by the owner from UI mockups (29 Sept 2026). Phases 1–4 built the same day.
 
 ## 1. Why
 
@@ -63,6 +63,12 @@ All of this is done without continuous tracking. MODULES.md lists continuous loc
 - **A reporting manager:** the trips of their direct reports.
 - **A department head:** their own department.
 - **`fieldvisits.view`:** everyone. This permission is sensitive because it covers location data. By default it goes to Owner, Super Admin and Admin.
+- **Where they look (Admin → Field visits):**
+  - **Today:** everyone in the viewer's scope, with where each person is now (at a place, out, back, needing a correction, at the office, checked out, not in), today's visits and distance, and trips waiting for approval. It can be filtered by department.
+  - **A person's day:** the map and timeline of every trip, with Approve / Decline for trips still waiting, if this viewer may decide them.
+  - **Report:** a month, person by person (days out, trips, visits, time at places, time out, km by road and km still estimated, not ended, declined, awaiting). Downloading it as CSV needs `reports.export`. Typed text in the CSV is protected against spreadsheet formulas.
+  - **Places:** rename, fix the pin, merge two entries for the same place (visits move, the duplicate is retired, each visit keeps its recorded name), retire and restore. Only for `fieldvisits.view`.
+- **Reporting managers without admin access** (a team leader, say) decide and follow their people's trips from the tile and the trip page in the employee area.
 
 ## 6. Wording, purposes, places
 
@@ -148,7 +154,7 @@ These are drafts for legal review. They were written with Phase 2 and are publis
    - Notices v3 published.
    - Until Phase 3, each stretch of road shows a straight-line estimate between the tapped spots, marked "about".
 3. **Road distance (built):** the Routes API, estimates and retries, and the route map.
-4. **Owner and department head views:** Today, a person's day, the monthly report with CSV, and the places list.
+4. **Owner and department head views (built):** Today, a person's day, the monthly report with CSV, and the places list.
 5. **Monthly travel claim:** vehicles, the Conveyance claim, km edits with a reason, and the approver's comparison.
 
 ## 11. Open points

@@ -433,3 +433,109 @@ export function estimatedStart(arrivedAt: Date, durationSeconds: number, checkIn
   const start = new Date(arrivedAt.getTime() - durationSeconds * 1000);
   return checkInAt && start < checkInAt ? checkInAt : start;
 }
+
+// ---------------------------------------------------------------- the team
+
+/** Where someone is today, as the owner's board shows it (§5). */
+export type BoardStatus =
+  | { kind: "AT_PLACE"; placeName: string; since: Date }
+  | { kind: "OUT"; since: Date; lastPlaceName: string | null }
+  | { kind: "NEEDS_CORRECTION"; placeName: string | null }
+  | { kind: "BACK"; at: Date }
+  | { kind: "AT_OFFICE"; since: Date }
+  | { kind: "CHECKED_OUT"; at: Date }
+  | { kind: "NOT_IN" };
+
+/** Out first, then what needs attention, then everyone else. */
+export const BOARD_ORDER: Record<BoardStatus["kind"], number> = {
+  AT_PLACE: 0,
+  OUT: 1,
+  NEEDS_CORRECTION: 2,
+  BACK: 3,
+  AT_OFFICE: 4,
+  CHECKED_OUT: 5,
+  NOT_IN: 6,
+};
+
+export function boardStatus(input: {
+  day: { checkInAt: Date | null; checkOutAt: Date | null } | null;
+  /** That day's trips, in any order. */
+  trips: readonly DayTrip[];
+}): BoardStatus {
+  const trips = [...input.trips].sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
+  const last = trips.at(-1);
+  if (last && last.endKind === null) {
+    const open = last.visits.find((v) => v.endKind === null);
+    if (open) return { kind: "AT_PLACE", placeName: open.placeName, since: open.arrivedAt };
+    return { kind: "OUT", since: last.startedAt, lastPlaceName: last.visits.at(-1)?.placeName ?? null };
+  }
+  const lost = trips.find(
+    (t) => t.endKind === "NOT_RECORDED" || t.visits.some((v) => v.endKind === "NOT_RECORDED"),
+  );
+  if (lost) {
+    const visit = lost.visits.find((v) => v.endKind === "NOT_RECORDED");
+    return { kind: "NEEDS_CORRECTION", placeName: visit?.placeName ?? null };
+  }
+  const day = input.day;
+  if (!day?.checkInAt) return { kind: "NOT_IN" };
+  if (day.checkOutAt) return { kind: "CHECKED_OUT", at: day.checkOutAt };
+  if (last?.endedAt) return { kind: "BACK", at: last.endedAt };
+  return { kind: "AT_OFFICE", since: day.checkInAt };
+}
+
+export interface PersonTotals {
+  daysOut: number;
+  trips: number;
+  visits: number;
+  atPlaceMinutes: number;
+  outMinutes: number;
+  /** By road, or too short to need a route. */
+  finalMetres: number;
+  /** Straight-line estimates still waiting, or given up on. */
+  estimatedMetres: number;
+  notEnded: number;
+  declined: number;
+  awaiting: number;
+}
+
+/** A person's trips over a period, added up for the report. */
+export function personTotals(trips: ReadonlyArray<DayTrip & { dayKey: string }>, now: Date): PersonTotals {
+  const totals: PersonTotals = {
+    daysOut: new Set(trips.map((t) => t.dayKey)).size,
+    trips: trips.length,
+    visits: 0,
+    atPlaceMinutes: 0,
+    outMinutes: 0,
+    finalMetres: 0,
+    estimatedMetres: 0,
+    notEnded: 0,
+    declined: 0,
+    awaiting: 0,
+  };
+  for (const trip of trips) {
+    const day = summariseDay([trip], now);
+    totals.visits += day.visits;
+    totals.atPlaceMinutes += day.atPlaceMinutes;
+    totals.outMinutes += day.outMinutes;
+    totals.notEnded += day.notRecorded;
+    for (const leg of trip.legs) {
+      if (!leg || leg.meters === null) continue;
+      if (legIsFinal(leg)) totals.finalMetres += leg.meters;
+      else totals.estimatedMetres += leg.meters;
+    }
+    if (trip.approval === "DECLINED") totals.declined += 1;
+    if (trip.approval === "PENDING") totals.awaiting += 1;
+  }
+  return totals;
+}
+
+/** "YYYY-MM" → the first and last calendar day of that month. */
+export function monthRange(month: string): { first: string; last: string } | null {
+  const m = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const mon = Number(m[2]);
+  if (mon < 1 || mon > 12 || year < 2000 || year > 2100) return null;
+  const lastDay = new Date(Date.UTC(year, mon, 0)).getUTCDate();
+  return { first: `${m[1]}-${m[2]}-01`, last: `${m[1]}-${m[2]}-${String(lastDay).padStart(2, "0")}` };
+}

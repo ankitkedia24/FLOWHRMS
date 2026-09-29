@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { toCsv } from "@/lib/csv";
 import { getDb } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
@@ -27,19 +28,6 @@ const schema = z.object({
   /** Optional location scope. The client value is a hint, never authority. */
   branchId: z.string().uuid().optional(),
 });
-
-/** RFC 4180 escaping so names with commas or quotes survive a round trip. */
-function csvCell(value: unknown): string {
-  const text = value == null ? "" : String(value);
-  return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-}
-
-function toCsv(headers: string[], rows: unknown[][]): string {
-  return [
-    headers.map(csvCell).join(","),
-    ...rows.map((row) => row.map(csvCell).join(",")),
-  ].join("\r\n");
-}
 
 export async function exportReportAction(
   input: z.input<typeof schema>,

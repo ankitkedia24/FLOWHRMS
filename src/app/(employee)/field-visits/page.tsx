@@ -9,11 +9,12 @@ import { formatLongDate } from "@/lib/attendance/policy";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TripView } from "@/components/field-visits/TripView";
+import { DayMetrics } from "@/components/field-visits/DayMetrics";
 import { RefreshSoon } from "@/components/field-visits/RefreshSoon";
 import { routesConfigured } from "@/lib/field-visits/routes";
 import { loadFieldVisitsPolicy } from "@/lib/field-visits/access";
 import { loadTrips } from "@/lib/field-visits/service";
-import { dateKeyIn, formatDistance, formatStay, summariseDay } from "@/lib/field-visits/state";
+import { dateKeyIn, summariseDay } from "@/lib/field-visits/state";
 
 export const metadata: Metadata = { title: "Field visits" };
 
@@ -97,17 +98,7 @@ export default async function MyFieldDayPage({
         </p>
       )}
 
-      {trips.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Metric label="Visits" value={String(summary.visits)} />
-          <Metric label={`At ${plural}`} value={formatStay(summary.atPlaceMinutes)} />
-          <Metric label="Out" value={formatStay(summary.outMinutes)} />
-          <Metric
-            label={summary.estimated ? "Distance (about)" : "Distance"}
-            value={summary.metres > 0 ? formatDistance(summary.metres) : "—"}
-          />
-        </div>
-      )}
+      {trips.length > 0 && <DayMetrics summary={summary} placesWord={plural} />}
 
       {trips.length === 0 ? (
         <Card flush>
@@ -134,15 +125,6 @@ export default async function MyFieldDayPage({
         </p>
       )}
       {roadPending && <RefreshSoon />}
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md bg-surface-sunken px-4 py-3">
-      <p className="text-caption text-text-secondary">{label}</p>
-      <p className="font-mono text-data font-semibold text-text-primary tabular-nums">{value}</p>
     </div>
   );
 }
