@@ -81,7 +81,7 @@ export const MODULES = {
     key: "EXPENSES",
     name: "Expenses",
     description:
-      "Claims with receipts, approval, and a record of settlement. Works with or without Payroll (EXPENSES-MODULE.md).",
+      "Claims with receipts, approval, and a record of settlement. Works with or without Payroll.",
     category: "OPTIONAL" as ModuleCategory,
     sortOrder: 110,
   },
@@ -118,7 +118,7 @@ export const MODULES = {
     key: "FIELD_VISITS",
     name: "Field visits",
     description:
-      "Going out, visits and the way back, recorded only at each tap — never continuous tracking. Road distance feeds travel claims (FIELD-VISITS-MODULE.md).",
+      "Going out, visits and the way back, recorded only at each tap — never continuous tracking. Road distance feeds travel claims.",
     category: "OPTIONAL" as ModuleCategory,
     sortOrder: 160,
   },
