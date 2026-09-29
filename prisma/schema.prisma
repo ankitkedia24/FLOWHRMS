@@ -1811,6 +1811,8 @@ model FieldLeg {
   /// Encoded route line for the map.
   polyline        String?
   attempts        Int             @default(0)
+  /// When the road distance was last asked for; retries back off from here.
+  lastTriedAt     DateTime?
   computedAt      DateTime?
   createdAt       DateTime        @default(now())
 

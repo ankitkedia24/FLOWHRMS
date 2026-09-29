@@ -5,6 +5,7 @@ import { STATUS, type Status } from "@/lib/status";
 import { tripTimeline } from "@/lib/field-visits/state";
 import type { TripDetail } from "@/lib/field-visits/service";
 import { VisitCorrection } from "./VisitCorrection";
+import { TripMap } from "./TripMap";
 
 /**
  * One trip as a timeline (FIELD-VISITS-MODULE.md §3, §4): going out, the
@@ -52,6 +53,8 @@ export function TripView({
           “{trip.approvalReason}” — not counted towards travel allowance.
         </p>
       )}
+
+      {trip.map && <TripMap data={trip.map} />}
 
       <ol className="flex flex-col gap-2">
         {entries.map((entry, i) => {

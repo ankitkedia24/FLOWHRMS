@@ -15,6 +15,7 @@ import type { AppSession } from "@/lib/auth/types";
 import { loadFieldVisitsPolicy } from "./access";
 import { loadTripPerson, type TripPerson } from "./audience";
 import { askForTripApproval, informManager, TRIP_SUBJECT, tripHref } from "./nudges";
+import { computeLegsLater } from "./legs";
 import { activePurposes, mayRecordVisits, type FieldVisitsPolicy } from "./policy";
 import { openDay, openTrip, settleForgotten, visitLocationAllowed } from "./service";
 import {
@@ -446,6 +447,7 @@ export async function arriveAction(input: z.input<typeof arriveSchema>): Promise
   if (startedTrip && trip.approval === "PENDING") {
     await askForTripApproval(session, person, trip, { placeName: visit.placeName });
   }
+  computeLegsLater(tenantId, [trip.id]);
   if (policy.managerUpdates) {
     await informManager(
       session,
@@ -608,6 +610,7 @@ export async function backAtOfficeAction(input: z.input<typeof tapSchema>): Prom
   }
 
   const { trip, visits } = outcome;
+  computeLegsLater(tenantId, [trip.id]);
   await recordAuditEvent(session, {
     action: "field_visits.back_at_office",
     entityType: "field_trip",

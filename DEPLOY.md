@@ -364,6 +364,26 @@ needs a Google Maps key:
 This key is meant to be seen by browsers; the website restriction is what
 protects it. The free monthly allowance covers normal use.
 
+## 7e. Road distance — field visits and travel allowance
+
+Field visits record a straight-line estimate between tapped spots straight
+away, and replace it with the road distance once a server key exists. The
+estimate is always marked "about"; nothing breaks without the key.
+
+1. Google Cloud Console → the same project → enable **Routes API**.
+2. Credentials → Create API key → restrict it: *APIs* = **Routes API**
+   only. (No website restriction: it is called by the server, never a
+   browser. Add an IP restriction if Hostinger gives a fixed outbound IP.)
+3. Add `GOOGLE_MAPS_SERVER_KEY` to `.env.local` and Hostinger →
+   Environment variables, then restart. No rebuild needed — it is not
+   `NEXT_PUBLIC_`.
+
+Cost: one route per stretch between taps (a trip with three visits is four
+stretches; stretches under 50 m are not sent). Paid by Flowacord, not the
+customer. Set a budget alert on the Cloud project. Route lines for the map
+are dropped after 30 days; the distance itself is kept as a business
+record for travel claims.
+
 ## 8. Before you hand over the URL (30 min)
 
 - [ ] Sign in as the owner on a **real phone**, not a desktop browser

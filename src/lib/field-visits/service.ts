@@ -13,6 +13,7 @@ import { mediaUrls } from "@/lib/media/urls";
 import { loadFieldVisitsPolicy } from "./access";
 import { loadTripPerson } from "./audience";
 import { informManager } from "./nudges";
+import { computeLegsLater } from "./legs";
 import {
   activePurposes,
   mayRecordVisits,
@@ -30,6 +31,7 @@ import {
   type DayVisit,
   type FieldPhase,
   type Spot,
+  type TripMapData,
 } from "./state";
 
 /**
@@ -257,6 +259,8 @@ export interface TripDetail extends DayTrip {
   approvalDecidedAt: Date | null;
   approvalDecidedByName: string | null;
   visits: VisitDetail[];
+  /** Only the tapped spots; null when none carried a location. */
+  map: TripMapData | null;
 }
 
 /** Trips with their visits and legs, oldest first, photos as short-lived links. */
@@ -281,12 +285,47 @@ export async function loadTrips(
     : [];
   const deciderName = new Map(deciders.map((u) => [u.id, u.displayName]));
   const photos = await mediaUrls(rows.flatMap((r) => r.visits.map((v) => v.photoPath)));
+  const waiting = rows.filter((r) => r.legs.some((l) => l.status === "PENDING")).map((r) => r.id);
+  if (waiting.length > 0) computeLegsLater(tenantId, waiting);
 
   return rows.map((t) => {
     const legs: TripDetail["legs"] = [];
     for (const leg of t.legs) {
-      legs[leg.sequence - 1] = { meters: leg.meters, method: leg.method, status: leg.status };
+      legs[leg.sequence - 1] = {
+        meters: leg.meters,
+        durationSeconds: leg.durationSeconds,
+        method: leg.method,
+        status: leg.status,
+      };
     }
+    const stops: TripMapData["stops"] = [];
+    if (t.startLat != null && t.startLng != null) {
+      stops.push({ lat: t.startLat, lng: t.startLng, label: "S", title: t.startEstimated ? "Start (estimated)" : "Went out" });
+    }
+    t.visits.forEach((v, i) => {
+      if (v.arriveLat != null && v.arriveLng != null) {
+        stops.push({ lat: v.arriveLat, lng: v.arriveLng, label: String(i + 1), title: v.placeName });
+      }
+    });
+    if (t.endLat != null && t.endLng != null) {
+      stops.push({
+        lat: t.endLat,
+        lng: t.endLng,
+        label: "E",
+        title: t.endKind === "BACK_AT_OFFICE" ? "Back at office" : "Checked out",
+      });
+    }
+    const map: TripMapData | null = stops.length
+      ? {
+          stops,
+          legs: t.legs.map((l) => ({
+            from: { lat: l.fromLat, lng: l.fromLng },
+            to: { lat: l.toLat, lng: l.toLng },
+            polyline: l.polyline,
+          })),
+        }
+      : null;
+
     return {
       id: t.id,
       membershipId: t.membershipId,
@@ -313,6 +352,7 @@ export async function loadTrips(
         photoUrl: v.photoPath ? photos.get(v.photoPath) ?? null : null,
         note: v.note,
       })),
+      map,
     };
   });
 }
@@ -394,6 +434,7 @@ export async function endFieldWorkAtCheckOut(
       });
     });
 
+    computeLegsLater(tenantId, [trip.id]);
     await recordAuditEvent(session, {
       action: "field_visits.ended_at_check_out",
       entityType: "field_trip",

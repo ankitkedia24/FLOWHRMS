@@ -7,6 +7,8 @@ import { formatLongDate } from "@/lib/attendance/policy";
 import { Card } from "@/components/ui/Card";
 import { TripDecision } from "@/components/field-visits/TripDecision";
 import { TripView } from "@/components/field-visits/TripView";
+import { RefreshSoon } from "@/components/field-visits/RefreshSoon";
+import { routesConfigured } from "@/lib/field-visits/routes";
 import { loadTripPerson } from "@/lib/field-visits/audience";
 import { loadTrips } from "@/lib/field-visits/service";
 import { firstName, mayDecideTrip, mayViewTrip } from "@/lib/field-visits/state";
@@ -56,6 +58,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
       <Card>
         <TripView trip={trip} timeZone={tz} now={new Date()} canCorrect={own} />
       </Card>
+      {routesConfigured() && trip.legs.some((l) => l?.status === "PENDING") && <RefreshSoon />}
 
       {canDecide && (
         <Card>

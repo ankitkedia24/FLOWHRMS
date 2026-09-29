@@ -1,6 +1,6 @@
 # FlowHRMS — Field Visits module
 
-Version: 1.1 | Date: 29 September 2026 | Status: approved by the owner from UI mockups (29 Sept 2026). Phases 1 and 2 built the same day.
+Version: 1.2 | Date: 29 September 2026 | Status: approved by the owner from UI mockups (29 Sept 2026). Phases 1–3 built the same day.
 
 ## 1. Why
 
@@ -85,6 +85,13 @@ All of this is done without continuous tracking. MODULES.md lists continuous loc
   - Each leg's road distance comes from the Google Routes API, called by the server with `GOOGLE_MAPS_SERVER_KEY` (a key restricted to the Routes API, entered by the owner, never committed).
   - It runs after the tap has been answered, so it never slows the tap.
   - If the call fails, a straight-line figure marked "estimated" is stored and the road figure is retried later.
+  - **When it runs:** after a tap's response (Next's `after`), and again whenever a day or trip is viewed with a distance still waiting. The page then refreshes itself once.
+  - **Back-off:** 1, 2, 4 … minutes, at most an hour, and 8 tries at most. After that, the leg keeps its straight-line estimate, marked as such.
+  - **Short stretches:** under 50 m, no route is asked for; the straight line is the distance.
+  - **Skipped Going out:** once the first stretch's road time is known, the trip's start moves back by it, never before the check-in.
+  - **Kept:** the road distance and time, as the business record for travel claims. The route line for the map is dropped after 30 days (Google Maps Platform terms limit keeping route content). Legal review should confirm that keeping the distance fits those terms.
+  - **What is asked for:** driving without live traffic, and only distance, duration and line, which keeps it on the basic price tier.
+  - **Map:** on the trip page, the tapped spots numbered in order, with the road line, or a dashed straight line where the road isn't known. It needs the browser key `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`; without it the timeline shows alone.
   - Route lookups are paid for by Flowacord.
 - **Monthly claim:**
   - Each person picks their vehicle once; an admin can change it later.
@@ -140,7 +147,7 @@ These are drafts for legal review. They were written with Phase 2 and are publis
    - The check-out and day-close rules, the offline queue, and the "My day" page.
    - Notices v3 published.
    - Until Phase 3, each stretch of road shows a straight-line estimate between the tapped spots, marked "about".
-3. **Road distance:** the Routes API, estimates and retries, and the route map.
+3. **Road distance (built):** the Routes API, estimates and retries, and the route map.
 4. **Owner and department head views:** Today, a person's day, the monthly report with CSV, and the places list.
 5. **Monthly travel claim:** vehicles, the Conveyance claim, km edits with a reason, and the approver's comparison.
 

@@ -9,6 +9,8 @@ import { formatLongDate } from "@/lib/attendance/policy";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TripView } from "@/components/field-visits/TripView";
+import { RefreshSoon } from "@/components/field-visits/RefreshSoon";
+import { routesConfigured } from "@/lib/field-visits/routes";
 import { loadFieldVisitsPolicy } from "@/lib/field-visits/access";
 import { loadTrips } from "@/lib/field-visits/service";
 import { dateKeyIn, formatDistance, formatStay, summariseDay } from "@/lib/field-visits/state";
@@ -53,6 +55,8 @@ export default async function MyFieldDayPage({
       });
   const trips = record ? await loadTrips(session.tenant.id, { recordId: record.id }) : [];
   const summary = summariseDay(trips, now);
+  const roadPending =
+    routesConfigured() && trips.some((t) => t.legs.some((l) => l?.status === "PENDING"));
   const plural = published?.policy.placeWord.plural ?? "places";
 
   return (
@@ -129,6 +133,7 @@ export default async function MyFieldDayPage({
           road distance is worked out.
         </p>
       )}
+      {roadPending && <RefreshSoon />}
     </div>
   );
 }

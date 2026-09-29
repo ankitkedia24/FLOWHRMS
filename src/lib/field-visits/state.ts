@@ -108,8 +108,18 @@ export function formatDistance(metres: number): string {
 
 export interface DayLeg {
   meters: number | null;
+  /** Road travel time, when the road distance is known. */
+  durationSeconds?: number | null;
   method: "ROAD" | "STRAIGHT" | null;
   status: "PENDING" | "DONE" | "FAILED";
+}
+
+/**
+ * Is this leg's distance final? By road, or too short to need a route.
+ * Anything else is a straight-line estimate, still waiting or given up on.
+ */
+export function legIsFinal(leg: DayLeg): boolean {
+  return leg.status === "DONE";
 }
 
 export interface DayVisit {
@@ -194,11 +204,17 @@ export function summariseDay(trips: readonly DayTrip[], now: Date): DaySummary {
     for (const leg of trip.legs) {
       if (!leg || leg.meters === null) continue;
       metres += leg.meters;
-      if (leg.method !== "ROAD") estimated = true;
+      if (!legIsFinal(leg)) estimated = true;
     }
   }
 
   return { trips: trips.length, visits, outMinutes, atPlaceMinutes, metres, estimated, notRecorded };
+}
+
+/** What the trip map draws: the tapped spots, in order, and the legs between. */
+export interface TripMapData {
+  stops: Array<{ lat: number; lng: number; label: string; title: string }>;
+  legs: Array<{ from: Spot; to: Spot; polyline: string | null }>;
 }
 
 export type TimelineEntry =
@@ -210,12 +226,18 @@ export type TimelineEntry =
 
 /** The trips of a day as the person (and their manager) reads them. */
 export function tripTimeline(trip: DayTrip, now: Date): TimelineEntry[] {
-  const legLabel = (leg: DayLeg | undefined) =>
-    !leg || leg.meters === null
-      ? "Distance not known — no location at one end"
-      : leg.method === "ROAD"
-        ? `${formatDistance(leg.meters)} by road`
-        : `About ${formatDistance(leg.meters)} (straight line, until the road distance is ready)`;
+  const legLabel = (leg: DayLeg | undefined) => {
+    if (!leg || leg.meters === null) return "Distance not known — no location at one end";
+    const d = formatDistance(leg.meters);
+    if (leg.status === "DONE" && leg.method === "ROAD") {
+      return leg.durationSeconds
+        ? `${d} by road · about ${formatStay(leg.durationSeconds / 60)}`
+        : `${d} by road`;
+    }
+    if (leg.status === "DONE") return `${d} (too short to need a route)`;
+    if (leg.status === "FAILED") return `About ${d} (straight line — the road distance couldn't be worked out)`;
+    return `About ${d} (straight line, until the road distance is ready)`;
+  };
 
   const entries: TimelineEntry[] = [
     {
@@ -372,4 +394,42 @@ export function zonedDateTime(dateKey: string, hhmm: string, timeZone: string): 
   // What the zone's clock shows at that instant, read as if it were UTC.
   const shown = new Date(`${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}:00.000Z`);
   return new Date(guess.getTime() - (shown.getTime() - guess.getTime()));
+}
+
+// ---------------------------------------------------------------- road distance
+
+/** Below this, a stretch needs no route: the straight line is the distance. */
+export const SHORT_LEG_M = 50;
+/** Tries before a leg keeps its straight-line estimate for good. */
+export const MAX_ROUTE_ATTEMPTS = 8;
+
+/** Wait before asking again: 1, 2, 4 … minutes, never more than an hour. */
+export function routeRetryDelayMs(attempts: number): number {
+  return Math.min(60, 2 ** Math.max(0, attempts - 1)) * 60_000;
+}
+
+/** Should this leg's road distance be asked for now? */
+export function legDue(
+  leg: { status: DayLeg["status"]; attempts: number; lastTriedAt: Date | null },
+  now: Date,
+): boolean {
+  if (leg.status !== "PENDING" || leg.attempts >= MAX_ROUTE_ATTEMPTS) return false;
+  if (!leg.lastTriedAt || leg.attempts === 0) return true;
+  return now.getTime() - leg.lastTriedAt.getTime() >= routeRetryDelayMs(leg.attempts);
+}
+
+/** "1234s" (the Routes API's duration) as whole seconds; null if unreadable. */
+export function parseRouteDuration(value: unknown): number | null {
+  if (typeof value !== "string") return null;
+  const m = /^(\d+(?:\.\d+)?)s$/.exec(value.trim());
+  return m ? Math.round(Number(m[1])) : null;
+}
+
+/**
+ * When someone skipped Going out, the trip's start is their first arrival
+ * minus the road time to it — never before they checked in.
+ */
+export function estimatedStart(arrivedAt: Date, durationSeconds: number, checkInAt: Date | null): Date {
+  const start = new Date(arrivedAt.getTime() - durationSeconds * 1000);
+  return checkInAt && start < checkInAt ? checkInAt : start;
 }

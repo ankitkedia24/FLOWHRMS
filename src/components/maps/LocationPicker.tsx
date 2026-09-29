@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Crosshair, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { loadMaps, MAPS_KEY } from "@/lib/maps/load";
 
 /**
  * Choose where a work location is: search an address (Google Maps), use
@@ -23,34 +24,7 @@ export interface PickedLocation {
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- the Maps JS API ships no types here */
-type GoogleNS = any;
-
-declare global {
-  interface Window {
-    google?: GoogleNS;
-    __fhMapsReady?: () => void;
-  }
-}
-
-const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 const INDIA = { lat: 20.5937, lng: 78.9629 };
-let loading: Promise<GoogleNS> | null = null;
-
-function loadMaps(): Promise<GoogleNS> {
-  if (window.google?.maps?.importLibrary) return Promise.resolve(window.google);
-  loading ??= new Promise((resolve, reject) => {
-    window.__fhMapsReady = () => resolve(window.google);
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}&v=weekly&loading=async&region=IN&callback=__fhMapsReady`;
-    script.async = true;
-    script.onerror = () => {
-      loading = null;
-      reject(new Error("Google Maps didn't load"));
-    };
-    document.head.appendChild(script);
-  });
-  return loading;
-}
 
 export function LocationPicker({
   value,
