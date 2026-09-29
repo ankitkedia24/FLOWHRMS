@@ -151,7 +151,9 @@ export function StartTrialForm() {
   async function submit() {
     setFormError(null);
     setPhase({ name: "creating", result: null });
-    const result = await startTrialAction({
+    let result: StartTrialResult;
+    try {
+      result = await startTrialAction({
         companyName,
         staffCount,
         industry: industry as (typeof INDUSTRIES)[number],
@@ -166,6 +168,19 @@ export function StartTrialForm() {
         consents: { account_holder: accountConsent, customer_terms: companyConsent },
         website,
       });
+    } catch {
+      // The request itself failed — lost signal, or this page was opened
+      // before an update and the server no longer recognises it. Without
+      // this the setup animation waited for an answer that never came.
+      // The company may still have been made if only the reply was lost;
+      // a retry then says the email already has an account.
+      setPhase({ name: "form" });
+      setFormError(
+        "We couldn't hear back from FlowHRMS. Check your connection and try again. If it keeps failing, reload the page — FlowHRMS may have just been updated.",
+      );
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     if (result.ok) {
       // Hand the result to the animation; it finishes its steps and then
       // moves on (SetupProgress onComplete) — never an abrupt cut.
@@ -179,6 +194,8 @@ export function StartTrialForm() {
     } else {
       setFormError(result.error);
     }
+    // The message sits at the top of the step; the button is at the bottom.
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   if (phase.name === "creating") {
