@@ -11,6 +11,8 @@ import { BottomNav } from "@/components/shell/BottomNav";
 import { Sidebar } from "@/components/shell/Sidebar";
 import { EmployeeTopBar } from "@/components/shell/TopBar";
 import { SplashScreen } from "@/components/shell/SplashScreen";
+import { cookies } from "next/headers";
+import { SPLASH_COOKIE, splashAlreadySeen } from "@/lib/branding/splash";
 import { loadBranding } from "@/lib/branding/load";
 import { ToastProvider } from "@/components/ui/Toast";
 import { OfflineProvider } from "@/lib/offline/OfflineProvider";
@@ -43,6 +45,10 @@ export default async function EmployeeLayout({
   );
 
   const branding = await loadBranding(session.tenant.id);
+  // Played once per browser session; the animation sets the cookie when done.
+  const showSplash =
+    branding.splash !== null &&
+    !splashAlreadySeen((await cookies()).get(SPLASH_COOKIE)?.value, branding.splash.version);
   const items = employeeNavItems({
     enabledModules: enabledModuleKeys(entitlements),
   });
@@ -63,12 +69,8 @@ export default async function EmployeeLayout({
   return (
     <div data-surface="employee" className="flex min-h-dvh">
       <ToastProvider>
-        {branding.splash && (
-          <SplashScreen
-            src={branding.splash.url}
-            mime={branding.splash.mime}
-            storageKey={`fh-splash:${session.tenant.id}:${branding.splash.version}`}
-          />
+        {showSplash && branding.splash && (
+          <SplashScreen src={branding.splash.url} mime={branding.splash.mime} seenKey={branding.splash.version} />
         )}
         <a
           href="#main"

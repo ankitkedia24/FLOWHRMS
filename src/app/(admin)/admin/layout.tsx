@@ -20,6 +20,8 @@ import { accessState } from "@/lib/billing/pricing";
 import { canManageBilling } from "@/lib/billing/policy";
 import { loadBranding } from "@/lib/branding/load";
 import { SplashScreen } from "@/components/shell/SplashScreen";
+import { cookies } from "next/headers";
+import { SPLASH_COOKIE, splashAlreadySeen } from "@/lib/branding/splash";
 
 /**
  * Admin shell: cool surface, 240px sidebar (lg+) / 72px rail (md) / drawer
@@ -62,6 +64,10 @@ export default async function AdminLayout({
   ];
   const configItems = adminConfigItems(navInput);
   const branding = await loadBranding(session.tenant.id);
+  // Played once per browser session; the animation sets the cookie when done.
+  const showSplash =
+    branding.splash !== null &&
+    !splashAlreadySeen((await cookies()).get(SPLASH_COOKIE)?.value, branding.splash.version);
 
   const day = (at: Date) =>
     new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: session.tenant.timezone }).format(at);
@@ -88,12 +94,8 @@ export default async function AdminLayout({
   return (
     <div data-surface="admin" className="flex min-h-dvh">
       <ToastProvider>
-        {branding.splash && (
-          <SplashScreen
-            src={branding.splash.url}
-            mime={branding.splash.mime}
-            storageKey={`fh-splash:${session.tenant.id}:${branding.splash.version}`}
-          />
+        {showSplash && branding.splash && (
+          <SplashScreen src={branding.splash.url} mime={branding.splash.mime} seenKey={branding.splash.version} />
         )}
         <a
           href="#main"

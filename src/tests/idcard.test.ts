@@ -77,3 +77,14 @@ describe("uploaded file paths", () => {
     expect(mediaPathOk(42, t, "photos")).toBe(false);
   });
 });
+
+describe("opening animation, once per session", () => {
+  it("counts as seen only for the same animation file", async () => {
+    const { splashAlreadySeen } = await import("@/lib/branding/splash");
+    const version = "11111111-2222-4333-8444-555555555555/splash/1-abc.mp4";
+    expect(splashAlreadySeen(undefined, version)).toBe(false);
+    expect(splashAlreadySeen(encodeURIComponent(version), version)).toBe(true);
+    expect(splashAlreadySeen(encodeURIComponent(version.replace("1-abc", "2-def")), version)).toBe(false);
+    expect(splashAlreadySeen("%E0%A4%A", version)).toBe(false); // malformed cookie
+  });
+});

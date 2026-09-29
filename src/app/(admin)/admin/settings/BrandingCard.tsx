@@ -229,7 +229,7 @@ export function BrandingCard({
           onChange={(e) => void pickSplash(e.target.files?.[0])}
         />
         {splash && preview > 0 && (
-          <SplashScreen key={preview} src={splash.url} mime={splash.mime} storageKey={null} />
+          <SplashScreen key={preview} src={splash.url} mime={splash.mime} seenKey={null} />
         )}
       </section>
 
