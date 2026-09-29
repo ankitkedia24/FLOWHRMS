@@ -479,6 +479,12 @@ payroll, not after.
 
 - **Build failed** — read the log; it is almost always a missing
   environment variable.
+- **Build failed with `TurbopackInternalError … globals.css … node process
+  exited before we could connect to it`** — Turbopack could not start its
+  CSS helper process on the build machine (29 Sept 2026, Hostinger). The
+  production build therefore uses webpack (`next build --webpack` in
+  package.json), which processes CSS without that helper; `next dev` keeps
+  Turbopack. Do not remove `--webpack` unless the host is known to allow it.
 - **App loads but every screen is empty** — `DATABASE_URL` is wrong, or
   RLS was applied to a new table. `npx tsx scripts/setup-rls.ts --status`.
 - **Pages work but every query 500s** — the database is unreachable. Check
