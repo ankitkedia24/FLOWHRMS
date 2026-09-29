@@ -12,6 +12,7 @@ import {
   House,
   KeyRound,
   LayoutDashboard,
+  MapPinned,
   ListChecks,
   Network,
   ReceiptIndianRupee,
@@ -54,4 +55,5 @@ export const NAV_ICONS: Record<NavIcon, typeof Clock> = {
   account: KeyRound,
   subscription: CreditCard,
   designations: BadgeCheck,
+  fieldVisits: MapPinned,
 };

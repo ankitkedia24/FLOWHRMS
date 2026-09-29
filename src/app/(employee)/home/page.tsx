@@ -13,6 +13,8 @@ import { TaskCard } from "@/components/tasks/TaskCard";
 import { LevelRing } from "@/components/performance/LevelRing";
 import { StreakFlame } from "@/components/performance/StreakFlame";
 import { loadPerformanceSummary } from "@/lib/performance/summary";
+import { loadFieldHome } from "@/lib/field-visits/service";
+import { FieldVisitCard } from "@/components/field-visits/FieldVisitCard";
 
 export const metadata: Metadata = { title: "Home" };
 
@@ -54,6 +56,16 @@ export default async function EmployeeHomePage() {
     ? await loadAttendanceContext(session)
     : null;
 
+  // Field visits live inside the working day (FIELD-VISITS-MODULE.md §3);
+  // null for owners, for people outside its scope, and where it is off.
+  const field = attendance ? await loadFieldHome(session) : null;
+  const fieldOut =
+    field?.phase === "AT_PLACE" && field.visit
+      ? `Checking out also ends your visit at ${field.visit.placeName} and your trip.`
+      : field?.phase === "OUT"
+        ? "Checking out also ends your trip."
+        : null;
+
   // The motivation widget (PERFORMANCE-MODULE.md §B): streak flame,
   // today's points, level ring — the first thing seen after check-in.
   // Same loader as My Performance, so the two can never disagree.
@@ -82,7 +94,13 @@ export default async function EmployeeHomePage() {
 
       {attendance && (
         <section aria-label="Attendance today">
-          <AttendanceActionCard context={attendance} firstName={firstName} />
+          <AttendanceActionCard context={attendance} firstName={firstName} fieldOut={fieldOut} />
+        </section>
+      )}
+
+      {field && (
+        <section aria-label="Field visits">
+          <FieldVisitCard home={field} />
         </section>
       )}
 

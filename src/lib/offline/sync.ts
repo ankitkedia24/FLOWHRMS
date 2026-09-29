@@ -5,6 +5,13 @@ import { requestLeaveAction } from "@/lib/leave/actions";
 import { submitProofAction } from "@/lib/tasks/actions";
 import { uploadProofFiles } from "@/lib/tasks/upload";
 import {
+  arriveAction,
+  backAtOfficeAction,
+  goingOutAction,
+  leaveAction,
+} from "@/lib/field-visits/actions";
+import { uploadMedia } from "@/lib/media/upload";
+import {
   classifyOutcome,
   sortQueue,
   summariseSync,
@@ -43,6 +50,23 @@ export interface ProofPayload {
   note?: string;
   /** Kept as Blobs in IndexedDB so a photo survives the tab closing. */
   files: Array<{ name: string; type: string; blob: Blob }>;
+}
+
+/** A field visit tap (FIELD-VISITS-MODULE.md §3), with its photo kept as a Blob. */
+export interface FieldTapPayload {
+  tap: "GOING_OUT" | "ARRIVE" | "LEAVE" | "BACK";
+  coords: { lat: number; lng: number; accuracyM?: number | null } | null;
+  arrive?: {
+    place:
+      | { kind: "saved"; placeId: string }
+      | { kind: "new"; name: string; address?: string }
+      | { kind: "once"; name: string };
+    purposeKey?: string;
+    note?: string;
+  };
+  /** End visit: the note as it stood when the visit ended. */
+  note?: string;
+  photo?: { tenantId: string; type: string; blob: Blob };
 }
 
 /** A transport failure looks like a thrown error, not a returned result. */
@@ -106,6 +130,28 @@ async function send(action: QueuedAction): Promise<SendOutcome> {
           clientRequestId: action.id,
           clientCapturedAt: action.capturedAt,
         });
+        return result.ok
+          ? { status: "sent", message: result.message }
+          : { status: "rejected", error: result.error };
+      }
+      case "fieldTap": {
+        const payload = action.payload as FieldTapPayload;
+        const base = { coords: payload.coords, clientCapturedAt: action.capturedAt };
+        let result;
+        if (payload.tap === "GOING_OUT") result = await goingOutAction(base);
+        else if (payload.tap === "LEAVE") result = await leaveAction({ ...base, note: payload.note });
+        else if (payload.tap === "BACK") result = await backAtOfficeAction(base);
+        else {
+          if (!payload.arrive) return { status: "rejected", error: "That visit could not be read." };
+          // The photo goes first; a failed upload is a lost signal, so try again.
+          let photoPath: string | undefined;
+          if (payload.photo) {
+            const uploaded = await uploadMedia(payload.photo.tenantId, "visits", payload.photo.blob, "jpg");
+            if (!uploaded.ok) return { status: "retry", error: uploaded.error };
+            photoPath = uploaded.path;
+          }
+          result = await arriveAction({ ...base, ...payload.arrive, photoPath });
+        }
         return result.ok
           ? { status: "sent", message: result.message }
           : { status: "rejected", error: result.error };

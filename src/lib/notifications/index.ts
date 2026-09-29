@@ -231,6 +231,25 @@ async function expenseUpdate(
 }
 
 /**
+ * A field visit tap, or a trip decision (FIELD-VISITS-MODULE.md §4). A bell
+ * notice only: the one decision in field visits — approving a trip — is
+ * an action tile, raised separately.
+ */
+async function fieldVisit(
+  tenantId: string,
+  userIds: readonly string[],
+  title: string,
+  body: string | undefined,
+  href: string,
+): Promise<void> {
+  await Promise.all(
+    [...new Set(userIds)].map((userId) =>
+      create({ tenantId, userId, title: title.slice(0, 60), body, href }),
+    ),
+  );
+}
+
+/**
  * The person's own password was changed. Sent to them, not to admins: if it
  * was them, it is confirmation; if it wasn't, it is the alarm.
  */
@@ -253,6 +272,7 @@ async function passwordChanged(session: AppSession, at: Date): Promise<void> {
 
 export const notify = {
   passwordChanged,
+  fieldVisit,
   attendanceException,
   attendanceDecision,
   leaveDecision,

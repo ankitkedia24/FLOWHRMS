@@ -74,10 +74,9 @@ export const APPROVE_INLINE: Record<
     allowed: false,
     because: "Approving means choosing the amount and where it settles.",
   },
-  // Approving a trip needs no further input, but the one-tap path only
-  // knows attendance and task proof so far. It opens the trip until the
-  // recording screens exist (FIELD-VISITS-MODULE.md §10, Phase 2).
-  FIELD_TRIP: { allowed: false, because: "Open the trip to approve or decline it." },
+  // Approving a trip needs nothing more than the tap; declining asks for
+  // a reason, like every rejection, so it opens the trip.
+  FIELD_TRIP: { allowed: true },
 };
 
 /** What the button that leaves the tile should say. */

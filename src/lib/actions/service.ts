@@ -4,7 +4,12 @@ import { getDb } from "@/lib/db";
 import { devFixtureOffline } from "@/lib/auth/fixture";
 import type { AppSession } from "@/lib/auth/types";
 import { isTileVisible } from "./snooze";
-import { resolveAudience, DECIDING_PERMISSION, type AudienceCandidate } from "./audience";
+import {
+  resolveAudience,
+  DECIDING_PERMISSION,
+  type AudienceCandidate,
+  type Recipient,
+} from "./audience";
 import { MODULE_FOR_KIND, type ActionKind } from "./kinds";
 import { loadEntitlements } from "@/lib/authz/entitlements";
 import { enabledModuleKeys } from "@/lib/authz/flags";
@@ -35,6 +40,13 @@ export interface RaiseInput {
   href: string;
   /** Who caused it; never asked to decide their own request. */
   actorUserId?: string | null;
+  /**
+   * Who to ask, when that follows from a relationship rather than a
+   * permission — a field trip goes to the person's reporting manager,
+   * whatever their role (FIELD-VISITS-MODULE.md §4). The caller has
+   * already excluded the person themselves.
+   */
+  recipients?: Recipient[];
 }
 
 /**
@@ -95,18 +107,22 @@ export async function raiseActionRequest(input: RaiseInput): Promise<void> {
 
   try {
     const db = getDb();
-    const { candidates, departmentName, aboutUserId } = await loadCandidates(
-      input.tenantId,
-      input.kind,
-      input.aboutMembershipId,
-    );
-
-    const recipients = resolveAudience({
-      candidates,
-      actorUserId: input.actorUserId,
-      aboutUserId,
-      departmentName,
-    });
+    let recipients: Recipient[];
+    if (input.recipients) {
+      recipients = input.recipients;
+    } else {
+      const { candidates, departmentName, aboutUserId } = await loadCandidates(
+        input.tenantId,
+        input.kind,
+        input.aboutMembershipId,
+      );
+      recipients = resolveAudience({
+        candidates,
+        actorUserId: input.actorUserId,
+        aboutUserId,
+        departmentName,
+      });
+    }
     if (recipients.length === 0) return; // nobody can act; the bell still fired
 
     const request = await db.actionRequest.upsert({

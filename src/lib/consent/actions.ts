@@ -132,6 +132,54 @@ export async function updateOptionalConsentAction(input: {
 }
 
 /**
+ * Location at field-visit taps — the employee notice's optional choice
+ * (FIELD-VISITS-MODULE.md §9). Given or taken back in one tap, from the
+ * visit card or Account → Privacy & consent; the rest stays as agreed.
+ */
+export async function setVisitLocationConsentAction(input: {
+  granted: boolean;
+}): Promise<Result> {
+  const session = await getAppSession();
+  if (!session || session.source !== "supabase") {
+    return { ok: false, error: "Sign in again to continue." };
+  }
+  if (session.membership.roleKey === "OWNER") {
+    return { ok: false, error: "Owners don't record field visits." };
+  }
+  const [standing] = await consentStandings(session.user.id, ["employee"]);
+  if (standing.status.state !== "current") {
+    return { ok: false, error: "Accept the current notice first." };
+  }
+  if (!standing.status.choices.some((c) => c.key === "visit_location")) {
+    return { ok: false, error: "Accept the current notice first." };
+  }
+  const choices: PurposeChoice[] = standing.status.choices.map((c) =>
+    c.key === "visit_location" ? { ...c, granted: input.granted } : c,
+  );
+  const meta = await requestMeta();
+  await recordConsents([
+    {
+      noticeKey: "employee",
+      subject: "EMPLOYEE",
+      action: "UPDATED",
+      purposes: choices,
+      userId: session.user.id,
+      email: session.user.email ?? "",
+      tenantId: session.tenant.id,
+      tenantName: session.tenant.name,
+      method: "toggle:visit-location",
+      ...meta,
+    },
+  ]);
+  return {
+    ok: true,
+    message: input.granted
+      ? "Location will be saved at each visit tap — never in between."
+      : "Location is off at visit taps. Your visits are recorded without it.",
+  };
+}
+
+/**
  * Withdraw consent entirely — as easy as giving it (s.6(4)). The records
  * are written, a request goes to Flowacord to close the account and erase
  * what the law allows, and the person is signed out. If they sign in

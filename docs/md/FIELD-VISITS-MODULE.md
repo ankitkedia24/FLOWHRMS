@@ -1,6 +1,6 @@
 # FlowHRMS — Field Visits module
 
-Version: 1.0 | Date: 29 September 2026 | Status: approved by the owner from UI mockups (29 Sept 2026). Phase 1 built the same day.
+Version: 1.1 | Date: 29 September 2026 | Status: approved by the owner from UI mockups (29 Sept 2026). Phases 1 and 2 built the same day.
 
 ## 1. Why
 
@@ -31,8 +31,16 @@ All of this is done without continuous tracking. MODULES.md lists continuous loc
 - **Precondition:** an open check-in. Someone who hasn't checked in is told "Check in first".
 - **Skipping "Going out":** tapping "Reached a {place}" straight from the office starts the trip. Its start time is estimated from the road travel time and marked as estimated.
 - **Checking out while out or at a {place}:** the app asks "Leaving {place} now?". The visit and the trip then end at the check-out, with the end marked `CHECKED_OUT`.
-- **A day that closes by itself** with a visit or trip still open marks them `NOT_RECORDED`. They are fixed through a correction request, like a missed check-out.
-- **Offline:** taps are queued with the phone's own time and synced in order after `checkIn` and before `checkOut`.
+- **A forgotten "End visit"** can only happen when the whole day was never checked out, because the phone offers only "End visit" while someone is at a place.
+- **A day that closes by itself** with a visit or trip still open marks them `NOT_RECORDED`. This happens on the next load or tap, once the check-in is open longer than a shift (`MAX_OPEN_VISIT_HOURS`).
+  - Times are never invented.
+  - On My day, the person can say when they left a visit and why. The visit is then recorded as `CORRECTED`, visibly and with the reason, and their reporting manager is told.
+  - No distance is invented for a corrected visit.
+- **Offline:**
+  - Taps are queued with the phone's own time (queue kind `fieldTap`), including a photo kept as a Blob.
+  - They are synced in order: after `checkIn` and before `checkOut` when times tie.
+  - A repeated send of the same tap is recorded once.
+  - The rule for how old or future-dated a phone time may be is shared with check-in (`resolveCapturedAt`).
 
 ## 4. Nudges to the reporting manager
 
@@ -44,6 +52,7 @@ All of this is done without continuous tracking. MODULES.md lists continuous loc
   - It stays on the record, marked Declined.
   - Its kilometres are left out of the travel claim.
   - The person sees the decision and the reason.
+- **Where the manager decides:** the tile opens `/field-visits/trips/[id]`, in the employee area, because a reporting manager may have no admin access. Approving can also be done in one tap on the tile.
 - **Trip not yet decided:** it shows "Waiting for approval". Its kilometres are included in the travel claim, but flagged to whoever approves the claim.
 - **Reached a {place}, End visit and Back at office** each send an **information** notification only. No action is needed.
 - **Company rules** can switch either behaviour off: "Going out needs approval" and "Tell the manager at every tap". Both are on by default.
@@ -105,13 +114,17 @@ All of this is done without continuous tracking. MODULES.md lists continuous loc
 
 ## 9. Privacy notice changes
 
-These are drafts for legal review. They are published with Phase 2, when the taps go live. Publishing any earlier would make every employee re-accept a notice for a feature that does not exist yet.
+These are drafts for legal review. They were written with Phase 2 and are published (`npm run publish-notices`) immediately before it deploys:
+- employee notice v3
+- company terms v2
+- Terms of Service v2
+- Privacy Policy v2
 
 - **Employee notice v3.** The location item becomes: "Your location — only at the moment you check in and check out and, if your company uses field visits, when you tap Going out, Reached, End visit or Back at office. Never continuously, and never between taps."
-  - A separate consent is added: "I consent to my location being captured at each field-visit tap."
+  - A separate, optional consent is added (`visit_location`). It is never pre-ticked. It can be given or taken back in one tap, from the visit card ("Share location at visit taps") or from Account → Privacy & consent.
   - If someone withdraws that consent, their visits are recorded without location. There is then no road distance, so a travel claim has to be entered by hand with a reason.
 - **Privacy policy §4, Terms and customer terms:** the same addition.
-- **Effect:** publishing makes every employee accept once more, through the existing consent screen.
+- **Effect:** publishing makes every employee accept the employee notice once more, and every owner accept the company terms once more, through the existing consent screen.
 
 ## 10. Phases
 
@@ -120,12 +133,13 @@ These are drafts for legal review. They are published with Phase 2, when the tap
    - The permission, the four tables, the `FIELD_TRIP` kind, row-level security and purge.
    - The rules and their editor at Settings → Field visits, with tests.
    - This document.
-2. **Recording on the phone:**
+2. **Recording on the phone (built):**
    - The home card with the four taps.
    - Choosing a place (saved, new, one-time), purpose, photo and note.
    - Nudges to the reporting manager.
    - The check-out and day-close rules, the offline queue, and the "My day" page.
    - Notices v3 published.
+   - Until Phase 3, each stretch of road shows a straight-line estimate between the tapped spots, marked "about".
 3. **Road distance:** the Routes API, estimates and retries, and the route map.
 4. **Owner and department head views:** Today, a person's day, the monthly report with CSV, and the places list.
 5. **Monthly travel claim:** vehicles, the Conveyance claim, km edits with a reason, and the approver's comparison.

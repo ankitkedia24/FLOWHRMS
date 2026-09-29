@@ -45,6 +45,11 @@ import { useOffline } from "@/lib/offline/OfflineProvider";
 interface Props {
   context: AttendanceContext;
   firstName: string;
+  /**
+   * Set while the person is out on a field trip: checking out also ends
+   * it (FIELD-VISITS-MODULE.md §3), and they are told so before the tap.
+   */
+  fieldOut?: string | null;
 }
 
 /**
@@ -63,7 +68,7 @@ type GeoState =
 const CHECK_OUT_REMINDER =
   "You've checked in today. Don't forget to check out at the end of the day.";
 
-export function AttendanceActionCard({ context, firstName }: Props) {
+export function AttendanceActionCard({ context, firstName, fieldOut }: Props) {
   const { show } = useToast();
   // Connection state and the queue are shared with the offline bar, so
   // the card and the bar can never disagree about whether we are online.
@@ -350,6 +355,9 @@ export function AttendanceActionCard({ context, firstName }: Props) {
             <p className="mt-1 text-secondary text-warm-text">
               {CHECK_OUT_REMINDER}
             </p>
+            {fieldOut && (
+              <p className="mt-1 text-secondary font-semibold text-warm-text">{fieldOut}</p>
+            )}
             <Button
               size="xl"
               className="mt-3"
@@ -502,6 +510,9 @@ export function AttendanceActionCard({ context, firstName }: Props) {
             <p className="text-secondary text-text-secondary">
               {CHECK_OUT_REMINDER}
             </p>
+            {fieldOut && (
+              <p className="text-secondary font-semibold text-text-primary">{fieldOut}</p>
+            )}
             <Button
               size="xl"
               loading={pending}

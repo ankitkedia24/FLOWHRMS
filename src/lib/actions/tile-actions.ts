@@ -7,6 +7,7 @@ import { requireSession } from "@/lib/authz/guard";
 import { unreadNotificationCount } from "@/lib/notifications";
 import { reviewAttendanceAction } from "@/lib/attendance/actions";
 import { reviewProofAction } from "@/lib/tasks/actions";
+import { decideTripAction } from "@/lib/field-visits/actions";
 import { loadActionTiles, type ActionTile } from "./service";
 import { canSnooze, resolveSnoozeOption } from "./snooze";
 import { APPROVE_INLINE } from "./kinds";
@@ -144,10 +145,12 @@ export async function approveFromTileAction(
           recordId: request.subjectId,
           decision: "APPROVED",
         })
-      : await reviewProofAction({
-          taskId: request.subjectId,
-          decision: "APPROVED",
-        });
+      : request.kind === "FIELD_TRIP"
+        ? await decideTripAction({ tripId: request.subjectId, decision: "APPROVED" })
+        : await reviewProofAction({
+            taskId: request.subjectId,
+            decision: "APPROVED",
+          });
 
   if (!result.ok) return { ok: false, error: result.error };
 

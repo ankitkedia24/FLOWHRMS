@@ -2,8 +2,8 @@
  * Offline queue logic — pure functions, no storage, no network.
  *
  * The promise this keeps (empty-loading-error-states.md §5, edge-cases.md):
- * a check-in, check-out, leave request or task proof made without a
- * connection is confirmed locally, kept on the device, and sent later
+ * a check-in, check-out, field visit tap, leave request or task proof made
+ * without a connection is confirmed locally, kept on the device, and sent later
  * **using its original capture time**. Never lost, never silently re-timed.
  *
  * Everything here is deterministic so the parts that matter — ordering,
@@ -11,7 +11,7 @@
  * be tested without a browser.
  */
 
-export type QueuedKind = "checkIn" | "checkOut" | "leaveRequest" | "taskProof";
+export type QueuedKind = "checkIn" | "fieldTap" | "checkOut" | "leaveRequest" | "taskProof";
 
 export interface QueuedAction<TPayload = unknown> {
   /** Client-generated; doubles as the server-side idempotency key. */
@@ -35,13 +35,15 @@ export const WAITING_LABEL = "Waiting to send";
 /**
  * Oldest first. Attendance before everything else on the same timestamp:
  * a check-out that arrives before its check-in would be rejected, and a
- * day's attendance is the record other things hang off.
+ * day's attendance is the record other things hang off. Field visit taps
+ * sit inside the day, so between the check-in and the check-out.
  */
 const KIND_ORDER: Record<QueuedKind, number> = {
   checkIn: 0,
-  checkOut: 1,
-  taskProof: 2,
-  leaveRequest: 3,
+  fieldTap: 1,
+  checkOut: 2,
+  taskProof: 3,
+  leaveRequest: 4,
 };
 
 export function sortQueue<T>(
@@ -157,6 +159,7 @@ export function describeQueue(count: number): string | null {
 export function isQueueable(kind: string): kind is QueuedKind {
   return (
     kind === "checkIn" ||
+    kind === "fieldTap" ||
     kind === "checkOut" ||
     kind === "leaveRequest" ||
     kind === "taskProof"

@@ -42,7 +42,8 @@ export type NavIcon =
   | "expenses"
   | "account"
   | "subscription"
-  | "designations";
+  | "designations"
+  | "fieldVisits";
 
 export interface NavItem {
   href: string;
@@ -160,6 +161,7 @@ export function employeeNavItems({ enabledModules }: EmployeeNavInput): NavItem[
     { module: "LEAVE", href: "/leave", label: "Leave", icon: "leave" },
     { module: "PAYROLL", href: "/payslips", label: "Payslips", icon: "payslips" },
     { module: "EXPENSES", href: "/expenses", label: "Expenses", icon: "expenses" },
+    { module: "FIELD_VISITS", href: "/field-visits", label: "Field visits", icon: "fieldVisits" },
     { module: "PERFORMANCE", href: "/performance", label: "Performance", icon: "performance" },
     { module: "EMPLOYEES", href: "/documents", label: "My documents", icon: "documents" },
     { module: null, href: "/profile", label: "Profile", icon: "profile" },

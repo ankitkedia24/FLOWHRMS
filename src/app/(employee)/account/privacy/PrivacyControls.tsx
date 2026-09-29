@@ -11,6 +11,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
 import {
+  setVisitLocationConsentAction,
   submitDataRequestAction,
   updateOptionalConsentAction,
   withdrawAllConsentAction,
@@ -24,14 +25,18 @@ import { SELF_SERVICE_REQUEST_TYPES } from "@/lib/consent/requests";
 export function PrivacyControls({
   isOwner,
   productUpdates,
+  visitLocation = null,
 }: {
   isOwner: boolean;
   productUpdates: boolean;
+  /** Employees on the current notice: location at field-visit taps; null when not applicable. */
+  visitLocation?: boolean | null;
 }) {
   const router = useRouter();
   const { show } = useToast();
   const [pending, startTransition] = useTransition();
   const [updates, setUpdates] = useState(productUpdates);
+  const [visits, setVisits] = useState(visitLocation ?? false);
   const [type, setType] = useState<string>(SELF_SERVICE_REQUEST_TYPES[0].value);
   const [details, setDetails] = useState("");
   const [requestError, setRequestError] = useState<string | null>(null);
@@ -60,6 +65,32 @@ export function PrivacyControls({
                   router.refresh();
                 } else {
                   setUpdates(!next);
+                  show({ variant: "error", message: result.error });
+                }
+              });
+            }}
+          />
+        </Card>
+      )}
+
+      {!isOwner && visitLocation !== null && (
+        <Card>
+          <CardHeader title="Optional choices" />
+          <Checkbox
+            label="Save my location when I tap Going out, Reached, End visit or Back at office"
+            helper="Only if your company uses field visits, and never between taps. Without it your visits are recorded without location, so travel distance can't be worked out."
+            checked={visits}
+            disabled={pending}
+            onChange={(e) => {
+              const next = e.target.checked;
+              setVisits(next);
+              startTransition(async () => {
+                const result = await setVisitLocationConsentAction({ granted: next });
+                if (result.ok) {
+                  show({ variant: "success", message: result.message });
+                  router.refresh();
+                } else {
+                  setVisits(!next);
                   show({ variant: "error", message: result.error });
                 }
               });

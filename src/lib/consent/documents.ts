@@ -285,6 +285,59 @@ const EMPLOYEE_V2: ConsentDocument = {
   ),
 };
 
+/**
+ * Version 3 (29 Sept 2026): location at field-visit taps, for companies
+ * that use field visits (FIELD-VISITS-MODULE.md §9). Still never
+ * continuous and never between taps, and a consent of its own that may be
+ * refused: visits are then recorded without location.
+ */
+const EMPLOYEE_V3: ConsentDocument = {
+  ...EMPLOYEE_V2,
+  version: 3,
+  sections: EMPLOYEE_V2.sections.map((section) => {
+    if (section.heading === "The personal data recorded and why" && section.rows) {
+      return {
+        ...section,
+        rows: section.rows.flatMap(([what, why]): Array<[string, string]> =>
+          what.startsWith("Your location")
+            ? [
+                [
+                  "Your location — only at the moment you check in and check out and, if your company uses field visits, when you tap Going out, Reached, End visit or Back at office. Never continuously, and never between taps",
+                  "To confirm you were at a permitted place of work, and to record where you went on a field visit and the road distance travelled, for travel allowance. It is not tracked at any other time.",
+                ],
+                [
+                  "Field visits, if your company uses them: the places you visit, the times, the purpose, and any note or photo you add",
+                  "So your manager knows where you went during working hours and can approve the trip, and to pay travel allowance.",
+                ],
+              ]
+            : [[what, why]],
+        ),
+      };
+    }
+    if (section.heading === "Your rights" && section.paragraphs) {
+      return {
+        ...section,
+        paragraphs: section.paragraphs.map((p) =>
+          p.replace(
+            "withdrawing consent for location means your check-ins go to your manager for approval.",
+            "withdrawing consent for location means your check-ins go to your manager for approval, and your field visits are recorded without location, so their travel distance can't be worked out.",
+          ),
+        ),
+      };
+    }
+    return section;
+  }),
+  purposes: [
+    ...EMPLOYEE_V2.purposes,
+    {
+      key: "visit_location",
+      label:
+        "If my company uses field visits, I consent to my location being captured each time I tap Going out, Reached, End visit or Back at office — never in between.",
+      required: false,
+    },
+  ],
+};
+
 const TERMS_V1: ConsentDocument = {
   key: "terms",
   version: 1,
@@ -443,13 +496,81 @@ const PRIVACY_V1: ConsentDocument = {
   purposes: [],
 };
 
+/**
+ * 29 Sept 2026: the company terms, Terms of Service and Privacy Policy say
+ * that location is also captured at field-visit taps where a company uses
+ * field visits (FIELD-VISITS-MODULE.md §9).
+ */
+const CUSTOMER_TERMS_V2: ConsentDocument = {
+  ...CUSTOMER_TERMS_V1,
+  version: 2,
+  sections: CUSTOMER_TERMS_V1.sections.map((section) =>
+    section.paragraphs
+      ? {
+          ...section,
+          paragraphs: section.paragraphs.map((p) =>
+            p.replace(
+              "location at the moment of check-in and check-out,",
+              "location at the moment of check-in and check-out (and at each field-visit tap, if your company uses field visits),",
+            ),
+          ),
+        }
+      : section,
+  ),
+};
+
+const TERMS_V2: ConsentDocument = {
+  ...TERMS_V1,
+  version: 2,
+  sections: TERMS_V1.sections.map((section) =>
+    section.paragraphs
+      ? {
+          ...section,
+          paragraphs: section.paragraphs.map((p) =>
+            p.replace(
+              "(including location at check-in and check-out)",
+              "(including location at check-in and check-out, and at field-visit taps where a company uses field visits)",
+            ),
+          ),
+        }
+      : section,
+  ),
+};
+
+const PRIVACY_V2: ConsentDocument = {
+  ...PRIVACY_V1,
+  version: 2,
+  sections: PRIVACY_V1.sections.map((section) => {
+    if (section.heading === "2. What we collect" && section.items) {
+      return {
+        ...section,
+        items: section.items.map((item) =>
+          item.replace(
+            "location only at check-in and check-out,",
+            "location only at check-in and check-out (and at field-visit taps where their company uses field visits), field visits,",
+          ),
+        ),
+      };
+    }
+    if (section.heading === "4. Location") {
+      return {
+        ...section,
+        paragraphs: [
+          "FlowHRMS captures an employee's location only at the moment they check in or check out, to confirm a permitted place of work, and — where their company uses field visits — at the moment they tap Going out, Reached, End visit or Back at office, to record where they went and the road distance travelled. Employees may refuse location at visit taps; their visits are then recorded without it. FlowHRMS does not track location continuously, between taps, or in the background.",
+        ],
+      };
+    }
+    return section;
+  }),
+};
+
 /** The current version of every document. Append new versions; never edit. */
 export const CURRENT_DOCUMENTS: Record<DocumentKey, ConsentDocument> = {
   account_holder: ACCOUNT_HOLDER_V1,
-  customer_terms: CUSTOMER_TERMS_V1,
-  employee: EMPLOYEE_V2,
-  terms: TERMS_V1,
-  privacy: PRIVACY_V1,
+  customer_terms: CUSTOMER_TERMS_V2,
+  employee: EMPLOYEE_V3,
+  terms: TERMS_V2,
+  privacy: PRIVACY_V2,
 };
 
 /**

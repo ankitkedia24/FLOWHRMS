@@ -658,3 +658,48 @@ export function formatShiftTime(minutes: number): string {
   const m = minutes % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
+
+/** A queued action older than this is refused rather than back-dated. */
+export const MAX_QUEUE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+/** Tolerance for an ordinary clock drift before it counts as the future. */
+export const CLOCK_SKEW_TOLERANCE_MS = 2 * 60 * 1000;
+
+/**
+ * Resolve a device-supplied capture time. Shared by attendance and field
+ * visits, so a queued tap is judged by exactly the same rule.
+ *
+ * The device clock can be wrong or manipulated (edge-cases.md → "Phone
+ * clock wrong"), so a time in the future or improbably old is refused
+ * outright rather than quietly trusted or quietly ignored.
+ */
+export function resolveCapturedAt(
+  raw: string | undefined,
+  now: Date,
+): { at: Date | null; skewMs: number; rejected?: string } {
+  if (!raw) return { at: null, skewMs: 0 };
+
+  const at = new Date(raw);
+  if (Number.isNaN(at.getTime())) {
+    return { at: null, skewMs: 0, rejected: "That saved time could not be read." };
+  }
+
+  const skewMs = now.getTime() - at.getTime();
+  if (skewMs < -CLOCK_SKEW_TOLERANCE_MS) {
+    return {
+      at: null,
+      skewMs,
+      rejected:
+        "This phone's clock is ahead of ours. Check the date and time on the phone, then try again.",
+    };
+  }
+  if (skewMs > MAX_QUEUE_AGE_MS) {
+    return {
+      at: null,
+      skewMs,
+      rejected:
+        "This was saved more than a week ago and can't be sent now. Ask your manager to record it.",
+    };
+  }
+
+  return { at, skewMs };
+}

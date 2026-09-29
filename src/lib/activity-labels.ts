@@ -49,7 +49,16 @@ const LABELS: Record<string, string> = {
   "expense.receipt_viewed": "Receipt opened",
   "feature.disabled": "Feature switched off",
   "feature.enabled": "Feature switched on",
+  "field_visits.arrived": "Reached a field visit",
+  "field_visits.back_at_office": "Back at office from a field trip",
+  "field_visits.ended_at_check_out": "Field trip ended at check-out",
+  "field_visits.going_out": "Went out on a field trip",
+  "field_visits.place_added": "Place added for field visits",
   "field_visits.policy_published": "Field visit rules updated",
+  "field_visits.trip_approved": "Field trip approved",
+  "field_visits.trip_declined": "Field trip declined",
+  "field_visits.visit_corrected": "Field visit time corrected",
+  "field_visits.visit_ended": "Field visit ended",
   "leave.cancelled": "Leave cancelled",
   "leave.requested": "Leave requested",
   "membership.provisioned": "Owner account created",
@@ -146,6 +155,9 @@ const ENTITIES: Record<string, string> = {
   attendance_record: "Attendance",
   leave_request: "Leave",
   payroll_run: "Payroll",
+  field_trip: "Field trip",
+  field_visit: "Field visit",
+  field_place: "Saved place",
 };
 
 /** "Employee" for "tenant_membership", and so on. */

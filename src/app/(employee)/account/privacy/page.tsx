@@ -57,6 +57,13 @@ export default async function PrivacyPage() {
       ? accountStanding.status.choices.some((c) => c.key === "product_updates" && c.granted)
       : false;
 
+  const employeeStanding = standings.find((s) => s.key === "employee");
+  const visitChoice =
+    employeeStanding?.status.state === "current"
+      ? employeeStanding.status.choices.find((c) => c.key === "visit_location")
+      : undefined;
+  const visitLocation = visitChoice ? visitChoice.granted : null;
+
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -101,7 +108,7 @@ export default async function PrivacyPage() {
         </ul>
       </Card>
 
-      <PrivacyControls isOwner={isOwner} productUpdates={productUpdates} />
+      <PrivacyControls isOwner={isOwner} productUpdates={productUpdates} visitLocation={visitLocation} />
 
       <Card>
         <CardHeader title="Your requests" />

@@ -1,12 +1,13 @@
 /**
- * company-media: a company's logo, opening animation, ID card design and
- * employee photos. Private (scripts/setup-storage.ts); shown through
- * short-lived signed URLs (src/lib/media/urls.ts).
+ * company-media: a company's logo, opening animation, ID card design,
+ * employee photos and field visit photos. Private (scripts/setup-storage.ts);
+ * shown through short-lived signed URLs (src/lib/media/urls.ts).
  */
 export const MEDIA_BUCKET = "company-media";
 export const MEDIA_MAX_BYTES = 10 * 1024 * 1024;
 
-export type MediaKind = "logo" | "photos" | "splash" | "idcard";
+/** `visits`: optional photos taken at a field visit (FIELD-VISITS-MODULE.md §6). */
+export type MediaKind = "logo" | "photos" | "splash" | "idcard" | "visits";
 
 /** The opening animation may be at most this long, and is cut off there. */
 export const SPLASH_MAX_SECONDS = 4;
