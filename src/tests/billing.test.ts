@@ -5,6 +5,8 @@ import {
   GST_STATE_CODES,
   accessState,
   addMonths,
+  cyclePrices,
+  monthsFree,
   financialYear,
   formatPaise,
   invoiceNumber,
@@ -22,45 +24,90 @@ import { MODULES, type ModuleKey } from "@/lib/catalog";
 import { applyPlanModules, planModuleProblems } from "@/lib/billing/plan-modules";
 
 const DAY = 24 * 60 * 60 * 1000;
-const plan = { priceMonthly: 79, priceAnnual: 69 };
+// The published plans (pricing brief, 29 Sept 2026). Annual = 10 months.
+const CORE = { priceMonthly: 1499, priceAnnual: 14990, includedEmployees: 25, extraEmployeeMonthly: 49, extraEmployeeAnnual: 490 };
+const PRO = { priceMonthly: 2999, priceAnnual: 29990, includedEmployees: 50, extraEmployeeMonthly: 59, extraEmployeeAnnual: 590 };
+const BUSINESS = { priceMonthly: 6999, priceAnnual: 69990, includedEmployees: 100, extraEmployeeMonthly: 49, extraEmployeeAnnual: 490 };
 
 describe("quote", () => {
-  it("charges rate × active employees × months, then 18% GST", () => {
-    const q = quote({ plan, cycle: "MONTHLY", employees: 12, sellerState: "Odisha", buyerState: "Delhi" });
-    expect(q.rate).toBe(79);
+  it("charges only the base price while within the included employees, then 18% GST", () => {
+    const q = quote({ plan: CORE, cycle: "MONTHLY", employees: 12, sellerState: "Odisha", buyerState: "Delhi" });
     expect(q.months).toBe(1);
-    expect(q.subtotalPaise).toBe(79 * 12 * 100);
-    expect(q.igstPaise).toBe(79 * 12 * 18);
+    expect(q.extraEmployees).toBe(0);
+    expect(q.baseRupees).toBe(1499);
+    expect(q.subtotalPaise).toBe(1499 * 100);
+    expect(q.igstPaise).toBe(1499 * 18);
     expect(q.cgstPaise + q.sgstPaise).toBe(0);
     expect(q.totalPaise).toBe(q.subtotalPaise + q.igstPaise);
   });
 
-  it("uses the annual rate for twelve months", () => {
-    const q = quote({ plan, cycle: "ANNUAL", employees: 12, sellerState: "Odisha", buyerState: "Delhi" });
-    expect(q.rate).toBe(69);
+  it("covers exactly the included number at the base price", () => {
+    const q = quote({ plan: CORE, cycle: "MONTHLY", employees: 25, sellerState: "Odisha", buyerState: "Delhi" });
+    expect(q.extraEmployees).toBe(0);
+    expect(q.subtotalPaise).toBe(1499 * 100);
+  });
+
+  it("adds each employee above the included number at the extra rate", () => {
+    const q = quote({ plan: CORE, cycle: "MONTHLY", employees: 30, sellerState: "Odisha", buyerState: "Delhi" });
+    expect(q.extraEmployees).toBe(5);
+    expect(q.extraRateRupees).toBe(49);
+    expect(q.extraPaise).toBe(5 * 49 * 100);
+    expect(q.subtotalPaise).toBe((1499 + 5 * 49) * 100);
+  });
+
+  it("charges a year at the yearly base and yearly extra rate", () => {
+    const q = quote({ plan: PRO, cycle: "ANNUAL", employees: 60, sellerState: "Odisha", buyerState: "Delhi" });
     expect(q.months).toBe(12);
-    expect(q.subtotalPaise).toBe(69 * 12 * 12 * 100);
+    expect(q.baseRupees).toBe(29990);
+    expect(q.extraEmployees).toBe(10);
+    expect(q.extraRateRupees).toBe(590);
+    expect(q.subtotalPaise).toBe((29990 + 10 * 590) * 100);
+  });
+
+  it("matches the brief's larger-organisation list prices on BUSINESS", () => {
+    const monthly = (employees: number) =>
+      quote({ plan: BUSINESS, cycle: "MONTHLY", employees, sellerState: "Odisha", buyerState: "Delhi" }).subtotalPaise / 100;
+    expect(monthly(100)).toBe(6999);
+    expect(monthly(150)).toBe(9449);
+    expect(monthly(250)).toBe(14349);
+    expect(monthly(500)).toBe(26599);
+    expect(monthly(1000)).toBe(51099);
+    expect(monthly(2000)).toBe(100099);
   });
 
   it("splits into CGST + SGST inside the seller's state", () => {
-    const q = quote({ plan, cycle: "MONTHLY", employees: 5, sellerState: "Odisha", buyerState: " odisha " });
+    const q = quote({ plan: CORE, cycle: "MONTHLY", employees: 5, sellerState: "Odisha", buyerState: " odisha " });
     expect(q.intraState).toBe(true);
-    expect(q.cgstPaise).toBe(79 * 5 * 9);
+    expect(q.cgstPaise).toBe(1499 * 9);
     expect(q.sgstPaise).toBe(q.cgstPaise);
     expect(q.igstPaise).toBe(0);
-    expect(q.totalPaise).toBe(Math.round(79 * 5 * 100 * 1.18));
+    expect(q.totalPaise).toBe(Math.round(1499 * 100 * 1.18));
   });
 
-  it("never charges for fewer than one employee", () => {
-    const q = quote({ plan, cycle: "MONTHLY", employees: 0, sellerState: "Odisha", buyerState: "Odisha" });
+  it("never counts fewer than one employee", () => {
+    const q = quote({ plan: CORE, cycle: "MONTHLY", employees: 0, sellerState: "Odisha", buyerState: "Odisha" });
     expect(q.employees).toBe(1);
-    expect(q.subtotalPaise).toBe(7900);
+    expect(q.subtotalPaise).toBe(149900);
   });
 
   it("treats an unknown seller state as inter-state (IGST)", () => {
-    const q = quote({ plan, cycle: "MONTHLY", employees: 1, sellerState: "", buyerState: "" });
+    const q = quote({ plan: CORE, cycle: "MONTHLY", employees: 1, sellerState: "", buyerState: "" });
     expect(q.intraState).toBe(false);
-    expect(q.igstPaise).toBe(1422);
+    expect(q.igstPaise).toBe(26982);
+  });
+
+  it("says a year paid at once saves two months on every published plan", () => {
+    expect(monthsFree(CORE)).toBe(2);
+    expect(monthsFree(PRO)).toBe(2);
+    expect(monthsFree(BUSINESS)).toBe(2);
+    expect(monthsFree({ priceMonthly: CORE.extraEmployeeMonthly, priceAnnual: CORE.extraEmployeeAnnual })).toBe(2);
+    expect(monthsFree({ priceMonthly: 100, priceAnnual: 1200 })).toBe(0);
+    expect(monthsFree({ priceMonthly: 0, priceAnnual: 0 })).toBe(0);
+  });
+
+  it("picks the base and extra price for the cycle", () => {
+    expect(cyclePrices(PRO, "MONTHLY")).toEqual({ base: 2999, extra: 59 });
+    expect(cyclePrices(PRO, "ANNUAL")).toEqual({ base: 29990, extra: 590 });
   });
 
   it("formats paise as rupees", () => {
@@ -245,9 +292,19 @@ describe("plan modules", () => {
     expect(planModuleProblems(["WIDGETS"])).toEqual(["Unknown module: WIDGETS"]);
   });
 
-  it("removes what is not in the plan and locks it", () => {
-    const changes = applyPlanModules(all(["EMPLOYEES", "ATTENDANCE", "EXPENSES"]), ["EMPLOYEES", "ATTENDANCE"]);
-    expect(changes).toContainEqual({ key: "EXPENSES", enabled: false, allowedByPlatform: false });
+  it("never switches off or locks a module the company already has (pricing brief §13)", () => {
+    // Group G's case: Flowacord added Expenses and Payroll; the plan has neither.
+    const changes = applyPlanModules(
+      all(["EMPLOYEES", "ATTENDANCE", "LEAVE", "PAYROLL", "EXPENSES"]),
+      ["EMPLOYEES", "ATTENDANCE", "LEAVE", "DAILY_REPORTING", "NOTIFICATIONS"],
+    );
+    expect(changes.find((c) => c.key === "EXPENSES")).toBeUndefined();
+    expect(changes.find((c) => c.key === "PAYROLL")).toBeUndefined();
+  });
+
+  it("leaves a module outside the plan that the company doesn't have exactly as it was", () => {
+    const changes = applyPlanModules(all(["EMPLOYEES", "ATTENDANCE"]), ["EMPLOYEES", "ATTENDANCE"]);
+    expect(changes.find((c) => c.key === "FIELD_VISITS")).toBeUndefined();
   });
 
   it("keeps the company's own choices for modules it already had", () => {

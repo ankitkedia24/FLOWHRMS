@@ -9,6 +9,15 @@ import { Input, TextArea } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
 import { useToast } from "@/components/ui/Toast";
 import { applyPlanToCompaniesAction, savePlanAction } from "@/lib/billing/platform-actions";
+import { monthsFree } from "@/lib/billing/pricing";
+
+type NumberField =
+  | "priceMonthly"
+  | "priceAnnual"
+  | "includedEmployees"
+  | "extraEmployeeMonthly"
+  | "extraEmployeeAnnual"
+  | "sortOrder";
 
 interface PlanDraft {
   id: string;
@@ -17,6 +26,9 @@ interface PlanDraft {
   target: string;
   priceMonthly: number;
   priceAnnual: number;
+  includedEmployees: number;
+  extraEmployeeMonthly: number;
+  extraEmployeeAnnual: number;
   modules: string[];
   /** One per line; a leading "*" makes it bold. */
   features: string;
@@ -41,16 +53,17 @@ export function PlanEditor({
   const { show } = useToast();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(plan !== null);
-  const [draft, setDraft] = useState<Omit<PlanDraft, "id" | "priceMonthly" | "priceAnnual" | "sortOrder"> & {
-    priceMonthly: string;
-    priceAnnual: string;
-    sortOrder: string;
-  }>({
+  const [draft, setDraft] = useState<
+    Omit<PlanDraft, "id" | NumberField> & Record<NumberField, string>
+  >({
     key: plan?.key ?? "",
     name: plan?.name ?? "",
     target: plan?.target ?? "",
     priceMonthly: String(plan?.priceMonthly ?? ""),
     priceAnnual: String(plan?.priceAnnual ?? ""),
+    includedEmployees: String(plan?.includedEmployees ?? ""),
+    extraEmployeeMonthly: String(plan?.extraEmployeeMonthly ?? ""),
+    extraEmployeeAnnual: String(plan?.extraEmployeeAnnual ?? ""),
     modules: plan?.modules ?? ["EMPLOYEES", "ATTENDANCE", "LEAVE", "NOTIFICATIONS"],
     features: plan?.features ?? "",
     flagship: plan?.flagship ?? false,
@@ -59,9 +72,12 @@ export function PlanEditor({
   });
   const set = <K extends keyof typeof draft>(k: K, v: (typeof draft)[K]) => setDraft((d) => ({ ...d, [k]: v }));
 
-  const monthly = Number(draft.priceMonthly);
-  const annual = Number(draft.priceAnnual);
-  const saving = monthly > 0 && annual > 0 && annual < monthly ? Math.round((1 - annual / monthly) * 100) : 0;
+  const free = monthsFree({ priceMonthly: Number(draft.priceMonthly), priceAnnual: Number(draft.priceAnnual) });
+  const extraFree = monthsFree({
+    priceMonthly: Number(draft.extraEmployeeMonthly),
+    priceAnnual: Number(draft.extraEmployeeAnnual),
+  });
+  const digits = (k: NumberField) => (e: { target: { value: string } }) => set(k, e.target.value.replace(/\D/g, ""));
 
   function save() {
     startTransition(async () => {
@@ -72,6 +88,9 @@ export function PlanEditor({
         target: draft.target,
         priceMonthly: draft.priceMonthly,
         priceAnnual: draft.priceAnnual,
+        includedEmployees: draft.includedEmployees,
+        extraEmployeeMonthly: draft.extraEmployeeMonthly,
+        extraEmployeeAnnual: draft.extraEmployeeAnnual,
         modules: draft.modules,
         features: draft.features,
         flagship: draft.flagship,
@@ -112,7 +131,7 @@ export function PlanEditor({
             <Input label="Name" value={draft.name} onChange={(e) => set("name", e.target.value)} />
             <Input
               label="Key"
-              helper={plan ? "Fixed once created" : "e.g. starter"}
+              helper={plan ? "Fixed once created" : "e.g. core"}
               value={draft.key}
               disabled={Boolean(plan)}
               onChange={(e) => set("key", e.target.value.toLowerCase())}
@@ -121,21 +140,47 @@ export function PlanEditor({
           <Input label="Who it's for" value={draft.target} onChange={(e) => set("target", e.target.value)} />
           <div className="grid grid-cols-2 gap-3">
             <Input
-              label="Monthly price"
+              label="Base price, monthly"
               prefix="₹"
-              suffix="/ emp / mo"
+              suffix="/ month"
               inputMode="numeric"
               value={draft.priceMonthly}
-              onChange={(e) => set("priceMonthly", e.target.value.replace(/\D/g, ""))}
+              onChange={digits("priceMonthly")}
             />
             <Input
-              label="Yearly price"
-              helper={saving ? `Per month, paid yearly — ${saving}% saving` : "Per month, paid yearly"}
+              label="Base price, yearly"
+              helper={free ? `Paid at once — ${free} ${free === 1 ? "month" : "months"} free` : "Paid at once for the year"}
               prefix="₹"
-              suffix="/ emp / mo"
+              suffix="/ year"
               inputMode="numeric"
               value={draft.priceAnnual}
-              onChange={(e) => set("priceAnnual", e.target.value.replace(/\D/g, ""))}
+              onChange={digits("priceAnnual")}
+            />
+          </div>
+          <Input
+            label="Employees included"
+            helper="Active employees the base price covers"
+            inputMode="numeric"
+            value={draft.includedEmployees}
+            onChange={digits("includedEmployees")}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Each extra employee, monthly"
+              prefix="₹"
+              suffix="/ month"
+              inputMode="numeric"
+              value={draft.extraEmployeeMonthly}
+              onChange={digits("extraEmployeeMonthly")}
+            />
+            <Input
+              label="Each extra employee, yearly"
+              helper={extraFree ? `${extraFree} ${extraFree === 1 ? "month" : "months"} free` : undefined}
+              prefix="₹"
+              suffix="/ year"
+              inputMode="numeric"
+              value={draft.extraEmployeeAnnual}
+              onChange={digits("extraEmployeeAnnual")}
             />
           </div>
           <TextArea
@@ -153,15 +198,15 @@ export function PlanEditor({
               onChange={(e) => set("sortOrder", e.target.value.replace(/\D/g, ""))}
             />
           </div>
-          <Switch label="Highlighted as “Popular”" checked={draft.flagship} onChange={(v) => set("flagship", v)} />
+          <Switch label="Highlighted as “Most popular”" checked={draft.flagship} onChange={(v) => set("flagship", v)} />
           <Switch label="Offered to buyers" checked={draft.active} onChange={(v) => set("active", v)} />
         </div>
 
         <fieldset>
           <legend className="text-label text-text-primary">Modules in this plan</legend>
           <p className="text-caption text-text-secondary">
-            A company on this plan gets these; the rest show “Not in your plan”. A module&apos;s requirements must be
-            included too.
+            Paying for this plan switches these on. Modules the company already has stay on; the rest show “Not in
+            your plan”. A module&apos;s requirements must be included too.
           </p>
           <div className="mt-1">
             {modules.map((m) => (

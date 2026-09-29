@@ -21,6 +21,9 @@ export interface PlanView {
   target: string;
   priceMonthly: number;
   priceAnnual: number;
+  includedEmployees: number;
+  extraEmployeeMonthly: number;
+  extraEmployeeAnnual: number;
   modules: string[];
   features: PlanFeature[];
   flagship: boolean;
@@ -44,6 +47,9 @@ type PlanRow = {
   target: string;
   priceMonthly: number;
   priceAnnual: number;
+  includedEmployees: number;
+  extraEmployeeMonthly: number;
+  extraEmployeeAnnual: number;
   modules: string[];
   features: unknown;
   flagship: boolean;
@@ -59,6 +65,9 @@ export function toPlanView(row: PlanRow): PlanView {
     target: row.target,
     priceMonthly: row.priceMonthly,
     priceAnnual: row.priceAnnual,
+    includedEmployees: row.includedEmployees,
+    extraEmployeeMonthly: row.extraEmployeeMonthly,
+    extraEmployeeAnnual: row.extraEmployeeAnnual,
     modules: row.modules,
     features: parseFeatures(row.features),
     flagship: row.flagship,
@@ -90,6 +99,9 @@ export async function loadMarketingPlans(): Promise<Plan[]> {
       target: p.target,
       monthly: p.priceMonthly,
       annual: p.priceAnnual,
+      includedEmployees: p.includedEmployees,
+      extraMonthly: p.extraEmployeeMonthly,
+      extraAnnual: p.extraEmployeeAnnual,
       flagship: p.flagship,
       features: p.features,
     }));

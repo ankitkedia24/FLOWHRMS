@@ -4,9 +4,10 @@
  * Pure — no database, no clock — so every rule here is tested
  * (src/tests/billing.test.ts).
  *
- * Money is whole rupees per employee per month on the price list and paise
- * everywhere else. 9% and 18% of a whole-rupee amount are whole paise, so
- * nothing here ever rounds.
+ * A plan is a base price that covers a number of active employees, plus a
+ * price for each employee above that (docs/md/PRICING_MIGRATION_PLAN.md).
+ * The price list is whole rupees; everything else is paise. 9% and 18% of
+ * a whole-rupee amount are whole paise, so nothing here ever rounds.
  */
 
 export type Cycle = "MONTHLY" | "ANNUAL";
@@ -25,12 +26,34 @@ export function monthsIn(cycle: Cycle): number {
   return cycle === "ANNUAL" ? 12 : 1;
 }
 
+/** A plan's price list, in whole rupees, excluding GST. */
+export interface PlanPrice {
+  /** The base price for a month. */
+  priceMonthly: number;
+  /** The base price for a year paid at once. */
+  priceAnnual: number;
+  /** Active employees the base price covers. */
+  includedEmployees: number;
+  /** Each active employee above that, per month (monthly billing). */
+  extraEmployeeMonthly: number;
+  /** Each active employee above that, per year (annual billing). */
+  extraEmployeeAnnual: number;
+}
+
 export interface Quote {
   cycle: Cycle;
   months: number;
+  /** Active employees counted. */
   employees: number;
-  /** Rupees per employee per month for this cycle. */
-  rate: number;
+  includedEmployees: number;
+  /** Employees above the included number, charged at `extraRateRupees`. */
+  extraEmployees: number;
+  /** The plan's base price for this cycle (a month, or a year). */
+  baseRupees: number;
+  /** Rupees per extra employee for this cycle (a month, or a year). */
+  extraRateRupees: number;
+  basePaise: number;
+  extraPaise: number;
   subtotalPaise: number;
   /** Buyer and seller in the same state: CGST + SGST. Otherwise IGST. */
   intraState: boolean;
@@ -40,8 +63,21 @@ export interface Quote {
   totalPaise: number;
 }
 
+/** The base price and the per-extra-employee price for one cycle. */
+export function cyclePrices(plan: PlanPrice, cycle: Cycle): { base: number; extra: number } {
+  return cycle === "ANNUAL"
+    ? { base: plan.priceAnnual, extra: plan.extraEmployeeAnnual }
+    : { base: plan.priceMonthly, extra: plan.extraEmployeeMonthly };
+}
+
+/** Whole months a year paid at once saves over twelve monthly payments ("Save 2 months"). */
+export function monthsFree(plan: Pick<PlanPrice, "priceMonthly" | "priceAnnual">): number {
+  if (plan.priceMonthly <= 0 || plan.priceAnnual >= plan.priceMonthly * 12) return 0;
+  return Math.floor((plan.priceMonthly * 12 - plan.priceAnnual) / plan.priceMonthly);
+}
+
 export function quote(input: {
-  plan: { priceMonthly: number; priceAnnual: number };
+  plan: PlanPrice;
   cycle: Cycle;
   /** Active employees now. A company is never charged for fewer than one. */
   employees: number;
@@ -49,9 +85,13 @@ export function quote(input: {
   buyerState: string;
 }): Quote {
   const months = monthsIn(input.cycle);
-  const rate = input.cycle === "ANNUAL" ? input.plan.priceAnnual : input.plan.priceMonthly;
+  const { base, extra } = cyclePrices(input.plan, input.cycle);
   const employees = Math.max(1, Math.floor(input.employees));
-  const subtotalPaise = rate * employees * months * 100;
+  const includedEmployees = Math.max(0, Math.floor(input.plan.includedEmployees));
+  const extraEmployees = Math.max(0, employees - includedEmployees);
+  const basePaise = base * 100;
+  const extraPaise = extra * extraEmployees * 100;
+  const subtotalPaise = basePaise + extraPaise;
   const intraState = sameState(input.sellerState, input.buyerState);
   const cgstPaise = intraState ? (subtotalPaise * 9) / 100 : 0;
   const sgstPaise = cgstPaise;
@@ -60,7 +100,12 @@ export function quote(input: {
     cycle: input.cycle,
     months,
     employees,
-    rate,
+    includedEmployees,
+    extraEmployees,
+    baseRupees: base,
+    extraRateRupees: extra,
+    basePaise,
+    extraPaise,
     subtotalPaise,
     intraState,
     cgstPaise,

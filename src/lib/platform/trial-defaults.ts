@@ -1,4 +1,4 @@
-import { DEFAULT_ENABLED_MODULES, MODULES, type ModuleKey } from "@/lib/catalog";
+import { MODULES, type ModuleKey } from "@/lib/catalog";
 
 /**
  * What a new self-signup company gets, until Flowacord changes it in
@@ -10,9 +10,22 @@ export interface TrialSettings {
   modules: ModuleKey[];
 }
 
+/**
+ * The Starter set: what a new trial — and, until the owner tiers the
+ * plans, every paid plan — unlocks (owner, 29 Sept 2026; migration
+ * 20260929220000). Payroll and Tasks are added per company from /platform.
+ */
+export const STARTER_MODULES: readonly ModuleKey[] = [
+  "EMPLOYEES",
+  "ATTENDANCE",
+  "LEAVE",
+  "DAILY_REPORTING",
+  "NOTIFICATIONS",
+];
+
 export const DEFAULT_TRIAL_SETTINGS: TrialSettings = {
   days: 30,
-  modules: [...DEFAULT_ENABLED_MODULES],
+  modules: [...STARTER_MODULES],
 };
 
 export function normaliseTrialSettings(raw: unknown): TrialSettings {

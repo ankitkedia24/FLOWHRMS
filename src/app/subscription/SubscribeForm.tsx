@@ -12,7 +12,7 @@ import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { STATES_AND_UTS } from "@/lib/signup/catalog";
 import { buyerSchema } from "@/lib/billing/policy";
-import { formatPaise, quote, type Cycle } from "@/lib/billing/pricing";
+import { cyclePrices, formatPaise, monthsFree, quote, type Cycle, type PlanPrice } from "@/lib/billing/pricing";
 import {
   confirmCheckoutAction,
   reportCheckoutFailureAction,
@@ -20,16 +20,12 @@ import {
   type CheckoutOptions,
 } from "@/lib/billing/actions";
 
-interface PlanOption {
+interface PlanOption extends PlanPrice {
   key: string;
   name: string;
   target: string;
-  priceMonthly: number;
-  priceAnnual: number;
   flagship: boolean;
   features: Array<{ label: string; strong?: boolean }>;
-  /** Module names, for "Includes …". */
-  modules: string[];
 }
 
 /** The billing form as typed: every field a string until it is checked. */
@@ -106,10 +102,9 @@ export function SubscribeForm({
         : null,
     [plan, cycle, employees, sellerState, buyer.state],
   );
-  const bestSaving = Math.max(
-    0,
-    ...plans.map((p) => (p.priceMonthly > 0 ? Math.round((1 - p.priceAnnual / p.priceMonthly) * 100) : 0)),
-  );
+  // The badge never promises more than every plan gives.
+  const free = plans.length ? Math.min(...plans.map(monthsFree)) : 0;
+  const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
   const set = (field: keyof BuyerDraft) => (value: string) => {
     setBuyer((b) => ({ ...b, [field]: value }));
@@ -226,7 +221,7 @@ export function SubscribeForm({
       <Card>
         <CardHeader
           title="Choose your plan"
-          meta={`Priced per active employee per month, before GST. You have ${employees} active ${employees === 1 ? "employee" : "employees"}.`}
+          meta={`Each plan covers a set number of employees; each active employee above that is charged extra. Prices before GST. You have ${employees} active ${employees === 1 ? "employee" : "employees"}.`}
         />
         <div className="mb-5 inline-flex rounded-button border border-border-default bg-surface-sunken p-1" role="group" aria-label="How often to pay">
           {(["MONTHLY", "ANNUAL"] as const).map((c) => (
@@ -241,9 +236,9 @@ export function SubscribeForm({
               )}
             >
               {c === "MONTHLY" ? "Monthly" : "Yearly"}
-              {c === "ANNUAL" && bestSaving > 0 && (
+              {c === "ANNUAL" && free > 0 && (
                 <span className="rounded-full bg-status-success-bg px-2 py-0.5 text-caption font-semibold text-status-success-text">
-                  Save up to {bestSaving}%
+                  Save {free} {free === 1 ? "month" : "months"}
                 </span>
               )}
             </button>
@@ -253,7 +248,8 @@ export function SubscribeForm({
         <div className="grid gap-3 md:grid-cols-3" role="radiogroup" aria-label="Plan">
           {plans.map((p) => {
             const selected = p.key === planKey;
-            const rate = cycle === "ANNUAL" ? p.priceAnnual : p.priceMonthly;
+            const price = cyclePrices(p, cycle);
+            const per = cycle === "ANNUAL" ? "year" : "month";
             return (
               <button
                 key={p.key}
@@ -276,21 +272,31 @@ export function SubscribeForm({
                     </span>
                   ) : p.flagship ? (
                     <span className="rounded-full bg-brand-primary px-2 py-0.5 text-caption font-semibold text-text-on-primary">
-                      Popular
+                      Most popular
                     </span>
                   ) : null}
                 </span>
                 <span className="mt-0.5 text-caption text-text-secondary">{p.target}</span>
                 <span className="mt-3 font-mono text-h2 font-semibold text-text-primary">
-                  ₹{rate}
-                  <span className="text-caption font-normal text-text-secondary"> / employee / month</span>
+                  {rupees(price.base)}
+                  <span className="text-caption font-normal text-text-secondary"> / {per}</span>
                 </span>
-                {cycle === "ANNUAL" && p.priceMonthly > p.priceAnnual && (
+                {cycle === "ANNUAL" && monthsFree(p) > 0 && (
                   <span className="text-caption text-status-success-text">
-                    ₹{p.priceMonthly - p.priceAnnual} less than monthly
+                    {monthsFree(p)} months free — {rupees(p.priceMonthly * 12 - p.priceAnnual)} less than paying monthly
                   </span>
                 )}
                 <ul className="mt-3 flex flex-col gap-1">
+                  <li className="flex items-start gap-1.5 text-secondary font-semibold text-text-primary">
+                    <Check className="mt-0.5 size-3.5 shrink-0 text-brand-primary" strokeWidth={3} aria-hidden="true" />
+                    <span>{p.includedEmployees} employees included</span>
+                  </li>
+                  <li className="flex items-start gap-1.5 text-secondary text-text-secondary">
+                    <Check className="mt-0.5 size-3.5 shrink-0 text-brand-primary" strokeWidth={3} aria-hidden="true" />
+                    <span>
+                      {rupees(price.extra)} per additional employee / {per}
+                    </span>
+                  </li>
                   {p.features.map((f) => (
                     <li key={f.label} className="flex items-start gap-1.5 text-secondary text-text-secondary">
                       <Check className="mt-0.5 size-3.5 shrink-0 text-brand-primary" strokeWidth={3} aria-hidden="true" />
@@ -298,9 +304,6 @@ export function SubscribeForm({
                     </li>
                   ))}
                 </ul>
-                {p.modules.length > 0 && (
-                  <span className="mt-3 text-caption text-text-tertiary">Includes {p.modules.join(", ")}</span>
-                )}
               </button>
             );
           })}
@@ -377,9 +380,20 @@ export function SubscribeForm({
           <dl className="flex flex-col gap-2 text-body">
             <div className="flex justify-between gap-4">
               <dt className="text-text-secondary">
-                {plan.name} · {q.employees} {q.employees === 1 ? "employee" : "employees"} × ₹{q.rate} × {q.months}{" "}
-                {q.months === 1 ? "month" : "months"}
+                {plan.name} · {q.months === 12 ? "1 year" : "1 month"} · includes {q.includedEmployees} employees
               </dt>
+              <dd className="font-mono text-text-primary">{formatPaise(q.basePaise)}</dd>
+            </div>
+            {q.extraEmployees > 0 && (
+              <div className="flex justify-between gap-4">
+                <dt className="text-text-secondary">
+                  {q.extraEmployees} additional {q.extraEmployees === 1 ? "employee" : "employees"} × {rupees(q.extraRateRupees)}
+                </dt>
+                <dd className="font-mono text-text-primary">{formatPaise(q.extraPaise)}</dd>
+              </div>
+            )}
+            <div className="flex justify-between gap-4">
+              <dt className="text-text-secondary">Subtotal</dt>
               <dd className="font-mono text-text-primary">{formatPaise(q.subtotalPaise)}</dd>
             </div>
             {q.intraState ? (
@@ -408,8 +422,9 @@ export function SubscribeForm({
             {startsLater
               ? `Covers ${q.months === 12 ? "1 year" : "1 month"} starting ${startsLabel}, when your current period ends — you lose no days.`
               : `Covers ${q.months === 12 ? "1 year" : "1 month"} starting today.`}{" "}
-            Charged for the {q.employees} {q.employees === 1 ? "person" : "people"} active in FlowHRMS today; people you
-            add later are included until the next payment.
+            Counted on the {q.employees} {q.employees === 1 ? "person" : "people"} active in FlowHRMS today
+            {q.extraEmployees > 0 ? "" : ` — within the ${q.includedEmployees} the plan includes`}; people you add later are
+            included until the next payment.
           </p>
 
           {formError && (

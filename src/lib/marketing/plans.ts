@@ -2,17 +2,20 @@
  * Published pricing — the fallback list. Since 27 Sept 2026 the live
  * prices are in the database (billing_plans), edited in /platform/plans and
  * read by loadMarketingPlans(); this list is shown only if the database
- * cannot be reached, and seeded the table.
+ * cannot be reached or offers no plan.
  *
- * Prices went from placeholder to published with the marketing redesign,
- * which is the condition decision D-018 named for reopening ("real pilot
- * outcomes exist and are approved for publication, and pricing is set").
+ * Since 29 Sept 2026 FlowHRMS sells exactly three public plans — CORE, PRO
+ * and BUSINESS (docs/md/PRICING_MIGRATION_PLAN.md). Each is a base price
+ * that covers a number of active employees, plus a price for each employee
+ * above that. A year paid at once costs ten months, for the base and for
+ * each extra employee.
+ *
  * The homepage section and the standalone /pricing page both read from
  * here, so the product can never quote two different figures for the same
- * plan — which is the specific failure that made a placeholder safer than
- * a guess in the first place.
+ * plan. What each plan unlocks is decided tier by tier later; until then
+ * the cards show prices only, no module list.
  *
- * Figures are per employee per month, in rupees, excluding GST.
+ * Figures are whole rupees, excluding GST.
  */
 
 export interface Plan {
@@ -20,69 +23,77 @@ export interface Plan {
   name: string;
   /** Who it is for, in the customer's words. */
   target: string;
+  /** Base price for a month. */
   monthly: number;
-  /** Per-month price when billed annually. */
+  /** Base price for a year paid at once. */
   annual: number;
-  /** The one plan rendered as the flagship. Exactly one should be true. */
+  /** Active employees the base price covers. */
+  includedEmployees: number;
+  /** Each employee above that, per month (monthly billing). */
+  extraMonthly: number;
+  /** Each employee above that, per year (annual billing). */
+  extraAnnual: number;
+  /** The one plan rendered as "Most popular". Exactly one should be true. */
   flagship: boolean;
   features: ReadonlyArray<{ label: string; strong?: boolean }>;
 }
 
 export const PLANS: readonly Plan[] = [
   {
-    key: "starter",
-    name: "Starter",
-    target: "Small shop / office teams",
-    monthly: 49,
-    annual: 39,
+    key: "core",
+    name: "CORE",
+    target: "Small businesses and first-time HRMS buyers",
+    monthly: 1499,
+    annual: 14990,
+    includedEmployees: 25,
+    extraMonthly: 49,
+    extraAnnual: 490,
     flagship: false,
-    features: [
-      { label: "Attendance" },
-      { label: "Tasks" },
-      { label: "Leave" },
-      { label: "Daily summary" },
-    ],
+    features: [],
   },
   {
-    key: "operations",
-    name: "Operations",
-    target: "Warehouse, dispatch, delivery teams",
-    monthly: 79,
-    annual: 69,
+    key: "pro",
+    name: "PRO",
+    target: "Growing businesses and distributed teams",
+    monthly: 2999,
+    annual: 29990,
+    includedEmployees: 50,
+    extraMonthly: 59,
+    extraAnnual: 590,
     flagship: true,
-    features: [
-      { label: "Everything in Starter", strong: true },
-      { label: "Payroll inputs" },
-      { label: "Payslips" },
-      { label: "Reports & export" },
-      { label: "Module controls" },
-    ],
+    features: [],
   },
   {
-    key: "multi-branch",
-    name: "Multi-Branch",
-    target: "Companies with multiple branches",
-    monthly: 119,
-    annual: 99,
+    key: "business",
+    name: "BUSINESS",
+    target: "Organisations with 100 or more employees",
+    monthly: 6999,
+    annual: 69990,
+    includedEmployees: 100,
+    extraMonthly: 49,
+    extraAnnual: 490,
     flagship: false,
-    features: [
-      { label: "Everything in Operations", strong: true },
-      { label: "Branch-level review" },
-      { label: "Roles & permissions" },
-      { label: "Activity log" },
-    ],
+    features: [],
   },
 ];
 
 export const PRICING_FOOTNOTE =
-  "All plans include the phone app for every employee. Prices exclude GST.";
+  "Every employee gets the phone app. Prices exclude GST.";
 
-/** The best yearly saving across plans, as a whole percent ("Save up to 20%"). */
-export function annualSaving(plans: readonly Plan[]): number {
-  const cuts = plans
-    .filter((p) => p.monthly > 0 && p.annual < p.monthly)
-    .map((p) => (1 - p.annual / p.monthly) * 100);
-  return cuts.length ? Math.round(Math.max(...cuts)) : 0;
+/** Below the plans (pricing brief §14): larger and private deployments are a conversation. */
+export const ENTERPRISE_NOTE = "Need private deployment or 1,000+ employees?";
+export const ENTERPRISE_CONTACT = "mailto:help@flowacord.com?subject=FlowHRMS%20for%20a%20larger%20organisation";
+
+/**
+ * Whole months a year paid at once saves, across the plans ("Save 2
+ * months"). The smallest, so the badge never promises more than every
+ * plan gives.
+ */
+export function monthsFreeAcross(plans: readonly Plan[]): number {
+  const free = plans
+    .filter((p) => p.monthly > 0)
+    .map((p) => Math.max(0, Math.floor((p.monthly * 12 - p.annual) / p.monthly)));
+  return free.length ? Math.min(...free) : 0;
 }
 
 /** Rupees, no decimals — these are whole-rupee prices by design. */

@@ -132,7 +132,10 @@ export async function startCheckoutAction(input: {
       cycle: q.cycle,
       months: q.months,
       employees: q.employees,
-      rateRupees: q.rate,
+      baseRupees: q.baseRupees,
+      includedEmployees: q.includedEmployees,
+      extraEmployees: q.extraEmployees,
+      extraRateRupees: q.extraRateRupees,
       subtotalPaise: q.subtotalPaise,
       cgstPaise: q.cgstPaise,
       sgstPaise: q.sgstPaise,
@@ -150,7 +153,13 @@ export async function startCheckoutAction(input: {
       action: "billing.checkout_started",
       entityType: "billing_payment",
       entityId: orderId,
-      after: { plan: plan.key, cycle: q.cycle, employees: q.employees, totalPaise: q.totalPaise },
+      after: {
+        plan: plan.key,
+        cycle: q.cycle,
+        employees: q.employees,
+        extraEmployees: q.extraEmployees,
+        totalPaise: q.totalPaise,
+      },
     },
   });
 

@@ -38,7 +38,11 @@ export interface ModuleSettingState {
 /**
  * What a company's module settings become when it moves onto a plan.
  *
- * - Not in the plan: off, and the company cannot switch it back on.
+ * - Not in the plan: left exactly as it is. Paying, or Flowacord applying
+ *   a plan, never takes away something the company already has (decided
+ *   29 Sept 2026, pricing brief §13: "never automatically remove an
+ *   existing customer capability"). Flowacord removes a module from one
+ *   company deliberately, from /platform/companies.
  * - In the plan and already the company's to manage: left as the company
  *   set it — paying never undoes their own choices.
  * - Newly included: switched on, with anything it needs.
@@ -56,7 +60,7 @@ export function applyPlanModules(
     if (MODULES[s.key].category === "CORE") {
       next.set(s.key, { key: s.key, enabled: true, allowedByPlatform: true });
     } else if (!inPlan.has(s.key)) {
-      next.set(s.key, { key: s.key, enabled: false, allowedByPlatform: false });
+      next.set(s.key, s);
     } else {
       next.set(s.key, {
         key: s.key,

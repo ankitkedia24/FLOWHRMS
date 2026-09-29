@@ -52,11 +52,13 @@ function parseFeatureLines(text: string): PlanFeature[] {
     .map((l) => (l.startsWith("*") ? { label: l.replace(/^\*\s*/, "").slice(0, 80), strong: true } : { label: l.slice(0, 80) }));
 }
 
-const price = z.coerce
-  .number({ error: "Enter a price in whole rupees." })
-  .int("Prices are whole rupees.")
-  .min(1, "A price must be at least ₹1.")
-  .max(10_000, "That price looks wrong — ₹10,000 per employee per month is the ceiling.");
+/** Whole rupees between `min` and `max`, with the ceiling named in the error. */
+const rupeesField = (label: string, min: number, max: number) =>
+  z.coerce
+    .number({ error: `Enter the ${label} in whole rupees.` })
+    .int(`The ${label} is whole rupees.`)
+    .min(min, `The ${label} must be at least ₹${min.toLocaleString("en-IN")}.`)
+    .max(max, `That ${label} looks wrong — ₹${max.toLocaleString("en-IN")} is the ceiling.`);
 
 const planSchema = z.object({
   id: z.string().uuid().optional(),
@@ -67,8 +69,15 @@ const planSchema = z.object({
     .regex(/^[a-z0-9][a-z0-9-]{1,39}$/, "Key: 2–40 lowercase letters, digits or hyphens."),
   name: z.string().trim().min(2, "Give the plan a name.").max(40),
   target: z.string().trim().max(80),
-  priceMonthly: price,
-  priceAnnual: price,
+  priceMonthly: rupeesField("monthly base price", 1, 10_00_000),
+  priceAnnual: rupeesField("yearly base price", 1, 1_20_00_000),
+  includedEmployees: z.coerce
+    .number({ error: "Enter how many employees the plan includes." })
+    .int("Employees included is a whole number.")
+    .min(0, "Employees included can't be negative.")
+    .max(1_00_000, "That many employees included looks wrong."),
+  extraEmployeeMonthly: rupeesField("monthly price per extra employee", 0, 10_000),
+  extraEmployeeAnnual: rupeesField("yearly price per extra employee", 0, 1_20_000),
   modules: z.array(z.string()).max(40),
   features: z.string().max(2000),
   flagship: z.boolean(),
@@ -83,8 +92,11 @@ export async function savePlanAction(input: z.input<typeof planSchema>): Promise
   const d = parsed.data;
   const problems = planModuleProblems(d.modules);
   if (problems.length) return { ok: false, error: `${problems.join(". ")}.` };
-  if (d.priceAnnual > d.priceMonthly) {
-    return { ok: false, error: "The yearly rate should not be higher than the monthly rate." };
+  if (d.priceAnnual > d.priceMonthly * 12) {
+    return { ok: false, error: "The yearly base price should not be more than twelve monthly ones." };
+  }
+  if (d.extraEmployeeAnnual > d.extraEmployeeMonthly * 12) {
+    return { ok: false, error: "The yearly price per extra employee should not be more than twelve monthly ones." };
   }
 
   const db = getDb();
@@ -93,6 +105,9 @@ export async function savePlanAction(input: z.input<typeof planSchema>): Promise
     target: d.target,
     priceMonthly: d.priceMonthly,
     priceAnnual: d.priceAnnual,
+    includedEmployees: d.includedEmployees,
+    extraEmployeeMonthly: d.extraEmployeeMonthly,
+    extraEmployeeAnnual: d.extraEmployeeAnnual,
     modules: [...new Set(d.modules)],
     features: parseFeatureLines(d.features) as unknown as object,
     flagship: d.flagship,
@@ -125,6 +140,9 @@ export async function savePlanAction(input: z.input<typeof planSchema>): Promise
           name: before.name,
           priceMonthly: before.priceMonthly,
           priceAnnual: before.priceAnnual,
+          includedEmployees: before.includedEmployees,
+          extraEmployeeMonthly: before.extraEmployeeMonthly,
+          extraEmployeeAnnual: before.extraEmployeeAnnual,
           modules: before.modules,
           active: before.active,
           flagship: before.flagship,
@@ -134,6 +152,9 @@ export async function savePlanAction(input: z.input<typeof planSchema>): Promise
       name: saved.name,
       priceMonthly: saved.priceMonthly,
       priceAnnual: saved.priceAnnual,
+      includedEmployees: saved.includedEmployees,
+      extraEmployeeMonthly: saved.extraEmployeeMonthly,
+      extraEmployeeAnnual: saved.extraEmployeeAnnual,
       modules: saved.modules,
       active: saved.active,
       flagship: saved.flagship,
@@ -144,7 +165,7 @@ export async function savePlanAction(input: z.input<typeof planSchema>): Promise
   revalidatePath("/");
   return {
     ok: true,
-    message: `${saved.name} saved. New prices apply to the next payment; companies already on it keep their modules until you apply the plan to them.`,
+    message: `${saved.name} saved. New prices apply to the next payment; newly added modules reach companies already on it when they next pay or when you apply the plan to them.`,
   };
 }
 

@@ -561,3 +561,29 @@ implying compliance.
 
 *Reopens if:* per-component statutory labelling is needed on payslips
 again, or packs are asked to carry statutory items (blocked by D-P3-01).
+
+## Pricing — CORE / PRO / BUSINESS
+
+**D-PR-01 · 2026-09-29 · Three public plans: a base price that covers a
+number of employees, plus a price per extra employee** — CORE ₹1,499/month
+(25 included, +₹49), PRO ₹2,999 (50, +₹59, "Most popular"), BUSINESS
+₹6,999 (100, +₹49). A year paid at once is ten months, for the base and
+for each extra employee (₹14,990 / ₹29,990 / ₹69,990; +₹490 / ₹590 / ₹490).
+Prices live in `billing_plans`, editable in /platform/plans. Replaces the
+per-employee Starter/Operations/Multi-Branch plans, which nothing had been
+sold on (hidden, kept). See docs/md/PRICING_MIGRATION_PLAN.md.
+
+**D-PR-02 · 2026-09-29 · Modules are not tiered yet** — the owner decides
+modules tier by tier later. Until then new trials and all three plans
+unlock the Starter set (Employees, Attendance, Leave, Daily reporting,
+Notifications); anything more is added per company from /platform. The
+website and /subscription show prices only, no module lists.
+
+**D-PR-03 · 2026-09-29 · Paying never removes a module** — applying a plan
+(payment, manual plan set, "apply to companies") only switches on the
+plan's modules; a module outside the plan is left exactly as it is
+(pricing brief §13). Flowacord removes a module from one company
+deliberately. Reverses the earlier rule "not in the plan: off and locked".
+
+*Reopens if:* tiers are decided (D-PR-02), or the brief's statutory-payroll
+promise for CORE is accepted (conflicts with D-P3-01).

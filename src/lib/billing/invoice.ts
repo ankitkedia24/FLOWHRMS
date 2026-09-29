@@ -18,6 +18,16 @@ export interface Buyer {
   email: string;
 }
 
+export interface InvoiceLine {
+  description: string;
+  sac: string;
+  quantity: number;
+  /** What one of `quantity` is: "plan" (the base price), "employee". */
+  unit: "plan" | "employee";
+  rateRupees: number;
+  amountPaise: number;
+}
+
 export interface InvoiceDoc {
   number: string;
   /** ISO timestamp of issue (= payment). */
@@ -26,14 +36,8 @@ export interface InvoiceDoc {
   buyer: Buyer;
   placeOfSupply: { state: string; code: string };
   reverseCharge: false;
-  line: {
-    description: string;
-    sac: string;
-    employees: number;
-    months: number;
-    rateRupees: number;
-    amountPaise: number;
-  };
+  /** The plan for the period, then (if any) the employees above what it includes. */
+  lines: InvoiceLine[];
   subtotalPaise: number;
   cgstPaise: number;
   sgstPaise: number;
@@ -52,8 +56,12 @@ export function buildInvoice(input: {
   planName: string;
   cycle: Cycle;
   months: number;
-  employees: number;
-  rateRupees: number;
+  /** The plan's base price for the period, and the employees it covered. */
+  baseRupees: number;
+  includedEmployees: number;
+  /** Employees above that, and each one's price for the period. */
+  extraEmployees: number;
+  extraRateRupees: number;
   subtotalPaise: number;
   cgstPaise: number;
   sgstPaise: number;
@@ -65,7 +73,27 @@ export function buildInvoice(input: {
   orderId: string;
   method: string | null;
 }): InvoiceDoc {
-  const period = `${input.months === 12 ? "annual" : "monthly"} subscription`;
+  const period = input.months === 12 ? "annual" : "monthly";
+  const lines: InvoiceLine[] = [
+    {
+      description: `FlowHRMS ${input.planName} plan — ${period} subscription, includes ${input.includedEmployees} employees`,
+      sac: input.seller.sac,
+      quantity: 1,
+      unit: "plan",
+      rateRupees: input.baseRupees,
+      amountPaise: input.baseRupees * 100,
+    },
+  ];
+  if (input.extraEmployees > 0) {
+    lines.push({
+      description: `Additional employees above ${input.includedEmployees} — ${period}`,
+      sac: input.seller.sac,
+      quantity: input.extraEmployees,
+      unit: "employee",
+      rateRupees: input.extraRateRupees,
+      amountPaise: input.extraEmployees * input.extraRateRupees * 100,
+    });
+  }
   return {
     number: input.number,
     issuedAt: input.issuedAt.toISOString(),
@@ -73,14 +101,7 @@ export function buildInvoice(input: {
     buyer: input.buyer,
     placeOfSupply: { state: input.buyer.state, code: GST_STATE_CODES[input.buyer.state] ?? "" },
     reverseCharge: false,
-    line: {
-      description: `FlowHRMS ${input.planName} plan — ${period}`,
-      sac: input.seller.sac,
-      employees: input.employees,
-      months: input.months,
-      rateRupees: input.rateRupees,
-      amountPaise: input.subtotalPaise,
-    },
+    lines,
     subtotalPaise: input.subtotalPaise,
     cgstPaise: input.cgstPaise,
     sgstPaise: input.sgstPaise,

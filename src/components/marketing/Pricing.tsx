@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { PLANS, PRICING_FOOTNOTE, annualSaving, rupees, type Plan } from "@/lib/marketing/plans";
+import {
+  ENTERPRISE_CONTACT,
+  ENTERPRISE_NOTE,
+  PLANS,
+  PRICING_FOOTNOTE,
+  monthsFreeAcross,
+  rupees,
+  type Plan,
+} from "@/lib/marketing/plans";
 
 /**
  * Pricing cards with a monthly/annual toggle.
@@ -12,10 +20,14 @@ import { PLANS, PRICING_FOOTNOTE, annualSaving, rupees, type Plan } from "@/lib/
  * showing. `aria-pressed` on both makes the current choice audible, and
  * the price itself is announced politely when it changes, because the
  * number moving under a toggle is the entire point of pressing it.
+ *
+ * Each card is a base price, the employees it covers, and the price of
+ * each employee above that. Bullet points appear only if a plan has them
+ * (/platform/plans); what each plan unlocks is decided tier by tier later.
  */
 export function Pricing({ plans = PLANS }: { plans?: readonly Plan[] }) {
   const [annual, setAnnual] = useState(false);
-  const saving = annualSaving(plans);
+  const free = monthsFreeAcross(plans);
 
   return (
     <>
@@ -35,7 +47,7 @@ export function Pricing({ plans = PLANS }: { plans?: readonly Plan[] }) {
           onClick={() => setAnnual(true)}
         >
           Annual
-          {saving > 0 && (
+          {free > 0 && (
             <span
               className="rounded-full px-2 py-[3px] text-[11px] font-bold"
               style={{
@@ -43,7 +55,7 @@ export function Pricing({ plans = PLANS }: { plans?: readonly Plan[] }) {
                 color: annual ? "#fff" : "var(--m-green-text)",
               }}
             >
-              Save up to {saving}%
+              Save {free} {free === 1 ? "month" : "months"}
             </span>
           )}
         </button>
@@ -57,11 +69,12 @@ export function Pricing({ plans = PLANS }: { plans?: readonly Plan[] }) {
           const dark = plan.flagship;
           const ink = dark ? "var(--m-cream)" : "var(--m-navy)";
           const sub = dark ? "var(--m-on-navy-2)" : "var(--m-muted-2)";
+          const extra = annual ? plan.extraAnnual : plan.extraMonthly;
           return (
             <div key={plan.key} className="m-plan" data-flagship={dark}>
               {plan.flagship && (
                 <span className="absolute -top-[13px] left-7 rounded-full bg-[color:var(--m-red)] px-3 py-1.5 text-[11.5px] font-bold tracking-[0.06em] text-white shadow-[0_3px_8px_rgba(240,78,48,.35)]">
-                  RECOMMENDED
+                  MOST POPULAR
                 </span>
               )}
 
@@ -80,14 +93,14 @@ export function Pricing({ plans = PLANS }: { plans?: readonly Plan[] }) {
                   {rupees(annual ? plan.annual : plan.monthly)}
                 </span>
                 <span className="text-[13px] font-semibold" style={{ color: sub }}>
-                  / employee / month
+                  / {annual ? "year" : "month"}
                 </span>
               </div>
-              {annual && (
-                <div className="mt-1 text-xs" style={{ color: sub }}>
-                  billed annually · {rupees(plan.monthly)} monthly
-                </div>
-              )}
+              <div className="mt-1 text-xs" style={{ color: sub }}>
+                {annual
+                  ? `billed yearly · ${rupees(plan.monthly)} a month if paid monthly`
+                  : "billed monthly"}
+              </div>
 
               <div
                 className="mb-[18px] mt-[22px] border-t"
@@ -95,11 +108,27 @@ export function Pricing({ plans = PLANS }: { plans?: readonly Plan[] }) {
               />
 
               <ul className="flex flex-1 flex-col gap-[11px]">
+                <li className="flex items-start gap-2.5 text-sm" style={{ color: ink }}>
+                  <span className="m-tick" aria-hidden="true">
+                    ✓
+                  </span>
+                  <span style={{ fontWeight: 700 }}>
+                    {plan.includedEmployees} employees included
+                  </span>
+                </li>
+                <li className="flex items-start gap-2.5 text-sm" style={{ color: ink }}>
+                  <span className="m-tick" aria-hidden="true">
+                    +
+                  </span>
+                  <span style={{ fontWeight: 500 }}>
+                    {rupees(extra)} per additional employee / {annual ? "year" : "month"}
+                  </span>
+                </li>
                 {plan.features.map((f) => (
                   <li
                     key={f.label}
                     className="flex items-start gap-2.5 text-sm"
-                    style={{ color: dark ? "var(--m-cream)" : "var(--m-navy)" }}
+                    style={{ color: ink }}
                   >
                     <span className="m-tick" aria-hidden="true">
                       ✓
@@ -133,7 +162,13 @@ export function Pricing({ plans = PLANS }: { plans?: readonly Plan[] }) {
         })}
       </div>
 
-      <p className="mt-5 text-[13px] text-[color:var(--m-muted-2)]">{PRICING_FOOTNOTE}</p>
+      <p className="mt-5 text-[13px] text-[color:var(--m-muted-2)]">
+        {PRICING_FOOTNOTE}{" "}
+        <span className="font-semibold text-[color:var(--m-navy)]">{ENTERPRISE_NOTE}</span>{" "}
+        <a href={ENTERPRISE_CONTACT} className="font-semibold text-[color:var(--m-navy)] underline underline-offset-2">
+          Talk to us
+        </a>
+      </p>
     </>
   );
 }
