@@ -191,17 +191,24 @@ into the web app's:
 | Hostinger runs | Root script does |
 |---|---|
 | `npm install` | installs every workspace, then `postinstall` → `prisma generate` |
-| `npm run build` | `prisma generate`, `next build --webpack` in `apps/web`, then copies `apps/web/.next` (without its cache) and `apps/web/public` to the root (`scripts/mirror-web-build.mjs`) |
-| Next.js at the root | Hostinger then runs Next itself from the root, serving the root `.next` and `public` — it does **not** call `npm start` |
+| `npm run build` | `prisma generate`, `next build --webpack` in `apps/web` (standalone output), then `scripts/mirror-web-build.mjs` copies the build to the root `.next` and lays out `.next/standalone` |
+| publish | "Detected Next.js standalone server output": Hostinger copies `.next/standalone` to a new version and runs its `server.js` — it does **not** call `npm start` |
 
-- Why the copy: Hostinger (Framework *Next.js*, output directory `.next`,
-  root `./`) looks for `.next` at the root and failed with "No output
-  directory found after build" on 29 Sept 2026 although the build had
-  succeeded. The runtime log shows Next's own banner and never our
-  `[flowhrms] starting` line, so the root copy is what it serves.
+- The web app builds with `output: "standalone"` (apps/web/next.config.ts).
+  Before the monorepo Hostinger added that itself to the root next.config;
+  with no root config it can't, which is why the monorepo deploys failed.
+- In a monorepo Next puts the server at `.next/standalone/apps/web/server.js`;
+  the mirror script adds `.next/standalone/server.js` (starts that one) and
+  copies `.next/static` and `public` beside it, so the standalone folder is
+  complete on its own.
+- The two failures this fixes (29 Sept 2026): "No output directory found
+  after build" (no root `.next`), then "Next.js build produced no standalone
+  server or static output" (no `server.js` at the top of `.next/standalone`).
+  In both, the build itself had succeeded — read the last lines of the log.
 - Leave Hostinger's settings as they are (root `./`, output `.next`).
-- To run exactly what Hostinger runs, locally: `npm run build`, then
-  `npm run start:root`.
+- To run exactly what Hostinger runs, locally: `npm run build`, copy
+  `.next/standalone` anywhere, and run `node server.js` there with the
+  environment variables set (PORT, DATABASE_URL, …).
 - Environment variables are unchanged (set in Hostinger's panel).
 - Locally, `.env.local` lives in `apps/web/.env.local`; `prisma.config.ts`
   reads it from there as well.

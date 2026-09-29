@@ -1,25 +1,31 @@
 /**
  * Put the web app's build where Hostinger looks for it.
  *
- * Hostinger's Next.js hosting (Framework: Next.js, output directory `.next`)
- * checks for `.next` at the repository ROOT after `npm run build`, and then
- * runs Next itself from the root — it never calls our `npm start` (the
- * runtime log shows no "[flowhrms] starting" line). Since the monorepo
- * change the build lands in `apps/web/.next`, so the deploy failed with
- * "No output directory found after build" although the build succeeded.
+ * Hostinger's Next.js hosting (Framework: Next.js, output directory `.next`,
+ * root `./`) does two things after `npm run build`, both at the repository
+ * ROOT:
+ * 1. checks that `.next` exists — since the monorepo change the build lands
+ *    in `apps/web/.next`, so the deploy failed with "No output directory
+ *    found after build" (29 Sept 2026);
+ * 2. publishes the STANDALONE server ("Detected Next.js standalone server
+ *    output") by running `server.js` at the top of `.next/standalone`. In a
+ *    monorepo Next writes that server to `.next/standalone/apps/web/server.js`
+ *    instead, so the next deploy failed with "Next.js build produced no
+ *    standalone server or static output".
  *
- * So after building, the root gets a copy of what `next start` needs:
- * - `.next`  — the build (its `cache` folder is left out: build-time only)
- * - `public` — the static files Next serves from the root
+ * So after building, the root gets:
+ * - `.next`  — a copy of the build (its `cache` folder left out: build-only),
+ *   including `standalone/`, completed below;
+ * - `public` — a copy of the static files;
+ * - `.next/standalone/server.js` — starts the real server in apps/web;
+ * - `.next/standalone/apps/web/.next/static` and `…/apps/web/public` — the
+ *   stylesheets, scripts and files the standalone server serves, which Next
+ *   leaves for the host to copy (they are copied here so nothing depends on
+ *   where Hostinger puts them).
  *
- * The web app's config needs nothing at run time: its headers are compiled
- * into `.next/routes-manifest.json`, and `transpilePackages` is build-only.
- * Every web package is hoisted to the root `node_modules`, so a server
- * started at the root resolves the same modules as one started in apps/web.
- *
- * Both copies are git-ignored and rebuilt on every `npm run build`.
+ * All of it is git-ignored and rebuilt on every `npm run build`.
  */
-import { cpSync, existsSync, rmSync } from "node:fs";
+import { cpSync, existsSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -40,3 +46,27 @@ function mirror(name, skip = () => false) {
 
 mirror(".next", (rel) => rel === "cache" || rel.startsWith(`cache${sep}`));
 mirror("public");
+
+// The standalone server, laid out the way Hostinger expects.
+const standalone = join(root, ".next", "standalone");
+const appServer = join(standalone, "apps", "web", "server.js");
+if (!existsSync(appServer)) {
+  console.error(
+    `[mirror] ${relative(root, appServer)} is missing — is output: "standalone" set in apps/web/next.config.ts?`,
+  );
+  process.exit(1);
+}
+cpSync(join(web, ".next", "static"), join(standalone, "apps", "web", ".next", "static"), { recursive: true });
+cpSync(join(web, "public"), join(standalone, "apps", "web", "public"), { recursive: true });
+writeFileSync(
+  join(standalone, "server.js"),
+  [
+    "// Written by scripts/mirror-web-build.mjs. Hostinger starts server.js at the",
+    "// top of the standalone output; in the monorepo, Next's server is apps/web/server.js.",
+    'const path = require("node:path");',
+    'process.chdir(path.join(__dirname, "apps", "web"));',
+    'require("./apps/web/server.js");',
+    "",
+  ].join("\n"),
+);
+console.log("[mirror] .next/standalone/server.js -> apps/web/server.js (with static and public)");
