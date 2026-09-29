@@ -2019,10 +2019,16 @@ model BillingPlan {
   name         String
   /// Who it is for, in the customer's words.
   target       String
-  /// Whole rupees per active employee per month, excluding GST.
+  /// The base price for a month, whole rupees, excluding GST.
   priceMonthly Int
-  /// Per-employee-per-month price when paid a year at a time.
+  /// The base price for a year paid at once, whole rupees, excluding GST.
   priceAnnual  Int
+  /// Active employees the base price covers.
+  includedEmployees    Int @default(0)
+  /// Whole rupees per active employee above includedEmployees, per month.
+  extraEmployeeMonthly Int @default(0)
+  /// Whole rupees per active employee above includedEmployees, per year.
+  extraEmployeeAnnual  Int @default(0)
   /// Module keys a company on this plan gets (src/lib/catalog.ts MODULES).
   modules      String[]
   /// [{ label, strong? }] — the bullet list on the website and in the app.
@@ -2052,10 +2058,18 @@ model BillingPayment {
   planName          String
   cycle             BillingCycle
   months            Int
-  /// Active employees charged for, counted when the order was made.
+  /// Active employees counted when the order was made.
   employees         Int
-  /// Rupees per employee per month at the time.
-  rateRupees        Int
+  /// The plan's price at the time, whole rupees: the base price for the
+  /// cycle, the employees it covered, and each extra employee's price.
+  baseRupees        Int @default(0)
+  includedEmployees Int @default(0)
+  extraEmployees    Int @default(0)
+  extraRateRupees   Int @default(0)
+  /// Legacy per-employee rate (plans before CORE/PRO/BUSINESS). Never
+  /// written since 29 Sept 2026; kept nullable so the build still live
+  /// during the switch could run. Drop it in a later migration.
+  rateRupees        Int?
   /// Amounts in paise.
   subtotalPaise     Int
   cgstPaise         Int                  @default(0)

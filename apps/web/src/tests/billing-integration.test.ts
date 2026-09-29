@@ -1,6 +1,7 @@
 /**
  * Paying for a plan, against the real database: the invoice is numbered
- * and frozen, the company moves onto the plan with the plan's modules, a
+ * and frozen with the plan line and the extra-employee line, the company
+ * moves onto the plan and gains its modules without losing any it had, a
  * second report of the same payment changes nothing, and an issued invoice
  * cannot be edited or deleted.
  *
@@ -47,8 +48,9 @@ d("paying for a plan (integration)", () => {
               allowedByPlatform: m.key !== "PAYROLL",
             })),
           });
-          const plan = await tx.billingPlan.findUniqueOrThrow({ where: { key: "operations" } });
-          const q = quote({ plan, cycle: "MONTHLY", employees: 4, sellerState: "Odisha", buyerState: "Odisha" });
+          const plan = await tx.billingPlan.findUniqueOrThrow({ where: { key: "core" } });
+          // 30 active on CORE: the base covers 25, five are extra at ₹49.
+          const q = quote({ plan, cycle: "MONTHLY", employees: 30, sellerState: "Odisha", buyerState: "Odisha" });
           const order = await tx.billingPayment.create({
             data: {
               tenantId: tenant.id,
@@ -59,7 +61,10 @@ d("paying for a plan (integration)", () => {
               cycle: q.cycle,
               months: q.months,
               employees: q.employees,
-              rateRupees: q.rate,
+              baseRupees: q.baseRupees,
+              includedEmployees: q.includedEmployees,
+              extraEmployees: q.extraEmployees,
+              extraRateRupees: q.extraRateRupees,
               subtotalPaise: q.subtotalPaise,
               cgstPaise: q.cgstPaise,
               sgstPaise: q.sgstPaise,
@@ -120,15 +125,19 @@ d("paying for a plan (integration)", () => {
       if (!(e instanceof Rollback)) throw e;
     }
 
-    const first = seen.first as { already: boolean; row: { status: string; invoiceNumber: string; periodStart: Date; periodEnd: Date; invoice: { totalPaise: number; cgstPaise: number; placeOfSupply: { code: string } } } };
+    const first = seen.first as { already: boolean; row: { status: string; invoiceNumber: string; periodStart: Date; periodEnd: Date; invoice: { totalPaise: number; cgstPaise: number; placeOfSupply: { code: string }; lines: Array<{ quantity: number; rateRupees: number; amountPaise: number }> } } };
     expect(first.already).toBe(false);
     expect(first.row.status).toBe("PAID");
     expect(first.row.invoiceNumber).toMatch(/^FH\/\d{4}\/\d{5,}$/);
     // The unused trial days are kept: the paid month starts when the trial ends.
     expect(first.row.periodStart).toEqual(seen.trialEndsAt);
     expect(first.row.periodEnd).toEqual(addMonths(seen.trialEndsAt as Date, 1));
-    expect(first.row.invoice.totalPaise).toBe(79 * 4 * 118);
-    expect(first.row.invoice.cgstPaise).toBe(79 * 4 * 9);
+    expect(first.row.invoice.totalPaise).toBe((1499 + 5 * 49) * 118);
+    expect(first.row.invoice.cgstPaise).toBe((1499 + 5 * 49) * 9);
+    expect(first.row.invoice.lines.map((l) => [l.quantity, l.rateRupees, l.amountPaise])).toEqual([
+      [1, 1499, 149900],
+      [5, 49, 24500],
+    ]);
     expect(first.row.invoice.placeOfSupply.code).toBe("21");
 
     // Reported twice (Checkout and webhook): one invoice, same number.
@@ -143,9 +152,13 @@ d("paying for a plan (integration)", () => {
     expect(tenant.billingCycle).toBe("MONTHLY");
 
     const modules = seen.modules as Record<string, [boolean, boolean]>;
-    expect(modules.PAYROLL).toEqual([true, true]); // newly included → on
-    expect(modules.EXPENSES).toEqual([false, false]); // not in Operations → off and locked
     expect(modules.LEAVE).toEqual([true, true]);
+    // Not in CORE, but the company had it: paying never takes it away.
+    expect(modules.EXPENSES).toEqual([true, true]);
+    // Not in CORE and not theirs: left exactly as it was.
+    expect(modules.PAYROLL).toEqual([false, false]);
+    // In CORE and already theirs to manage (switched off): their choice stands.
+    expect(modules.DAILY_REPORTING).toEqual([false, true]);
 
     expect(seen.refusals).toEqual(["edit: refused", "delete: refused"]);
   }, 90_000);

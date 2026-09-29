@@ -35,6 +35,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
     );
   const sellerCode = GST_STATE_CODES[inv.seller.state] ?? "";
   const intra = inv.cgstPaise > 0 || inv.sgstPaise > 0;
+  const periodWord = payment.months === 12 ? "year" : "month";
 
   return (
     <main data-surface="admin" className="mx-auto w-full max-w-[860px] px-4 pb-12 pt-6 sm:px-6 print:max-w-none print:p-0">
@@ -136,21 +137,25 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               </tr>
             </thead>
             <tbody>
-              <tr className="border-b border-[#E3E1EC] align-top">
-                <td className="py-3 pr-3">{inv.line.description}</td>
-                <td className="py-3 pr-3 font-mono">{inv.line.sac}</td>
-                <td className="py-3 pr-3 text-right">
-                  <span className="font-mono">{inv.line.employees * inv.line.months}</span>
-                  <span className="block text-[12px] text-[#5A5A5A]">
-                    {inv.line.employees} × {inv.line.months} {inv.line.months === 1 ? "month" : "months"}
-                  </span>
-                </td>
-                <td className="py-3 pr-3 text-right">
-                  <span className="font-mono">{formatPaise(inv.line.rateRupees * 100)}</span>
-                  <span className="block text-[12px] text-[#5A5A5A]">per employee-month</span>
-                </td>
-                <td className="py-3 text-right font-mono">{formatPaise(inv.line.amountPaise)}</td>
-              </tr>
+              {inv.lines.map((line) => (
+                <tr key={line.description} className="border-b border-[#E3E1EC] align-top">
+                  <td className="py-3 pr-3">{line.description}</td>
+                  <td className="py-3 pr-3 font-mono">{line.sac}</td>
+                  <td className="py-3 pr-3 text-right">
+                    <span className="font-mono">{line.quantity}</span>
+                    <span className="block text-[12px] text-[#5A5A5A]">
+                      {line.unit === "plan" ? "plan" : line.quantity === 1 ? "employee" : "employees"}
+                    </span>
+                  </td>
+                  <td className="py-3 pr-3 text-right">
+                    <span className="font-mono">{formatPaise(line.rateRupees * 100)}</span>
+                    <span className="block text-[12px] text-[#5A5A5A]">
+                      {line.unit === "plan" ? `per ${periodWord}` : `per employee per ${periodWord}`}
+                    </span>
+                  </td>
+                  <td className="py-3 text-right font-mono">{formatPaise(line.amountPaise)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

@@ -140,10 +140,10 @@ export default async function LandingPage() {
         <Reveal className="mb-10 max-w-[620px]">
           <p className="m-eyebrow mb-3.5">PRICING</p>
           <h2 id="pricing-heading" className="m-h2 mb-3.5">
-            Priced per employee. Nothing hidden.
+            Three plans. Nothing hidden.
           </h2>
           <p className="m-section-lede">
-            Pay for the people on the roster, not for seats you&apos;ll never use.
+            Each plan covers a set number of employees. Grow past it and you pay only for the extra people.
           </p>
         </Reveal>
         <Reveal delay={80}>

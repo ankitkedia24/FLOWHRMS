@@ -28,8 +28,10 @@ export default async function PlansPage() {
     <>
       <h1 className="font-heading text-h1 text-text-primary">Plans</h1>
       <p className="mt-1 max-w-[720px] text-body text-text-secondary">
-        Prices are whole rupees per active employee per month, before GST. Changes show on the website and in the
-        app at once, and apply from a company&apos;s next payment. Notifications is always included.
+        A plan is a base price that covers a number of active employees, plus a price for each employee above
+        that — whole rupees, before GST. Changes show on the website and in the app at once, and apply from a
+        company&apos;s next payment. Paying adds a plan&apos;s modules and never switches off one a company
+        already has. Notifications is always included.
       </p>
       <div className="mt-5 flex flex-col gap-4">
         {plans.map((p) => (
@@ -42,6 +44,9 @@ export default async function PlansPage() {
               target: p.target,
               priceMonthly: p.priceMonthly,
               priceAnnual: p.priceAnnual,
+              includedEmployees: p.includedEmployees,
+              extraEmployeeMonthly: p.extraEmployeeMonthly,
+              extraEmployeeAnnual: p.extraEmployeeAnnual,
               modules: p.modules,
               features: p.features.map((f) => (f.strong ? `* ${f.label}` : f.label)).join("\n"),
               flagship: p.flagship,

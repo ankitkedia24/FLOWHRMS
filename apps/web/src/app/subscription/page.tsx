@@ -8,7 +8,6 @@ import { canManageBilling } from "@/lib/billing/policy";
 import { razorpayKeys, razorpayMode } from "@/lib/billing/razorpay";
 import { sellerGaps } from "@/lib/billing/seller";
 import { activeEmployeeCount, loadPlans, loadSeller, toPlanView } from "@/lib/billing/store";
-import { MODULES, type ModuleKey } from "@/lib/catalog";
 import { FlowHRMSLockup } from "@/components/brand/FlowHRMSWordmark";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -80,11 +79,13 @@ export default async function SubscriptionPage() {
             target: p.target,
             priceMonthly: p.priceMonthly,
             priceAnnual: p.priceAnnual,
+            includedEmployees: p.includedEmployees,
+            extraEmployeeMonthly: p.extraEmployeeMonthly,
+            extraEmployeeAnnual: p.extraEmployeeAnnual,
             flagship: p.flagship,
+            // What each plan unlocks is decided tier by tier later; until
+            // then the plans show prices only (owner, 29 Sept 2026).
             features: p.features,
-            modules: p.modules
-              .filter((m): m is ModuleKey => m in MODULES && MODULES[m as ModuleKey].category !== "CORE")
-              .map((m) => MODULES[m].name),
           }))}
           currentPlanKey={currentPlan?.key ?? null}
           currentCycle={tenant.billingCycle}
