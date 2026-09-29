@@ -49,6 +49,7 @@ export function EmployeeForm({
   companyWeeklyOff,
   managers,
   canManage,
+  statusLock = null,
 }: {
   member: Member;
   /** Departments, locations and shifts, and which of them may be added here. */
@@ -57,6 +58,8 @@ export function EmployeeForm({
   companyWeeklyOff: number[];
   managers: Array<{ id: string; name: string }>;
   canManage: boolean;
+  /** Why this viewer can't change this person's status, or null. */
+  statusLock?: string | null;
 }) {
   const router = useRouter();
   const { show } = useToast();
@@ -218,7 +221,8 @@ export function EmployeeForm({
           />
           <Select
             label="Status"
-            disabled={!canManage}
+            disabled={!canManage || Boolean(statusLock)}
+            helper={canManage && statusLock ? statusLock : undefined}
             value={form.status}
             onChange={(e) => set("status", e.target.value)}
             options={

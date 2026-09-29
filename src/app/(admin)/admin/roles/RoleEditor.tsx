@@ -28,6 +28,8 @@ export function RoleEditor({
   memberCount,
   granted,
   permissions,
+  refusal,
+  mine,
 }: {
   roleId: string;
   roleKey: string;
@@ -36,6 +38,10 @@ export function RoleEditor({
   memberCount: number;
   granted: string[];
   permissions: PermissionOption[];
+  /** Why this viewer can't change this level, or null if they can. */
+  refusal: string | null;
+  /** Permissions the viewer holds — the only ones they can add or remove. */
+  mine: string[];
 }) {
   const router = useRouter();
   const { show } = useToast();
@@ -90,10 +96,10 @@ export function RoleEditor({
         </div>
       </div>
 
-      {isOwner ? (
+      {isOwner || refusal ? (
         <p className="mt-3 inline-flex items-center gap-2 text-secondary text-text-secondary">
-          <Lock aria-hidden="true" className="size-4" />
-          The Owner always keeps full access to their own company.
+          <Lock aria-hidden="true" className="size-4 shrink-0" />
+          {isOwner ? "The Owner always keeps full access to their own company." : refusal}
         </p>
       ) : !open ? (
         <div className="mt-3">
@@ -115,6 +121,12 @@ export function RoleEditor({
                 {group.items.map((permission) => (
                   <Checkbox
                     key={permission.key}
+                    disabled={!mine.includes(permission.key)}
+                    helper={
+                      mine.includes(permission.key)
+                        ? undefined
+                        : "You don't hold this yourself, so you can't give or remove it."
+                    }
                     checked={selected.includes(permission.key)}
                     onChange={(e) =>
                       setSelected((prev) =>

@@ -12,6 +12,8 @@ import { BLOOD_GROUPS } from "@/lib/employees/profile";
 import { mediaExists } from "@/lib/media/urls";
 import { mediaPathOk } from "@/lib/media/bucket";
 import { deliverInvite, type InviteDelivery } from "./deliver";
+import { statusChangeRefusal } from "@/lib/employees/guard";
+import { applyLeaving, endSessions, otherActiveOwners } from "@/lib/employees/leaving";
 import {
   INVITE_HELD_REASON,
   invitationsHeld,
@@ -493,74 +495,43 @@ export async function deactivateEmployeeAction(
   const db = getDb();
   const membership = await db.tenantMembership.findFirst({
     where: { id: parsed.data.membershipId, tenantId: session.tenant.id },
-    include: { user: true, headOfDepartments: true },
+    include: { user: true, role: true, headOfDepartments: true },
   });
   if (!membership) return { ok: false, error: "That employee is no longer available." };
-  if (membership.userId === session.user.id) {
-    return { ok: false, error: "You can't deactivate your own account." };
-  }
   if (membership.status === "DEACTIVATED") {
     return { ok: false, error: `${membership.user.displayName} is already deactivated.` };
   }
 
-  // The last person who can run the company must not be able to lock
-  // everyone out (edge-cases.md → "last owner").
-  if (session.membership.roleKey !== "EMPLOYEE") {
-    const remainingOwners = await db.tenantMembership.count({
-      where: {
-        tenantId: session.tenant.id,
-        status: "ACTIVE",
-        role: { key: "OWNER" },
-        id: { not: membership.id },
-      },
-    });
-    const isOwner = await db.tenantMembership.findFirst({
-      where: { id: membership.id, role: { key: "OWNER" } },
-      select: { id: true },
-    });
-    if (isOwner && remainingOwners === 0) {
-      return {
-        ok: false,
-        error:
-          "This is the only owner. Make someone else an owner first, or the company would be left with nobody who can manage it.",
-      };
-    }
-  }
+  // Not yourself, nobody above you, never the last owner — the same rules
+  // as the Status field on their record (src/lib/employees/guard.ts).
+  const refusal = statusChangeRefusal({
+    actor: { userId: session.user.id, roleKey: session.membership.roleKey },
+    person: {
+      userId: membership.userId,
+      roleKey: membership.role.key,
+      status: membership.status,
+      name: membership.user.displayName,
+    },
+    nextStatus: "DEACTIVATED",
+    otherActiveOwners:
+      membership.role.key === "OWNER" ? await otherActiveOwners(session.tenant.id, membership.id) : 1,
+  });
+  if (refusal) return { ok: false, error: refusal };
 
-  const headOf = membership.headOfDepartments.filter((d) => d.isActive);
-
-  await db.$transaction(async (tx) => {
+  const { departmentsLeftWithoutHead: headOf } = await db.$transaction(async (tx) => {
     await tx.tenantMembership.update({
       where: { id: membership.id },
       data: { status: "DEACTIVATED" },
     });
-    await tx.employeeInvite.updateMany({
-      where: { membershipId: membership.id, status: "PENDING" },
-      data: { status: "REVOKED", revokedAt: new Date() },
+    return applyLeaving(tx, {
+      tenantId: session.tenant.id,
+      membershipId: membership.id,
+      userId: membership.userId,
+      status: "DEACTIVATED",
+      headOf: membership.headOfDepartments,
     });
-    // Any decision waiting on them personally is released, so it does not
-    // sit in a queue nobody can see.
-    await tx.actionRequestRecipient.deleteMany({
-      where: { tenantId: session.tenant.id, userId: membership.userId },
-    });
-    // Departments they headed lose their head rather than pointing at a
-    // deactivated person; the department screen then says so.
-    if (headOf.length > 0) {
-      await tx.department.updateMany({
-        where: { id: { in: headOf.map((d) => d.id) } },
-        data: { headId: null },
-      });
-    }
   });
-
-  // Sign-in is blocked by the membership check, but the auth session is
-  // also revoked so an open phone stops working now rather than at expiry.
-  if (membership.user.authUserId) {
-    const admin = getSupabaseAdmin();
-    await admin?.auth.admin.signOut(membership.user.authUserId, "global").catch(() => {
-      // Best effort: the membership check already denies access.
-    });
-  }
+  await endSessions(membership.user.authUserId);
 
   await recordAuditEvent(session, {
     action: "employee.deactivated",
@@ -569,7 +540,7 @@ export async function deactivateEmployeeAction(
     reason: parsed.data.reason,
     before: { status: membership.status },
     after: { status: "DEACTIVATED" },
-    metadata: { departmentsLeftWithoutHead: headOf.map((d) => d.name) },
+    metadata: { departmentsLeftWithoutHead: headOf },
   });
 
   revalidatePath("/admin/employees");
@@ -580,7 +551,7 @@ export async function deactivateEmployeeAction(
     message: `${membership.user.displayName} is deactivated.`,
     detail:
       headOf.length > 0
-        ? `Their attendance and payslips are kept. ${headOf.map((d) => d.name).join(" and ")} now has no head — approvals there go to admins until you name one.`
+        ? `Their attendance and payslips are kept. ${headOf.join(" and ")} now has no head — approvals there go to admins until you name one.`
         : "They can't sign in. Their attendance, leave and payslips are kept exactly as recorded.",
   };
 }

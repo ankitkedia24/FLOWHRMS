@@ -38,6 +38,7 @@ export function InvitePanel({
   isDeactivated,
   canManage,
   held = false,
+  deactivateLock = null,
 }: {
   membershipId: string;
   employeeName: string;
@@ -50,6 +51,8 @@ export function InvitePanel({
   canManage: boolean;
   /** Waiting for the owner to confirm their email; it sends itself then. */
   held?: boolean;
+  /** Why this viewer can't deactivate them (themselves, above them, last owner). */
+  deactivateLock?: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -200,6 +203,8 @@ export function InvitePanel({
             <Button
               variant="dangerSubtle"
               leadingIcon={<UserMinus aria-hidden="true" />}
+              disabled={Boolean(deactivateLock)}
+              disabledReason={deactivateLock ?? undefined}
               onClick={() => setConfirmOff(true)}
             >
               Deactivate

@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
 import { ALL_PERMISSION_KEYS } from "@/lib/catalog";
+import { mergePermissions, roleEditRefusal } from "./policy";
 
 /**
  * Role permission changes (user-flows.md §9).
@@ -14,6 +15,8 @@ import { ALL_PERMISSION_KEYS } from "@/lib/catalog";
  * - Affected users re-evaluate on their next request: entitlements and
  *   permissions are loaded per request, so nothing is cached stale.
  * - A role can never grant more than the platform catalog defines.
+ * - You change only levels below your own, and only move permissions you
+ *   hold yourself (src/lib/roles/policy.ts).
  */
 
 export type ActionResult =
@@ -48,26 +51,38 @@ export async function saveRolePermissionsAction(
   });
   if (!role) return { ok: false, error: "That role is no longer available." };
 
-  // The Owner role must keep full control of its own company.
-  if (role.key === "OWNER") {
-    return {
-      ok: false,
-      error:
-        "The Owner always keeps full access. Change another access level instead.",
-    };
-  }
+  // The Owner role keeps full control; nobody widens their own level or
+  // one at or above it.
+  const actorRole = await db.role.findFirst({
+    where: { tenantId: session.tenant.id, key: session.membership.roleKey },
+    select: { id: true },
+  });
+  const refusal = roleEditRefusal({
+    actorRoleKey: session.membership.roleKey,
+    actorRoleId: actorRole?.id ?? "",
+    role: { id: role.id, key: role.key, name: role.name },
+  });
+  if (refusal) return { ok: false, error: refusal };
 
-  // Only permissions that exist in the platform catalog may be granted.
+  const before = role.permissions.map((rp) => rp.permission.key).sort();
+  // Only permissions that exist in the platform catalog, and only ones you
+  // hold yourself, can be added or removed; the rest stay as they were.
   const requested = parsed.data.permissions.filter((key) =>
     (ALL_PERMISSION_KEYS as string[]).includes(key),
   );
-
-  const permissions = await db.permission.findMany({
-    where: { key: { in: requested } },
+  const merged = mergePermissions({
+    current: before,
+    requested,
+    mine: session.permissions as ReadonlySet<string>,
   });
 
-  const before = role.permissions.map((rp) => rp.permission.key).sort();
+  const permissions = await db.permission.findMany({
+    where: { key: { in: merged } },
+  });
   const after = permissions.map((p) => p.key).sort();
+  if (after.join() === before.join()) {
+    return { ok: false, error: "Nothing you can change has changed." };
+  }
 
   const affected = await db.tenantMembership.count({
     where: { tenantId: session.tenant.id, roleId: role.id, status: "ACTIVE" },

@@ -6,6 +6,7 @@ import { devFixtureOffline } from "@/lib/auth/fixture";
 import { PERMISSIONS, ROLE_TEMPLATES } from "@/lib/catalog";
 import { Alert } from "@/components/ui/Alert";
 import { Card } from "@/components/ui/Card";
+import { roleEditRefusal } from "@/lib/roles/policy";
 import { RoleEditor } from "./RoleEditor";
 
 export const metadata: Metadata = { title: "Access levels" };
@@ -49,6 +50,10 @@ export default async function RolesPage() {
   const sorted = [...roles].sort(
     (a, b) => order.indexOf(a.key) - order.indexOf(b.key),
   );
+  // Levels you can't change say why up front, and permissions you don't
+  // hold are shown but can't be moved (src/lib/roles/policy.ts).
+  const myRoleId = roles.find((r) => r.key === session.membership.roleKey)?.id ?? "";
+  const mine = [...session.permissions] as string[];
 
   return (
     <div className="flex flex-col gap-5">
@@ -76,6 +81,12 @@ export default async function RolesPage() {
               description={role.description}
               memberCount={role._count.memberships}
               granted={role.permissions.map((rp) => rp.permission.key)}
+              refusal={roleEditRefusal({
+                actorRoleKey: session.membership.roleKey,
+                actorRoleId: myRoleId,
+                role: { id: role.id, key: role.key, name: role.name },
+              })}
+              mine={mine}
               permissions={PERMISSIONS.map((p) => ({
                 key: p.key,
                 name: p.name,

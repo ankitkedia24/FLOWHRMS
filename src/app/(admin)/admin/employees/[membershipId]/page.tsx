@@ -10,6 +10,8 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { STATUS, statusLate, type Status } from "@/lib/status";
 import { formatClockTime } from "@/lib/attendance/policy";
 import { computeInviteStatus, invitationsHeld } from "@/lib/invites/policy";
+import { statusChangeRefusal } from "@/lib/employees/guard";
+import { otherActiveOwners } from "@/lib/employees/leaving";
 import { EmployeeForm } from "./EmployeeForm";
 import { loadWorkCalendar } from "@/lib/attendance/work-calendar";
 import { loadEmployeeFormOptions } from "@/lib/employees/form-options";
@@ -86,6 +88,22 @@ export default async function EmployeeProfilePage({
     invitationsHeld(session.tenant);
 
   const canManage = session.permissions.has("employees.manage");
+  // Status is locked, with the reason, for yourself, anyone above you and
+  // the last owner — the save and the Deactivate button refuse the same.
+  const statusLock = canManage
+    ? statusChangeRefusal({
+        actor: { userId: session.user.id, roleKey: session.membership.roleKey },
+        person: {
+          userId: member.userId,
+          roleKey: member.role.key,
+          status: member.status,
+          name: member.user.displayName,
+        },
+        nextStatus: member.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE",
+        otherActiveOwners:
+          member.role.key === "OWNER" ? await otherActiveOwners(session.tenant.id, member.id) : 1,
+      })
+    : null;
 
   // Designations (least access first, anything above the viewer marked),
   // departments, locations and shifts — and what may be added on the spot.
@@ -180,6 +198,7 @@ export default async function EmployeeProfilePage({
         resendCount={latestInvite?.resendCount ?? 0}
         isDeactivated={member.status === "DEACTIVATED"}
         canManage={canManage}
+        deactivateLock={statusLock}
       />
 
       <PhotoCard
@@ -206,6 +225,7 @@ export default async function EmployeeProfilePage({
 
       <EmployeeForm
         canManage={canManage}
+        statusLock={statusLock}
         member={{
           id: member.id,
           displayName: member.user.displayName,
