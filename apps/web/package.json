@@ -1,0 +1,52 @@
+{
+  "name": "@flowhrms/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build --webpack",
+    "start": "node scripts/start-server.mjs",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "tokens": "node scripts/generate-tokens.mjs",
+    "sample-data": "tsx --tsconfig scripts/tsconfig.json scripts/sample-data.ts",
+    "create-tenant": "tsx --tsconfig scripts/tsconfig.json scripts/create-tenant.ts",
+    "delete-tenant": "tsx --tsconfig scripts/tsconfig.json scripts/delete-tenant.ts",
+    "reissue-invite": "tsx --tsconfig scripts/tsconfig.json scripts/reissue-invite.ts",
+    "publish-notices": "tsx --tsconfig scripts/tsconfig.json scripts/publish-notices.ts"
+  },
+  "dependencies": {
+    "@flowhrms/types": "*",
+    "@flowhrms/validation": "*",
+    "@hookform/resolvers": "^5.7.1",
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/client": "^7.9.1",
+    "@supabase/ssr": "^0.12.4",
+    "@supabase/supabase-js": "^2.112.2",
+    "dotenv": "^17.4.2",
+    "lucide-react": "^1.29.0",
+    "next": "16.3.0",
+    "nodemailer": "^9.0.5",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-hook-form": "^7.84.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/nodemailer": "^8.0.1",
+    "@types/pg": "^8.20.4",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.0",
+    "prisma": "^7.9.1",
+    "puppeteer-core": "^25.5.0",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.9",
+    "typescript": "^5",
+    "vitest": "^4.1.10"
+  }
+}

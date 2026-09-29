@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  transpilePackages: ["@flowhrms/types", "@flowhrms/validation"],
   logging: {
     /**
      * Development only, but off on purpose: Next prints every Server
