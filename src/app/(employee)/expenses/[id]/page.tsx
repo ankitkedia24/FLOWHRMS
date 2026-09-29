@@ -11,6 +11,8 @@ import { ReceiptLink } from "@/components/expenses/ReceiptLink";
 import { formatAmount, formatExpenseDate, formatWhen } from "@/lib/expenses/format";
 import { payrollRoundingNote } from "@/lib/expenses/payroll-settlement";
 import { loadClaimForViewer } from "@/lib/expenses/queries";
+import { loadClaimEvidence } from "@/lib/field-visits/conveyance";
+import { TravelEvidence } from "@/components/field-visits/TravelEvidence";
 import { claimRef } from "@/lib/expenses/state";
 import { CLAIM_STATUS, flagMeanings, flagStatuses } from "@/lib/expenses/status-map";
 import { WithdrawButton } from "../WithdrawButton";
@@ -35,6 +37,8 @@ export default async function ExpenseClaimPage({
   const loaded = await loadClaimForViewer(session, id);
   if (!loaded) notFound();
   const { claim, isOwn, actorNames } = loaded;
+  // A travel allowance claim carries what it was worked out from.
+  const evidence = await loadClaimEvidence(session.tenant.id, claim.id);
 
   const ref = claimRef(claim.claimNumber);
   const claimed = Number(claim.claimedAmount);
@@ -69,6 +73,11 @@ export default async function ExpenseClaimPage({
           <p className="text-body text-text-secondary">Approved {formatAmount(approved)}</p>
         )}
         <p className="mt-2 text-body text-text-secondary">{claim.description}</p>
+        {evidence && (
+          <div className="mt-3">
+            <TravelEvidence evidence={evidence} />
+          </div>
+        )}
         {claim.submittedAt && (
           <p className="mt-2 text-caption text-text-tertiary">
             Submitted {formatWhen(claim.submittedAt, tz)}

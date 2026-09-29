@@ -46,6 +46,8 @@ export async function purgeTenant(
       await tx.kudos.deleteMany({ where: t });
       await tx.rewardRedemption.deleteMany({ where: t });
       await tx.reward.deleteMany({ where: t });
+      // A travel claim's evidence goes with its claim (it cascades too).
+      await tx.fieldConveyance.deleteMany({ where: t });
       await tx.expenseSettlement.deleteMany({ where: t });
       await tx.expenseClaimTransition.deleteMany({ where: t });
       await tx.expenseReceipt.deleteMany({ where: t });

@@ -24,6 +24,8 @@ import { loadClaimForViewer } from "@/lib/expenses/queries";
 import { claimRef } from "@/lib/expenses/state";
 import { CLAIM_STATUS, flagMeanings, flagStatuses } from "@/lib/expenses/status-map";
 import { DecisionCard } from "./DecisionCard";
+import { loadClaimEvidence } from "@/lib/field-visits/conveyance";
+import { TravelEvidence } from "@/components/field-visits/TravelEvidence";
 import { SettleForm, type PayrollOption } from "./SettleForm";
 
 export const metadata: Metadata = { title: "Expense claim" };
@@ -47,6 +49,8 @@ export default async function AdminExpenseClaimPage({
   const loaded = await loadClaimForViewer(session, id);
   if (!loaded) notFound();
   const { claim, isOwn, actorNames } = loaded;
+  // A travel allowance claim: recorded and claimed kilometres, side by side.
+  const evidence = await loadClaimEvidence(session.tenant.id, claim.id);
 
   const [published, entitlements] = await Promise.all([
     loadExpensesPolicy(session.tenant.id),
@@ -162,6 +166,11 @@ export default async function AdminExpenseClaimPage({
             <p className="mt-2 text-caption text-text-secondary">No receipt attached.</p>
           )}
         </div>
+        {evidence && (
+          <div className="mt-3">
+            <TravelEvidence evidence={evidence} />
+          </div>
+        )}
         {flags.length > 0 && (
           <div className="mt-3 flex flex-col gap-2">
             <div className="flex flex-wrap gap-1.5">

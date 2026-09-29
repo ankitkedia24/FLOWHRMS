@@ -17,6 +17,8 @@ import { routesConfigured } from "@/lib/field-visits/routes";
 import { loadTrips } from "@/lib/field-visits/service";
 import { dateKeyIn, firstName, mayDecideTrip, summariseDay } from "@/lib/field-visits/state";
 import { loadTeamContext, teamMember } from "@/lib/field-visits/team";
+import { claimableVehicles } from "@/lib/field-visits/policy";
+import { VehicleChooser } from "@/components/field-visits/VehicleChooser";
 
 export const metadata: Metadata = { title: "Field visits" };
 
@@ -67,6 +69,12 @@ export default async function PersonFieldDayPage({
     viewerSeesEveryone: session.permissions.has("fieldvisits.view"),
     person,
   });
+  const vehicles = claimableVehicles(context.policy);
+  const seesEveryone = session.permissions.has("fieldvisits.view");
+  const vehicleKey = seesEveryone
+    ? (await getDb().tenantMembership.findUnique({ where: { id: membershipId }, select: { fieldVehicleKey: true } }))
+        ?.fieldVehicleKey ?? null
+    : null;
   const roadPending = routesConfigured() && trips.some((t) => t.legs.some((l) => l?.status === "PENDING"));
 
   return (
@@ -123,6 +131,22 @@ export default async function PersonFieldDayPage({
             )}
           </Card>
         ))
+      )}
+
+      {seesEveryone && vehicles.length > 0 && (
+        <Card>
+          <h2 className="mb-1 font-heading text-h3 text-text-primary">Travel allowance vehicle</h2>
+          <p className="mb-3 text-secondary text-text-secondary">
+            {vehicleKey
+              ? `Chosen: ${vehicles.find((v) => v.key === vehicleKey)?.name ?? "a vehicle no longer paid for"}. Claims already made keep the rate they were made with.`
+              : `${firstName(member.name)} hasn't chosen a vehicle yet. You can set it here.`}
+          </p>
+          <VehicleChooser
+            vehicles={vehicles.map((v) => ({ key: v.key, name: v.name, ratePerKm: v.ratePerKm ?? 0 }))}
+            current={vehicleKey}
+            membershipId={membershipId}
+          />
+        </Card>
       )}
 
       {roadPending && <RefreshSoon />}

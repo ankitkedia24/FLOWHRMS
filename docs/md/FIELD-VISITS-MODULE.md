@@ -1,6 +1,6 @@
 # FlowHRMS — Field Visits module
 
-Version: 1.3 | Date: 29 September 2026 | Status: approved by the owner from UI mockups (29 Sept 2026). Phases 1–4 built the same day.
+Version: 1.4 | Date: 29 September 2026 | Status: approved by the owner from UI mockups (29 Sept 2026). All five phases built the same day.
 
 ## 1. Why
 
@@ -105,7 +105,16 @@ All of this is done without continuous tracking. MODULES.md lists continuous loc
   - There is one claim per person per month.
   - Changing the kilometres needs a reason. The approver sees both the recorded and the claimed figures, with a flag when they differ.
   - Settlement is exactly as for any claim, including payroll in whole rupees.
-- **Before any claim is possible:** a company must set at least one vehicle rate.
+- **Before any claim is possible:** a company must set at least one vehicle rate, and have Expenses switched on with its expense rules published.
+- **How it is built (Phase 5):**
+  - A travel claim is an ordinary Expenses claim. It is numbered, submitted, approved, refused, withdrawn and settled exactly like any other, through the same status step (`transitionClaim`) and the same approval tile.
+  - It carries the fixed category "Travel allowance" (key `field-travel`, never a receipt). The category is not in the company's expense categories and cannot be chosen on the ordinary claim form.
+  - The expense date is the last day of the month. Lateness is judged by the expense rules' deadline, like any claim.
+  - **Months:** only months that have ended, up to three back.
+  - **One live claim per person per month:** checked under a row lock. A refused or withdrawn claim frees the month.
+  - **The evidence** is fixed at submission in `field_conveyances`, beside the claim, and shown to both the person and the approver: month, vehicle and rate, recorded km (with the estimated part), claimed km, the reason if they differ, trips counted, awaiting and declined, and day by day.
+  - **Vehicle:** the person chooses once (`tenant_memberships.fieldVehicleKey`). After that, only someone with `fieldvisits.view` can change it, from the person's page. Claims already made keep the vehicle and rate they were made with.
+  - **Amount:** claimed km × the rate, in rupees and paise. Payroll settlement pays whole rupees, as for any claim.
 
 ## 8. Data (Phase 1 migration, additive)
 
@@ -155,9 +164,9 @@ These are drafts for legal review. They were written with Phase 2 and are publis
    - Until Phase 3, each stretch of road shows a straight-line estimate between the tapped spots, marked "about".
 3. **Road distance (built):** the Routes API, estimates and retries, and the route map.
 4. **Owner and department head views (built):** Today, a person's day, the monthly report with CSV, and the places list.
-5. **Monthly travel claim:** vehicles, the Conveyance claim, km edits with a reason, and the approver's comparison.
+5. **Monthly travel claim (built):** vehicles, the travel allowance claim, km edits with a reason, and the approver's comparison.
 
 ## 11. Open points
 
 - Legal review of the §9 wording.
-- Whether a trip still undecided at month end should be included in the claim, flagged (the current proposal), or left out until decided.
+- Whether a trip still undecided at month end should be included in the claim, flagged (built this way, and agreed by the owner on 29 Sept 2026), or left out until decided.

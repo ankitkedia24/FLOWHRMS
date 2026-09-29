@@ -144,10 +144,13 @@ export async function scopeDepartments(session: AppSession, scope: TeamScope) {
   });
 }
 
-type TripRow = DayTrip & { recordId: string; membershipId: string; dayKey: string };
+export type TripRow = DayTrip & { recordId: string; membershipId: string; dayKey: string };
 
 /** Trips of these working days, in the light shape the board and report need. */
-async function tripsForRecords(tenantId: string, records: Array<{ id: string; workDate: Date }>): Promise<TripRow[]> {
+export async function tripsForRecords(
+  tenantId: string,
+  records: Array<{ id: string; workDate: Date }>,
+): Promise<TripRow[]> {
   if (records.length === 0) return [];
   const dayOf = new Map(records.map((r) => [r.id, r.workDate.toISOString().slice(0, 10)]));
   const rows = await getDb().fieldTrip.findMany({

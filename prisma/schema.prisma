@@ -196,6 +196,7 @@ model Tenant {
   fieldTrips        FieldTrip[]
   fieldVisits       FieldVisit[]
   fieldLegs         FieldLeg[]
+  fieldConveyances  FieldConveyance[]
   billingPlan       BillingPlan?          @relation(fields: [billingPlanId], references: [id])
 
   @@map("tenants")
@@ -245,6 +246,10 @@ model TenantMembership {
   designation  String?
   /// The company's designation; it also decides the access level (roleId).
   designationId String?         @db.Uuid
+  /// Field visits: the vehicle travel allowance is paid for (a key of the
+  /// company's field visit rules). Chosen once by the person; an admin
+  /// may change it (FIELD-VISITS-MODULE.md §7).
+  fieldVehicleKey String?
   /// Profile photo in the private company-media bucket (ID card, directory).
   photoPath    String?
   /// Optional, for the ID card: A+, O-, …
@@ -289,6 +294,7 @@ model TenantMembership {
   kudosReceived     Kudos[]            @relation("kudosTo")
   expenseClaims     ExpenseClaim[]
   fieldTrips        FieldTrip[]
+  fieldConveyances  FieldConveyance[]
 
   @@unique([tenantId, userId])
   /// An employee code identifies one person within one company. NULLs stay
@@ -1542,6 +1548,8 @@ model ExpenseClaim {
   receipts    ExpenseReceipt[]
   transitions ExpenseClaimTransition[]
   settlement  ExpenseSettlement?
+  /// Set when the claim is a travel allowance made from field visits.
+  fieldConveyance FieldConveyance?
 
   @@unique([tenantId, claimNumber])
   @@index([tenantId, membershipId, status])
@@ -2112,4 +2120,41 @@ model SignupVerification {
   @@index([channel, target, createdAt])
   @@index([ipAddress, createdAt])
   @@map("signup_verifications")
+}
+
+/// The evidence behind a travel allowance claim made from field visits
+/// (FIELD-VISITS-MODULE.md §7). The expense claim is the claim — approved,
+/// settled and paid like any other; this records, at submission, what it
+/// was worked out from, so the approver sees recorded and claimed side by
+/// side and nobody can recompute it later into something else.
+model FieldConveyance {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  membershipId String   @db.Uuid
+  claimId      String   @unique @db.Uuid
+  /// "2026-09". One live claim per person per month (checked under a lock).
+  month        String
+  vehicleKey   String
+  vehicleName  String
+  ratePerKm    Decimal  @db.Decimal(8, 2)
+  /// From the month's trips, declined trips left out.
+  recordedKm   Decimal  @db.Decimal(10, 1)
+  /// Of recordedKm, straight-line estimates (road distance not known).
+  estimatedKm  Decimal  @db.Decimal(10, 1)
+  claimedKm    Decimal  @db.Decimal(10, 1)
+  /// Why claimedKm differs from recordedKm, in the person's words.
+  changeReason String?
+  tripsCounted  Int
+  tripsAwaiting Int
+  tripsDeclined Int
+  /// Per day: date, km, estimated km, trips — what the approver can check.
+  days         Json
+  createdAt    DateTime @default(now())
+
+  tenant     Tenant           @relation(fields: [tenantId], references: [id])
+  membership TenantMembership @relation(fields: [membershipId], references: [id])
+  claim      ExpenseClaim     @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, membershipId, month])
+  @@map("field_conveyances")
 }

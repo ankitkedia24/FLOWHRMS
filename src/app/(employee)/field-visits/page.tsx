@@ -63,7 +63,14 @@ export default async function MyFieldDayPage({
   return (
     <div className="flex flex-col gap-4">
       <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-h1 text-text-primary">My day</h1>
+        <div>
+          <h1 className="font-heading text-h1 text-text-primary">My day</h1>
+          {session.membership.roleKey !== "OWNER" && (
+            <Link href="/field-visits/claim" className="text-label text-brand-primary underline-offset-2 hover:underline">
+              Travel allowance
+            </Link>
+          )}
+        </div>
         <nav aria-label="Choose a day" className="flex items-center gap-1">
           <Link
             href={`/field-visits?date=${shift(-1)}`}

@@ -539,3 +539,112 @@ export function monthRange(month: string): { first: string; last: string } | nul
   const lastDay = new Date(Date.UTC(year, mon, 0)).getUTCDate();
   return { first: `${m[1]}-${m[2]}-01`, last: `${m[1]}-${m[2]}-${String(lastDay).padStart(2, "0")}` };
 }
+
+// ---------------------------------------------------------------- travel allowance
+
+export interface TravelDay {
+  /** yyyy-mm-dd */
+  date: string;
+  km: number;
+  estimatedKm: number;
+  trips: number;
+}
+
+export interface MonthTravel {
+  days: TravelDay[];
+  /** Declined trips left out (§4). */
+  recordedKm: number;
+  /** Of recordedKm, straight-line estimates. */
+  estimatedKm: number;
+  tripsCounted: number;
+  /** Counted, but not yet approved by the reporting manager: flagged to the claim's approver. */
+  tripsAwaiting: number;
+  tripsDeclined: number;
+}
+
+/** Kilometres to one decimal, as claims show them. */
+export function toKm(metres: number): number {
+  return Math.round(metres / 100) / 10;
+}
+
+/** A month's travel, day by day, as a claim is worked out from it (§7). */
+export function monthTravel(trips: ReadonlyArray<DayTrip & { dayKey: string }>): MonthTravel {
+  const byDay = new Map<string, { metres: number; estimated: number; trips: number }>();
+  let metres = 0;
+  let estimated = 0;
+  let counted = 0;
+  let awaiting = 0;
+  let declined = 0;
+  for (const trip of trips) {
+    if (trip.approval === "DECLINED") {
+      declined += 1;
+      continue;
+    }
+    counted += 1;
+    if (trip.approval === "PENDING") awaiting += 1;
+    const day = byDay.get(trip.dayKey) ?? { metres: 0, estimated: 0, trips: 0 };
+    day.trips += 1;
+    for (const leg of trip.legs) {
+      if (!leg || leg.meters === null) continue;
+      day.metres += leg.meters;
+      metres += leg.meters;
+      if (!legIsFinal(leg)) {
+        day.estimated += leg.meters;
+        estimated += leg.meters;
+      }
+    }
+    byDay.set(trip.dayKey, day);
+  }
+  return {
+    days: [...byDay.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, d]) => ({ date, km: toKm(d.metres), estimatedKm: toKm(d.estimated), trips: d.trips })),
+    recordedKm: toKm(metres),
+    estimatedKm: toKm(estimated),
+    tripsCounted: counted,
+    tripsAwaiting: awaiting,
+    tripsDeclined: declined,
+  };
+}
+
+/** Rupees and paise: km × the vehicle's rate. */
+export function travelAmount(km: number, ratePerKm: number): number {
+  return Math.round(km * ratePerKm * 100) / 100;
+}
+
+export const MAX_CLAIM_KM = 10_000;
+
+/**
+ * What the person claims: the recorded kilometres, or their own figure
+ * with a reason the approver reads beside the recorded one.
+ */
+export function checkClaimedKm(
+  recordedKm: number,
+  claimedKm: number,
+  reason: string | undefined,
+): { ok: true; km: number; changed: boolean } | { ok: false; error: string } {
+  if (!Number.isFinite(claimedKm) || claimedKm <= 0) return { ok: false, error: "Enter the kilometres, above zero." };
+  if (claimedKm > MAX_CLAIM_KM) return { ok: false, error: "That's more kilometres than a month allows. Check the number." };
+  const km = Math.round(claimedKm * 10) / 10;
+  const changed = Math.abs(km - recordedKm) >= 0.05;
+  if (changed && !reason?.trim()) {
+    return { ok: false, error: "Say why the kilometres differ from what was recorded — your approver reads it." };
+  }
+  return { ok: true, km, changed };
+}
+
+/** The months that have ended and can still be claimed, newest first. */
+export function claimableMonths(currentMonth: string, count = 3): string[] {
+  const [y, m] = currentMonth.split("-").map(Number);
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(Date.UTC(y, m - 1 - (i + 1), 1));
+    return d.toISOString().slice(0, 7);
+  });
+}
+
+/** "September 2026". */
+export function monthName(month: string): string {
+  return new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(
+    new Date(`${month}-01T00:00:00.000Z`),
+  );
+}

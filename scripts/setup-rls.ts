@@ -94,6 +94,8 @@ const TENANT_TABLES = [
   "field_trips",
   "field_visits",
   "field_legs",
+  // The evidence behind a travel allowance claim.
+  "field_conveyances",
 ];
 
 const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
