@@ -1,26 +1,20 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
-import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
 import { getSupabaseAdmin, ADMIN_KEY_MISSING } from "@/lib/supabase/admin";
-import { sendMail } from "@/lib/email/send";
-import { inviteEmail } from "@/lib/email/templates";
 import { privilegeRank } from "@/lib/catalog";
 import { BLOOD_GROUPS } from "@/lib/employees/profile";
 import { mediaExists } from "@/lib/media/urls";
 import { mediaPathOk } from "@/lib/media/bucket";
+import { deliverInvite, type InviteDelivery } from "./deliver";
 import {
-  generateInviteToken,
-  hashInviteToken,
-  inviteExpiryFrom,
-  inviteUrl,
-} from "./token";
-import {
+  INVITE_HELD_REASON,
+  invitationsHeld,
   canResendInvite,
   describeClash,
   normaliseEmail,
@@ -78,17 +72,6 @@ const inviteSchema = z.object({
   photoPath: z.string().max(200).nullable().optional(),
   bloodGroup: z.enum(BLOOD_GROUPS).nullable().optional(),
 });
-
-/** Absolute origin for links that leave the app. */
-async function appOrigin(): Promise<string> {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (configured) return configured.replace(/\/+$/, "");
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-  const proto =
-    h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
-}
 
 // --------------------------------------------------------------- invite
 
@@ -323,75 +306,35 @@ interface IssueInput {
 }
 
 /**
- * Create a fresh token and try to deliver it.
- *
- * A resend always issues a NEW token and revokes the old one, so a link
- * that leaked cannot be revived by asking an admin to "send it again".
+ * Send an invitation from the signed-in admin (deliver.ts does the work).
+ * A self-serve company's invitations are held until its owner confirms
+ * their email; they go out by themselves when that happens (held.ts).
  */
-async function issueInvite(
-  input: IssueInput,
-): Promise<{ sent: boolean; link: string | null; reason?: string }> {
-  const db = getDb();
-  // A self-serve trial company may not invite anyone until its registrant
-  // has proved their email address — otherwise anyone could sign up in
-  // someone else's name and start inviting "their" staff.
-  const tenant = await db.tenant.findUnique({
+async function issueInvite(input: IssueInput): Promise<InviteDelivery> {
+  // Read fresh, not from the session: the owner may have confirmed a
+  // moment ago in another tab.
+  const tenant = await getDb().tenant.findUnique({
     where: { id: input.session.tenant.id },
     select: { selfSignup: true, ownerEmailVerifiedAt: true },
   });
-  if (tenant?.selfSignup && !tenant.ownerEmailVerifiedAt) {
-    return {
-      sent: false,
-      link: null,
-      reason:
-        "Confirm your email address first — use the link we sent when you signed up (or “Send it again” on your dashboard). No invitation was sent; you can send it once confirmed.",
-    };
+  if (tenant && invitationsHeld(tenant)) {
+    return { sent: false, link: null, reason: INVITE_HELD_REASON };
   }
-  const now = new Date();
-  const token = generateInviteToken();
-  const link = inviteUrl(await appOrigin(), token);
-
-  const previous = await db.employeeInvite.findFirst({
-    where: { membershipId: input.membershipId, status: "PENDING" },
-    orderBy: { createdAt: "desc" },
-  });
-
-  await db.$transaction(async (tx) => {
-    if (previous) {
-      await tx.employeeInvite.update({
-        where: { id: previous.id },
-        data: { status: "REVOKED", revokedAt: now },
-      });
-    }
-    await tx.employeeInvite.create({
-      data: {
-        tenantId: input.session.tenant.id,
-        membershipId: input.membershipId,
-        tokenHash: hashInviteToken(token),
-        channel: "EMAIL",
-        status: "PENDING",
-        sentToEmail: input.email,
-        expiresAt: inviteExpiryFrom(now),
-        sentAt: now,
-        resendCount: input.isResend ? (previous?.resendCount ?? 0) + 1 : 0,
-        lastResendAt: input.isResend ? now : null,
-        createdById: input.session.user.id,
-      },
-    });
-  });
-
-  const body = inviteEmail({
-    employeeName: input.employeeName,
-    companyName: input.session.tenant.name,
-    invitedByName: input.session.user.displayName,
-    url: link,
-    expiresAt: inviteExpiryFrom(now),
-    timeZone: input.session.tenant.timezone,
-    isResend: input.isResend,
-  });
-
-  const result = await sendMail({ to: input.email, ...body });
-  return { sent: result.sent, link, reason: result.reason };
+  return deliverInvite(
+    {
+      tenantId: input.session.tenant.id,
+      companyName: input.session.tenant.name,
+      timeZone: input.session.tenant.timezone,
+      invitedByUserId: input.session.user.id,
+      invitedByName: input.session.user.displayName,
+    },
+    {
+      membershipId: input.membershipId,
+      employeeName: input.employeeName,
+      email: input.email,
+      isResend: input.isResend,
+    },
+  );
 }
 
 export async function resendInviteAction(input: {

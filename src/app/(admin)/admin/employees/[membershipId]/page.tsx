@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { STATUS, statusLate, type Status } from "@/lib/status";
 import { formatClockTime } from "@/lib/attendance/policy";
-import { computeInviteStatus } from "@/lib/invites/policy";
+import { computeInviteStatus, invitationsHeld } from "@/lib/invites/policy";
 import { EmployeeForm } from "./EmployeeForm";
 import { loadWorkCalendar } from "@/lib/attendance/work-calendar";
 import { loadEmployeeFormOptions } from "@/lib/employees/form-options";
@@ -77,6 +77,13 @@ export default async function EmployeeProfilePage({
   if (!member) notFound();
 
   const latestInvite = member.invites[0];
+  // Never invited, and the company's invitations wait for its owner to
+  // confirm their email: it goes out by itself when they do.
+  const inviteHeld =
+    member.status === "INVITED" &&
+    !latestInvite &&
+    Boolean(member.user.email) &&
+    invitationsHeld(session.tenant);
 
   const canManage = session.permissions.has("employees.manage");
 
@@ -155,8 +162,9 @@ export default async function EmployeeProfilePage({
             ? STATUS.inactive
             : member.status === "ACTIVE" && !latestInvite
               ? STATUS.active
-              : computeInviteStatus(latestInvite ?? null, new Date())
+              : computeInviteStatus(latestInvite ?? null, new Date(), inviteHeld)
         }
+        held={inviteHeld}
         sentAt={
           latestInvite?.sentAt
             ? formatDay(latestInvite.sentAt, tz)

@@ -65,6 +65,9 @@ export const STATUS = {
   inviteRevoked: s("invite-revoked", "Revoked", "neutral"),
   /// An employee record that exists but cannot yet sign in.
   inviteNotSent: s("invite-not-sent", "Not invited", "neutral"),
+  /// Added, but the company's invitations wait for its owner to confirm
+  /// their email; it goes out by itself when they do.
+  inviteHeld: s("invite-held", "Not sent — confirm your email", "warning"),
   snoozed: s("snoozed", "Snoozed", "neutral"),
   /// Expense claims (EXPENSES-MODULE.md §3) and the approver-facing flags.
   submitted: s("submitted", "Submitted", "info"),

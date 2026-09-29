@@ -8,9 +8,11 @@ import {
   INVITE_TTL_DAYS,
 } from "@/lib/invites/token";
 import {
+  INVITE_HELD_REASON,
   canResendInvite,
   computeInviteStatus,
   describeClash,
+  invitationsHeld,
   describeSignInReadiness,
   isInviteRedeemable,
   MAX_RESENDS,
@@ -130,6 +132,36 @@ describe("invite status is computed from the clock", () => {
     ]) {
       expect(computeInviteStatus(row, NOW).label.length).toBeGreaterThan(0);
     }
+  });
+
+  it("says why nothing was sent while the company's invitations are held", () => {
+    const status = computeInviteStatus(null, NOW, true);
+    expect(status.label).toBe("Not sent — confirm your email");
+    expect(status.tone).toBe("warning");
+  });
+
+  it("only a never-sent invitation can be held; a real one shows its own state", () => {
+    expect(computeInviteStatus({ status: "PENDING", expiresAt: later(DAY) }, NOW, true).label).toBe("Pending");
+    expect(computeInviteStatus({ status: "REVOKED", expiresAt: later(DAY) }, NOW, true).label).toBe("Revoked");
+  });
+});
+
+describe("invitations are held until a self-serve owner confirms their email", () => {
+  it("holds them for a company that signed itself up and has not confirmed", () => {
+    expect(invitationsHeld({ selfSignup: true, ownerEmailVerifiedAt: null })).toBe(true);
+  });
+
+  it("releases them once the owner has confirmed", () => {
+    expect(invitationsHeld({ selfSignup: true, ownerEmailVerifiedAt: NOW })).toBe(false);
+  });
+
+  it("never holds a company Flowacord set up", () => {
+    expect(invitationsHeld({ selfSignup: false, ownerEmailVerifiedAt: null })).toBe(false);
+  });
+
+  it("tells the owner the invitation goes out by itself", () => {
+    expect(INVITE_HELD_REASON).toMatch(/goes out by itself/);
+    expect(INVITE_HELD_REASON).toMatch(/Send it again/);
   });
 });
 

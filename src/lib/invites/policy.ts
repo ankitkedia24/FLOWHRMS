@@ -25,14 +25,34 @@ export interface InviteSnapshot {
 }
 
 /**
+ * A company that signed itself up may not invite anyone until its owner
+ * has confirmed their email — otherwise anyone could register in someone
+ * else's name and start inviting "their" staff. People added before then
+ * are kept, and their invitations go out by themselves the moment the
+ * owner confirms (held.ts).
+ */
+export function invitationsHeld(tenant: {
+  selfSignup: boolean;
+  ownerEmailVerifiedAt: Date | null;
+}): boolean {
+  return tenant.selfSignup && !tenant.ownerEmailVerifiedAt;
+}
+
+/** What the owner is told when an invitation is held. */
+export const INVITE_HELD_REASON =
+  "Their invitation goes out by itself as soon as you confirm your email address — use the link we sent when you signed up, or “Send it again” at the top of the page.";
+
+/**
  * The status to SHOW. A PENDING row past its expiry is Expired, whatever
- * the column says.
+ * the column says. `held`: nothing was ever sent because the company's
+ * invitations are held (and this person has an email to send to).
  */
 export function computeInviteStatus(
   invite: InviteSnapshot | null,
   now: Date,
+  held = false,
 ): Status {
-  if (!invite) return STATUS.inviteNotSent;
+  if (!invite) return held ? STATUS.inviteHeld : STATUS.inviteNotSent;
   switch (invite.status) {
     case "ACCEPTED":
       return STATUS.inviteAccepted;

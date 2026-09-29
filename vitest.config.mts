@@ -12,7 +12,27 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["src/tests/**/*.test.ts"],
     environment: "node",
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          include: ["src/tests/**/*.test.ts"],
+          exclude: ["src/tests/**/*-integration.test.ts"],
+        },
+      },
+      {
+        // The database tests share one Supabase session pool, which allows
+        // 15 clients. Run side by side they ran out of connections, so
+        // they run one file at a time (each still runs its own tests).
+        extends: true,
+        test: {
+          name: "integration",
+          include: ["src/tests/**/*-integration.test.ts"],
+          fileParallelism: false,
+        },
+      },
+    ],
   },
 });

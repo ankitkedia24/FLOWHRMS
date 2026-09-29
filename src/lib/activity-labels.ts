@@ -38,6 +38,7 @@ const LABELS: Record<string, string> = {
   "employee.designation_changed": "Designation changed",
   "employee.invite_accepted": "Invitation accepted",
   "employee.invite_resent": "Invitation sent again",
+  "employee.invite_sent": "Invitation sent",
   "employee.invite_revoked": "Invitation cancelled",
   "employee.invited": "Employee added",
   "employee.photo_removed": "Photo removed",

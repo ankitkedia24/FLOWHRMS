@@ -11,6 +11,7 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { Alert } from "@/components/ui/Alert";
 import { useToast } from "@/components/ui/Toast";
 import type { Status } from "@/lib/status";
+import { INVITE_HELD_REASON } from "@/lib/invites/policy";
 import {
   deactivateEmployeeAction,
   resendInviteAction,
@@ -36,6 +37,7 @@ export function InvitePanel({
   resendCount,
   isDeactivated,
   canManage,
+  held = false,
 }: {
   membershipId: string;
   employeeName: string;
@@ -46,6 +48,8 @@ export function InvitePanel({
   resendCount: number;
   isDeactivated: boolean;
   canManage: boolean;
+  /** Waiting for the owner to confirm their email; it sends itself then. */
+  held?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -57,7 +61,8 @@ export function InvitePanel({
   const [reason, setReason] = useState("");
 
   const accepted = inviteStatus.key === "invite-accepted";
-  const showInviteControls = canManage && !accepted && !isDeactivated;
+  // A held invitation has nothing to press: it sends itself on confirmation.
+  const showInviteControls = canManage && !accepted && !isDeactivated && !held;
 
   function run(fn: () => Promise<{ ok: boolean; [k: string]: unknown }>) {
     setError(null);
@@ -113,6 +118,14 @@ export function InvitePanel({
           <dd className="text-text-primary">{expiresAt ?? "—"}</dd>
         </div>
       </dl>
+
+      {held && (
+        <div className="mt-4">
+          <Alert variant="info" title="Waiting for you to confirm your email">
+            {INVITE_HELD_REASON}
+          </Alert>
+        </div>
+      )}
 
       {resendCount > 0 && !accepted && (
         <p className="mt-3 text-caption text-text-tertiary">

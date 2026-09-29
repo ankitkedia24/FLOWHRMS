@@ -16,6 +16,7 @@ import { AdminOfflineBar } from "@/components/offline/OfflineBar";
 import { ActionQueueProvider } from "@/lib/actions/ActionQueueProvider";
 import { ActionTiles } from "@/components/actions/ActionTiles";
 import { TrialBanner, type PlanNotice } from "@/components/shell/TrialBanner";
+import { countHeldInvitations } from "@/lib/invites/held";
 import { accessState } from "@/lib/billing/pricing";
 import { canManageBilling } from "@/lib/billing/policy";
 import { loadBranding } from "@/lib/branding/load";
@@ -84,6 +85,7 @@ export default async function AdminLayout({
     session.tenant.selfSignup &&
     !session.tenant.ownerEmailVerifiedAt &&
     session.membership.roleKey === "OWNER";
+  const heldInvites = needsVerification ? await countHeldInvitations(session.tenant.id) : 0;
   const nav = {
     items,
     configItems,
@@ -118,6 +120,7 @@ export default async function AdminLayout({
                   notice={notice}
                   canPay={navInput.can.billing}
                   needsVerification={needsVerification}
+                  heldInvites={heldInvites}
                   email={session.user.email}
                 />
               )}

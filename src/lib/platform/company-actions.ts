@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/authz/guard";
 import { MODULES, type ModuleKey } from "@/lib/catalog";
 import { dependentModules, missingRequirements, type EnabledMap } from "@/lib/modules/impact";
+import { sendHeldInvitations, type HeldResult } from "@/lib/invites/held";
 import { saveTrialSettings } from "./settings";
 import type { TrialSettings } from "./trial-defaults";
 
@@ -120,14 +121,38 @@ export async function verifyOwnerEmailAction(input: { tenantId: string; reason: 
   const tenant = await db.tenant.findUnique({ where: { id: input.tenantId } });
   if (!tenant) return { ok: false, error: "That company no longer exists." };
   if (tenant.ownerEmailVerifiedAt) return { ok: true, message: "Already confirmed." };
-  await db.tenant.update({ where: { id: tenant.id }, data: { ownerEmailVerifiedAt: new Date() } });
+  // Conditional, like the owner's own link: if they confirm at the same
+  // moment, only one of the two sends the held invitations.
+  const flipped = await db.tenant.updateMany({
+    where: { id: tenant.id, ownerEmailVerifiedAt: null },
+    data: { ownerEmailVerifiedAt: new Date() },
+  });
+  if (flipped.count === 0) return { ok: true, message: "Already confirmed." };
   await audit({
     tenantId: tenant.id,
     actorUserId: session.user.id,
     action: "tenant.owner_email_verified_by_platform",
     reason,
   });
-  return done(tenant.id, `${tenant.name} can now invite its team.`);
+  const held = await sendHeldInvitations(tenant.id);
+  return done(tenant.id, `${tenant.name} can now invite its team.${heldSummary(held)}`);
+}
+
+/** " Sent the 2 invitations that were waiting." — or nothing, if none were. */
+function heldSummary(held: HeldResult): string {
+  const unfinished = held.unfinished
+    ? " Some invitations that were waiting weren't sent — anyone showing “Not invited” needs “Send invitation”."
+    : "";
+  const waiting = held.sent.length + held.failed.length;
+  if (waiting === 0) return unfinished;
+  const sent =
+    held.sent.length === waiting
+      ? ` Sent the ${waiting === 1 ? "invitation" : `${waiting} invitations`} that ${waiting === 1 ? "was" : "were"} waiting.`
+      : ` Sent ${held.sent.length} of the ${waiting} invitations that were waiting.`;
+  const failed = held.failed.length
+    ? ` Couldn't email ${held.failed.join(", ")} — the owner can send it again from their profile and share the link.`
+    : "";
+  return sent + failed + unfinished;
 }
 
 const moduleSchema = z.object({

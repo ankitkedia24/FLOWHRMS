@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { STATUS, type Status } from "@/lib/status";
-import { computeInviteStatus } from "@/lib/invites/policy";
+import { computeInviteStatus, invitationsHeld } from "@/lib/invites/policy";
 import { BranchFilter } from "@/components/filters/BranchFilter";
 import {
   branchName,
@@ -91,6 +91,7 @@ export default async function AdminEmployeesPage({
       });
 
   const now = new Date();
+  const held = invitationsHeld(session.tenant);
   /**
    * What to show in the Status column. For someone who has joined, their
    * membership status is the useful fact; for someone who has not, the
@@ -101,7 +102,7 @@ export default async function AdminEmployeesPage({
     if (member.status !== "INVITED") {
       return membershipStatus[member.status] ?? STATUS.active;
     }
-    return computeInviteStatus(member.invites[0] ?? null, now);
+    return computeInviteStatus(member.invites[0] ?? null, now, held && Boolean(member.user.email));
   }
 
   const total = devFixtureOffline()

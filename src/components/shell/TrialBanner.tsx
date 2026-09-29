@@ -23,11 +23,14 @@ export function TrialBanner({
   notice,
   canPay,
   needsVerification,
+  heldInvites = 0,
   email,
 }: {
   notice: PlanNotice | null;
   canPay: boolean;
   needsVerification: boolean;
+  /** People added whose invitation waits for the confirmation. */
+  heldInvites?: number;
   email: string | null;
 }) {
   const { show } = useToast();
@@ -51,7 +54,13 @@ export function TrialBanner({
           role="status"
           className="flex flex-wrap items-center justify-between gap-2 border-b border-status-warning-border bg-status-warning-bg px-5 py-2 text-secondary text-status-warning-text lg:px-8"
         >
-          <span>Confirm your email to invite your team — we sent a link to {email}.</span>
+          <span>
+            Confirm your email to invite your team — we sent a link to {email}.
+            {heldInvites > 0 &&
+              (heldInvites === 1
+                ? " 1 invitation is waiting and goes out as soon as you do."
+                : ` ${heldInvites} invitations are waiting and go out as soon as you do.`)}
+          </span>
           <button
             type="button"
             disabled={pending}

@@ -10,6 +10,13 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 };
 
+/** "Asha", "Asha and Ravi", "Asha, Ravi and Meena". */
+function listNames(names: string[]): string {
+  return names.length <= 1
+    ? (names[0] ?? "")
+    : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
 export default async function VerifyEmailPage({
   params,
 }: {
@@ -17,6 +24,10 @@ export default async function VerifyEmailPage({
 }) {
   const { token } = await params;
   const result = await redeemEmailVerification(decodeURIComponent(token));
+  const { sent, failed, unfinished } = result.ok
+    ? result.invitations
+    : { sent: [], failed: [], unfinished: false };
+  const waited = sent.length + failed.length > 0 || unfinished;
 
   return (
     <main
@@ -32,11 +43,42 @@ export default async function VerifyEmailPage({
           <p className="mt-2 text-body text-text-secondary">
             Thank you. {result.companyName} can now invite its team to FlowHRMS.
           </p>
+          {sent.length > 0 && (
+            <div className="mt-4">
+              <Alert
+                variant="success"
+                title={
+                  sent.length === 1
+                    ? `Invitation sent to ${sent[0]}.`
+                    : `Invitations sent to ${sent.length} people.`
+                }
+              >
+                {sent.length > 1 && <>{listNames(sent)}. </>}
+                {sent.length === 1 ? "They were" : "These were"} waiting for this
+                confirmation. Each gets an email with a link to choose a password.
+              </Alert>
+            </div>
+          )}
+          {failed.length > 0 && (
+            <div className="mt-4">
+              <Alert variant="warning" title={`We couldn't email ${listNames(failed)}.`}>
+                Open {failed.length === 1 ? "them" : "each of them"} in Employees and send
+                it from there — you&apos;ll also get a link you can share on WhatsApp.
+              </Alert>
+            </div>
+          )}
+          {unfinished && (
+            <div className="mt-4">
+              <Alert variant="warning" title="Some invitations that were waiting weren't sent.">
+                Open Employees: anyone showing “Not invited” needs “Send invitation”.
+              </Alert>
+            </div>
+          )}
           <Link
-            href="/admin/employees/new"
+            href={waited ? "/admin/employees" : "/admin/employees/new"}
             className="mt-6 inline-flex h-12 items-center justify-center rounded-button bg-brand-primary px-5 text-label text-text-on-primary"
           >
-            Invite your team
+            {waited ? "Go to Employees" : "Invite your team"}
           </Link>
         </>
       ) : (
@@ -46,8 +88,8 @@ export default async function VerifyEmailPage({
           </h1>
           <div className="mt-4">
             <Alert variant="warning" title="It may have expired or be incomplete.">
-              Sign in and use “Send the confirmation email again” on your
-              dashboard, or write to help@flowacord.com.
+              Sign in and use “Send it again” at the top of your dashboard,
+              or write to help@flowacord.com.
             </Alert>
           </div>
           <Link href="/sign-in" className="mt-5 text-label text-brand-primary underline-offset-2 hover:underline">
