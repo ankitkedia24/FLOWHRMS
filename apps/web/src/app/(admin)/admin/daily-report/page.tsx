@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { checkAccess } from "@/lib/authz/guard";
+import { visibleIds } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
 import { loadEntitlements } from "@/lib/authz/entitlements";
 import { evaluateAccess } from "@/lib/authz/flags";
 import { getDb } from "@/lib/db";
@@ -43,25 +45,35 @@ export default async function AdminDailyReportPage() {
     }).allowed;
 
   const db = devFixtureOffline() ? null : getDb();
+  // A Manager's summary is of their team and themselves (lib/authz/scope.ts).
+  const visible = visibleIds(await loadRecordScope(session), session.membership.id);
+  const inView = visible ? { membershipId: { in: visible } } : {};
+  const tasksInView = visible
+    ? { OR: [{ assigneeId: { in: visible } }, { createdById: session.membership.id }] }
+    : {};
   const [records, headcount, pendingLeave, tasksDone, tasksOpen] = db
     ? await Promise.all([
         on("ATTENDANCE")
           ? db.attendanceRecord.findMany({
-              where: { tenantId: session.tenant.id, workDate },
+              where: { tenantId: session.tenant.id, workDate, ...inView },
               select: { checkInAt: true, lateMinutes: true, reviewStatus: true },
             })
           : [],
         db.tenantMembership.count({
-          where: { tenantId: session.tenant.id, status: "ACTIVE" },
+          where: {
+            tenantId: session.tenant.id,
+            status: "ACTIVE",
+            ...(visible ? { id: { in: visible } } : {}),
+          },
         }),
         on("LEAVE")
           ? db.leaveRequest.count({
-              where: { tenantId: session.tenant.id, status: "PENDING" },
+              where: { tenantId: session.tenant.id, status: "PENDING", ...inView },
             })
           : 0,
         on("TASKS")
           ? db.task.count({
-              where: { tenantId: session.tenant.id, status: "COMPLETED" },
+              where: { tenantId: session.tenant.id, status: "COMPLETED", ...tasksInView },
             })
           : 0,
         on("TASKS")
@@ -69,6 +81,7 @@ export default async function AdminDailyReportPage() {
               where: {
                 tenantId: session.tenant.id,
                 status: { in: ["NOT_STARTED", "IN_PROGRESS"] },
+                ...tasksInView,
               },
             })
           : 0,

@@ -9,6 +9,15 @@ import { awardForLeaveApproval } from "@/lib/performance/award";
 import { clearActionRequest, raiseLeaveRequest, SUBJECT } from "@/lib/actions/raise";
 import { checkAccess } from "@/lib/authz/guard";
 import {
+  ALREADY_DECIDED,
+  DECIDABLE_STATUSES,
+  QUESTION_NEEDED,
+  isDecidable,
+  selfDecisionRefusal,
+} from "@/lib/authz/approvals";
+import { decisionScopeRefusal } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
+import {
   formatDateRange,
   leaveDays,
   overlaps,
@@ -23,6 +32,9 @@ import {
  * - Reject ALWAYS requires a reason; the employee sees it verbatim.
  * - Approval records paid/unpaid explicitly — no silent default.
  * - Every decision writes an audit event with before/after values.
+ * - Nobody decides their own leave except an Owner; the first final
+ *   decision wins; asking for details keeps the request decidable
+ *   (lib/authz/approvals.ts).
  */
 
 export type ActionResult =
@@ -90,11 +102,12 @@ export async function requestLeaveAction(
   }
 
   // Overlap guard — name the clashing dates rather than failing vaguely.
+  // A request waiting on details can still be approved, so it counts.
   const existing = await db.leaveRequest.findMany({
     where: {
       tenantId: session.tenant.id,
       membershipId: session.membership.id,
-      status: { in: ["PENDING", "APPROVED"] },
+      status: { in: [...DECIDABLE_STATUSES, "APPROVED"] },
     },
     select: { startDate: true, endDate: true },
   });
@@ -189,6 +202,9 @@ export async function decideLeaveAction(
   if (parsed.data.decision === "REJECTED" && !reason) {
     return { ok: false, error: "Rejecting needs a reason." };
   }
+  if (parsed.data.decision === "DETAILS_REQUESTED" && !reason) {
+    return { ok: false, error: QUESTION_NEEDED };
+  }
 
   const db = getDb();
   const request = await db.leaveRequest.findFirst({
@@ -198,30 +214,49 @@ export async function decideLeaveAction(
   if (!request) {
     return { ok: false, error: "That request is no longer available." };
   }
-  if (request.status !== "PENDING") {
-    return {
-      ok: false,
-      error: `Already decided. Open the activity log to see who decided.`,
-    };
+  const own = selfDecisionRefusal({
+    actor: { membershipId: session.membership.id, roleKey: session.membership.roleKey },
+    subjectMembershipId: request.membershipId,
+    kind: "leave",
+  });
+  if (own) return { ok: false, error: own };
+  // A Manager decides only for their own team (lib/authz/scope.ts).
+  const outside = decisionScopeRefusal(
+    await loadRecordScope(session),
+    session.membership.id,
+    request.membershipId,
+  );
+  if (outside) return { ok: false, error: outside };
+  if (!isDecidable(request.status)) {
+    return { ok: false, error: ALREADY_DECIDED };
   }
 
   const paid = parsed.data.decision === "APPROVED" ? Boolean(parsed.data.paid) : null;
   const before = { status: request.status, unpaidDays: request.unpaidDays };
 
-  await db.leaveRequest.update({
-    where: { id: request.id },
+  // Conditional on the request still being open: of two approvers pressing
+  // at once, exactly one write lands. The other is told, and nothing else
+  // (audit, points, notification) happens for it.
+  const written = await db.leaveRequest.updateMany({
+    where: {
+      id: request.id,
+      tenantId: session.tenant.id,
+      status: { in: [...DECIDABLE_STATUSES] },
+    },
     data: {
-      status:
-        parsed.data.decision === "DETAILS_REQUESTED"
-          ? "DETAILS_REQUESTED"
-          : parsed.data.decision,
+      status: parsed.data.decision,
       paid,
       unpaidDays: paid ? 0 : request.unpaidDays,
       decidedById: session.membership.id,
       decidedAt: new Date(),
-      decisionReason: reason,
+      // Explicitly cleared on approval without a note, so an earlier
+      // question is not later shown as the reason for the decision.
+      decisionReason: reason ?? null,
     },
   });
+  if (written.count === 0) {
+    return { ok: false, error: ALREADY_DECIDED };
+  }
 
   await recordAuditEvent(session, {
     action: `leave.${parsed.data.decision.toLowerCase()}`,
@@ -255,15 +290,14 @@ export async function decideLeaveAction(
     });
   }
 
-  if (parsed.data.decision !== "DETAILS_REQUESTED") {
-    await notify.leaveDecision(
-      session,
-      request.membership.userId,
-      parsed.data.decision,
-      formatDateRange(request.startDate, request.endDate, session.tenant.timezone),
-      reason,
-    );
-  }
+  // A question is sent too: the employee is the only one who can answer it.
+  await notify.leaveDecision(
+    session,
+    request.membership.userId,
+    parsed.data.decision,
+    formatDateRange(request.startDate, request.endDate, session.tenant.timezone),
+    reason,
+  );
 
   revalidatePath("/admin/leave");
   revalidatePath("/leave");

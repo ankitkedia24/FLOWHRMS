@@ -47,6 +47,8 @@ export default async function EmployeeAttendancePage() {
   const statusFor = (record: (typeof records)[number]): Status => {
     if (record.exemptionStatus === "EXEMPTED") return STATUS.exempted;
     if (record.reviewStatus === "PENDING") return STATUS.pendingReview;
+    // Waiting on the employee's answer — the same chip leave uses.
+    if (record.reviewStatus === "DETAILS_REQUESTED") return STATUS.needsReview;
     if (record.reviewStatus === "REJECTED") return STATUS.rejected;
     if (record.lateMinutes > 0) return statusLate(record.lateMinutes);
     if (record.checkInAt) return STATUS.present;
@@ -178,10 +180,19 @@ export default async function EmployeeAttendancePage() {
                         Your reason: {record.checkInReason}
                       </p>
                     )}
-                    {record.reviewReason && (
-                      <p className="mt-1 text-secondary text-text-secondary">
-                        Manager&apos;s note: {record.reviewReason}
+                    {record.reviewStatus === "DETAILS_REQUESTED" ? (
+                      <p className="mt-1 text-secondary text-text-primary">
+                        {record.reviewReason
+                          ? `Your approver asked: ${record.reviewReason}`
+                          : "Your approver asked for more details."}{" "}
+                        Answer them directly; they can still approve this day.
                       </p>
+                    ) : (
+                      record.reviewReason && (
+                        <p className="mt-1 text-secondary text-text-secondary">
+                          Manager&apos;s note: {record.reviewReason}
+                        </p>
+                      )
                     )}
                   </Card>
                 </li>

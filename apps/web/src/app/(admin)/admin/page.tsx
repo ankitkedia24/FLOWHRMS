@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { describeAction } from "@/lib/activity-labels";
 import Link from "next/link";
 import { requireAdminArea } from "@/lib/authz/guard";
+import { DECIDABLE_STATUSES } from "@/lib/authz/approvals";
+import { canSee, decidableWhere, visibleIds } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
 import { loadEntitlements } from "@/lib/authz/entitlements";
 import { evaluateAccess } from "@/lib/authz/flags";
 import { getDb } from "@/lib/db";
@@ -48,6 +51,7 @@ export default async function AdminDashboardPage() {
 
   const workDate = workDateInTimezone(new Date(), tz);
   const db = devFixtureOffline() ? null : getDb();
+  const me = { membershipId: session.membership.id, roleKey: session.membership.roleKey };
 
   const payrollRun =
     db && payrollOn
@@ -62,15 +66,25 @@ export default async function AdminDashboardPage() {
         })
       : null;
 
+  // A Manager's dashboard counts their team (and themselves) only, the same
+  // people their screens list (lib/authz/scope.ts).
+  const scope = await loadRecordScope(session);
+  const visible = visibleIds(scope, session.membership.id);
+  const inView = visible ? { membershipId: { in: visible } } : {};
+
   const [headcount, records, pendingExceptions, pendingLeave, openTasks, proofToReview, activity] =
     db
       ? await Promise.all([
           db.tenantMembership.count({
-            where: { tenantId: session.tenant.id, status: "ACTIVE" },
+            where: {
+              tenantId: session.tenant.id,
+              status: "ACTIVE",
+              ...(visible ? { id: { in: visible } } : {}),
+            },
           }),
           attendanceOn
             ? db.attendanceRecord.findMany({
-                where: { tenantId: session.tenant.id, workDate },
+                where: { tenantId: session.tenant.id, workDate, ...inView },
                 select: {
                   membershipId: true,
                   checkInAt: true,
@@ -79,14 +93,24 @@ export default async function AdminDashboardPage() {
                 },
               })
             : [],
+          // The same items the review queues offer: still decidable, in
+          // scope, and not your own unless you are an Owner.
           attendanceOn
             ? db.attendanceRecord.count({
-                where: { tenantId: session.tenant.id, reviewStatus: "PENDING" },
+                where: {
+                  tenantId: session.tenant.id,
+                  reviewStatus: { in: [...DECIDABLE_STATUSES] },
+                  ...decidableWhere(me, scope),
+                },
               })
             : 0,
           leaveOn
             ? db.leaveRequest.count({
-                where: { tenantId: session.tenant.id, status: "PENDING" },
+                where: {
+                  tenantId: session.tenant.id,
+                  status: { in: [...DECIDABLE_STATUSES] },
+                  ...decidableWhere(me, scope),
+                },
               })
             : 0,
           tasksOn
@@ -94,6 +118,14 @@ export default async function AdminDashboardPage() {
                 where: {
                   tenantId: session.tenant.id,
                   status: { in: ["NOT_STARTED", "IN_PROGRESS"] },
+                  ...(visible
+                    ? {
+                        OR: [
+                          { assigneeId: { in: visible } },
+                          { createdById: session.membership.id },
+                        ],
+                      }
+                    : {}),
                 },
               })
             : 0,
@@ -102,11 +134,17 @@ export default async function AdminDashboardPage() {
                 where: {
                   tenantId: session.tenant.id,
                   status: "SUBMITTED_FOR_REVIEW",
+                  ...(scope === "all" ? {} : { assigneeId: { in: [...scope] } }),
                 },
               })
             : 0,
           db.auditEvent.findMany({
-            where: { tenantId: session.tenant.id },
+            where: {
+              tenantId: session.tenant.id,
+              ...(visible
+                ? { actor: { memberships: { some: { id: { in: visible } } } } }
+                : {}),
+            },
             orderBy: { createdAt: "desc" },
             take: 6,
             include: { actor: true },
@@ -124,7 +162,9 @@ export default async function AdminDashboardPage() {
     db && attendanceOn
       ? await membersOffOn(session.tenant.id, workDate)
       : new Set<string>();
-  const offAndAbsent = [...offToday].filter((id) => !presentIds.has(id)).length;
+  const offAndAbsent = [...offToday].filter(
+    (id) => !presentIds.has(id) && canSee(scope, session.membership.id, id),
+  ).length;
   const notRecorded = Math.max(0, headcount - present - offAndAbsent);
 
   const metrics = attendanceOn

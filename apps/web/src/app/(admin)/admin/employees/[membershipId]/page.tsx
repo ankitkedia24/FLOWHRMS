@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { checkAccess } from "@/lib/authz/guard";
+import { canSee } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
 import { getDb } from "@/lib/db";
 import { devFixtureOffline } from "@/lib/auth/fixture";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -77,6 +79,9 @@ export default async function EmployeeProfilePage({
     },
   });
   if (!member) notFound();
+  // Outside a Manager's team the person does not exist for them — the same
+  // answer as a wrong id, so the page reveals nothing (lib/authz/scope.ts).
+  if (!canSee(await loadRecordScope(session), session.membership.id, member.id)) notFound();
 
   const latestInvite = member.invites[0];
   // Never invited, and the company's invitations wait for its owner to

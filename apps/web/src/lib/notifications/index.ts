@@ -3,6 +3,7 @@ import "server-only";
 import { getDb } from "@/lib/db";
 import { devFixtureOffline } from "@/lib/auth/fixture";
 import type { AppSession } from "@/lib/auth/types";
+import { approversInScope } from "@/lib/authz/record-scope";
 
 /**
  * In-app notifications (MODULES.md: Notifications is a CORE module).
@@ -29,25 +30,39 @@ async function create(input: NotificationInput): Promise<void> {
   await getDb().notification.create({ data: input });
 }
 
+/**
+ * Active holders of `permission` who may decide about the session's own
+ * request: company-wide roles, and managers only when it is someone in
+ * their team (lib/authz/scope.ts) — the same people the tile reaches.
+ */
+async function approversOfOwnRequest(
+  session: AppSession,
+  permission: "attendance.review" | "leave.approve",
+): Promise<Array<{ userId: string }>> {
+  const holders = await getDb().tenantMembership.findMany({
+    where: {
+      tenantId: session.tenant.id,
+      status: "ACTIVE",
+      role: { permissions: { some: { permission: { key: permission } } } },
+    },
+    select: { id: true, userId: true, role: { select: { key: true } } },
+  });
+  return approversInScope(
+    session.tenant.id,
+    session.membership.id,
+    holders.map((h) => ({ membershipId: h.id, roleKey: h.role.key, userId: h.userId })),
+  );
+}
+
 /** Notify reviewers that an attendance exception needs a decision. */
 async function attendanceException(
   session: AppSession,
   recordId: string,
 ): Promise<void> {
   if (devFixtureOffline()) return;
-  const db = getDb();
 
   // Everyone in the tenant whose role can review attendance.
-  const reviewers = await db.tenantMembership.findMany({
-    where: {
-      tenantId: session.tenant.id,
-      status: "ACTIVE",
-      role: {
-        permissions: { some: { permission: { key: "attendance.review" } } },
-      },
-    },
-    select: { userId: true },
-  });
+  const reviewers = await approversOfOwnRequest(session, "attendance.review");
 
   await Promise.all(
     reviewers
@@ -86,18 +101,21 @@ async function attendanceDecision(
   });
 }
 
-/** Leave decision for the requester. */
+/** Leave decision — or the approver's question — for the requester. */
 async function leaveDecision(
   session: AppSession,
   userId: string,
-  decision: "APPROVED" | "REJECTED",
+  decision: "APPROVED" | "REJECTED" | "DETAILS_REQUESTED",
   dates: string,
   reason?: string,
 ): Promise<void> {
   await create({
     tenantId: session.tenant.id,
     userId,
-    title: `Leave ${decision === "APPROVED" ? "approved" : "rejected"}: ${dates}`,
+    title:
+      decision === "DETAILS_REQUESTED"
+        ? `Question about your leave: ${dates}`
+        : `Leave ${decision === "APPROVED" ? "approved" : "rejected"}: ${dates}`,
     body: reason,
     href: "/leave",
   });
@@ -110,15 +128,7 @@ async function leaveRequested(
   dates: string,
 ): Promise<void> {
   if (devFixtureOffline()) return;
-  const db = getDb();
-  const approvers = await db.tenantMembership.findMany({
-    where: {
-      tenantId: session.tenant.id,
-      status: "ACTIVE",
-      role: { permissions: { some: { permission: { key: "leave.approve" } } } },
-    },
-    select: { userId: true },
-  });
+  const approvers = await approversOfOwnRequest(session, "leave.approve");
   await Promise.all(
     approvers
       .filter((a) => a.userId !== session.user.id)

@@ -6,6 +6,8 @@ import { getDb } from "@/lib/db";
 import { awardForOnboarding } from "@/lib/performance/award";
 import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
+import { canSee, OUTSIDE_TEAM } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { DOCUMENT_BUCKET } from "./bucket";
 
@@ -202,6 +204,10 @@ export async function getDocumentUrl(
   const isOwn = document.membershipId === session.membership.id;
   if (!isOwn && !session.permissions.has("documents.view")) {
     return { ok: false, error: "You don't have access to this document." };
+  }
+  // Record scope comes before the permission (lib/authz/scope.ts).
+  if (!canSee(await loadRecordScope(session), session.membership.id, document.membershipId)) {
+    return { ok: false, error: OUTSIDE_TEAM };
   }
   // Downloading someone else's document is the separately-permissioned,
   // sensitive action (USER-ROLES.md).

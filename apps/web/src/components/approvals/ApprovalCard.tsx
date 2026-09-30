@@ -22,6 +22,7 @@ import { cn } from "@/lib/cn";
  * - No silent approvals.
  * - Reject ALWAYS requires a reason; the primary stays disabled until one
  *   exists, with the reason stated.
+ * - Ask for details requires the question, which the employee reads.
  * - The impact line is mandatory and computed, never generic.
  * - After a decision the audit line persists on the card.
  */
@@ -78,11 +79,19 @@ export function ApprovalCard({
   const [pending, startTransition] = useTransition();
   const [reason, setReason] = useState("");
   const [rejecting, setRejecting] = useState(false);
+  const [asking, setAsking] = useState(false);
   const [settled, setSettled] = useState<string | null>(auditLine ?? null);
 
   function decide(decision: ApprovalDecision, paid?: boolean) {
     if (decision === "REJECTED" && !reason.trim()) {
       setRejecting(true);
+      setAsking(false);
+      return;
+    }
+    // The employee reads the question word for word, so there has to be one.
+    if (decision === "DETAILS_REQUESTED" && !reason.trim()) {
+      setAsking(true);
+      setRejecting(false);
       return;
     }
     startTransition(async () => {
@@ -160,19 +169,23 @@ export function ApprovalCard({
         </p>
       ) : (
         <>
-          {rejecting && (
+          {(rejecting || asking) && (
             <div className="mt-3">
               <TextArea
-                label="Reason"
+                label={asking ? "Your question" : "Reason"}
                 required
-                placeholder="Tell them what to do next"
+                placeholder={
+                  asking ? "What do you need to know?" : "Tell them what to do next"
+                }
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 className="max-w-none"
                 error={
-                  rejecting && !reason.trim()
-                    ? "A reason is required to reject."
-                    : undefined
+                  reason.trim()
+                    ? undefined
+                    : asking
+                      ? "Write your question to ask for details."
+                      : "A reason is required to reject."
                 }
               />
             </div>
@@ -222,6 +235,10 @@ export function ApprovalCard({
               variant="outline"
               loading={pending}
               onClick={() => decide("DETAILS_REQUESTED")}
+              disabled={asking && !reason.trim()}
+              disabledReason={
+                asking && !reason.trim() ? "Write your question first." : undefined
+              }
               className="md:w-auto"
             >
               Ask for details

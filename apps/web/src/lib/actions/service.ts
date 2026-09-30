@@ -7,9 +7,13 @@ import { isTileVisible } from "./snooze";
 import {
   resolveAudience,
   DECIDING_PERMISSION,
+  OWNER_DECIDES_OWN,
+  TEAM_SCOPED_KINDS,
   type AudienceCandidate,
   type Recipient,
 } from "./audience";
+import { mayDecideOwn } from "@/lib/authz/approvals";
+import { approversInScope } from "@/lib/authz/record-scope";
 import { MODULE_FOR_KIND, type ActionKind } from "./kinds";
 import { loadEntitlements } from "@/lib/authz/entitlements";
 import { enabledModuleKeys } from "@/lib/authz/flags";
@@ -52,14 +56,20 @@ export interface RaiseInput {
 /**
  * Everyone who could decide this, with the department head marked.
  *
- * One query, filtered by tenant. The permission join is the same one the
- * notification fan-out uses, so the tile and the bell agree on who counts.
+ * Filtered by tenant. The permission join and the record-scope filter are
+ * the same ones the notification fan-out uses, so the tile and the bell
+ * agree on who counts.
  */
 async function loadCandidates(
   tenantId: string,
   kind: ActionKind,
   aboutMembershipId?: string | null,
-): Promise<{ candidates: AudienceCandidate[]; departmentName: string | null; aboutUserId: string | null }> {
+): Promise<{
+  candidates: AudienceCandidate[];
+  departmentName: string | null;
+  aboutUserId: string | null;
+  aboutMayDecideOwn: boolean;
+}> {
   const db = getDb();
   const permission = DECIDING_PERMISSION[kind];
 
@@ -68,6 +78,7 @@ async function loadCandidates(
         where: { id: aboutMembershipId, tenantId },
         select: {
           userId: true,
+          role: { select: { key: true } },
           department: { select: { id: true, name: true, headId: true, isActive: true } },
         },
       })
@@ -84,20 +95,37 @@ async function loadCandidates(
     select: {
       id: true,
       userId: true,
+      role: { select: { key: true } },
       user: { select: { displayName: true } },
     },
   });
+
+  // Where the deciding action applies record scope, a manager outside the
+  // person's line would only be refused — so they are not asked.
+  const inScope = TEAM_SCOPED_KINDS.has(kind)
+    ? new Set(
+        (
+          await approversInScope(
+            tenantId,
+            aboutMembershipId,
+            able.map((m) => ({ membershipId: m.id, roleKey: m.role.key })),
+          )
+        ).map((a) => a.membershipId),
+      )
+    : null;
 
   return {
     candidates: able.map((m) => ({
       userId: m.userId,
       membershipId: m.id,
       displayName: m.user.displayName,
-      canDecide: true,
+      canDecide: inScope ? inScope.has(m.id) : true,
       isDepartmentHead: Boolean(department?.headId && department.headId === m.id),
     })),
     departmentName: department?.name ?? null,
     aboutUserId: about?.userId ?? null,
+    aboutMayDecideOwn:
+      OWNER_DECIDES_OWN.has(kind) && Boolean(about && mayDecideOwn(about.role.key)),
   };
 }
 
@@ -111,15 +139,13 @@ export async function raiseActionRequest(input: RaiseInput): Promise<void> {
     if (input.recipients) {
       recipients = input.recipients;
     } else {
-      const { candidates, departmentName, aboutUserId } = await loadCandidates(
-        input.tenantId,
-        input.kind,
-        input.aboutMembershipId,
-      );
+      const { candidates, departmentName, aboutUserId, aboutMayDecideOwn } =
+        await loadCandidates(input.tenantId, input.kind, input.aboutMembershipId);
       recipients = resolveAudience({
         candidates,
         actorUserId: input.actorUserId,
         aboutUserId,
+        aboutMayDecideOwn,
         departmentName,
       });
     }
