@@ -195,17 +195,23 @@ d("expenses flow (integration, sample tenant)", () => {
     expect(await db.expenseClaim.count({ where: { tenantId, claimNumber: rb.claimNumber } })).toBe(1);
   });
 
-  it("receipts land with the claim and their own audit; a path outside the tenant prefix is refused", async () => {
+  it("receipts land with the claim and their own audit; a path outside the claimant's folder is refused", async () => {
     const outside = await submitAs(employee, {
       categoryKey: "fuel",
       receipts: [{ path: "someone-else/x.jpg", name: "x.jpg", mime: "image/jpeg", sizeBytes: 1000 }],
     });
     expect(outside.ok).toBe(false);
+    const draft = crypto.randomUUID();
+    const anotherPerson = await submitAs(employee, {
+      categoryKey: "fuel",
+      receipts: [{ path: `${tenantId}/${approver.membership.id}/${draft}/1-x.jpg`, name: "x.jpg", mime: "image/jpeg", sizeBytes: 1000 }],
+    });
+    expect(anotherPerson.ok).toBe(false);
 
     const sent = await submitAs(employee, {
       categoryKey: "fuel",
       amount: 1240.5,
-      receipts: [{ path: `${tenantId}/test/fuel.jpg`, name: "fuel.jpg", mime: "image/jpeg", sizeBytes: 1000 }],
+      receipts: [{ path: `${tenantId}/${employee.membership.id}/${draft}/1-fuel.jpg`, name: "fuel.jpg", mime: "image/jpeg", sizeBytes: 1000 }],
     });
     expect(sent.ok).toBe(true);
     if (!sent.ok || !sent.claimId) return;

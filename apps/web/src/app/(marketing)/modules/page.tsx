@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Card } from "@/components/ui/Card";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { STATUS } from "@/lib/status";
-import { MODULES, MODULE_DEPENDENCIES } from "@/lib/catalog";
+import { isModuleBuilt, MODULES, MODULE_DEPENDENCIES } from "@/lib/catalog";
 
 export const metadata: Metadata = {
   title: "Modules",
@@ -79,7 +79,8 @@ export default function ModulesPage() {
           Optional modules
         </h2>
         <p className="mt-2 max-w-[72ch] text-secondary text-text-secondary">
-          Available once their detailed rules are agreed with you.
+          Available once their detailed rules are agreed with you. Those
+          marked not built yet are planned, not ready.
         </p>
         <ul className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {optional.map((moduleDef) => (
@@ -89,7 +90,14 @@ export default function ModulesPage() {
                   <h3 className="font-heading text-h3 text-text-primary">
                     {moduleDef.name}
                   </h3>
-                  <StatusChip status={STATUS.notAvailable} size="sm" />
+                  <StatusChip
+                    status={
+                      isModuleBuilt(moduleDef.key)
+                        ? STATUS.notAvailable
+                        : STATUS.notBuilt
+                    }
+                    size="sm"
+                  />
                 </div>
               </Card>
             </li>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { requirePlatformAdmin } from "@/lib/authz/guard";
 import { getDb } from "@/lib/db";
-import { MODULES, type ModuleKey } from "@/lib/catalog";
+import { isModuleBuilt, MODULES, type ModuleKey } from "@/lib/catalog";
 import { loadPlans } from "@/lib/billing/store";
 import { PlanEditor } from "./PlanEditor";
 
@@ -22,7 +22,12 @@ export default async function PlansPage() {
   const onPlan = new Map(counts.map((c) => [c.billingPlanId, c._count]));
   const modules = (Object.keys(MODULES) as ModuleKey[])
     .filter((k) => MODULES[k].category !== "CORE")
-    .map((k) => ({ key: k, name: MODULES[k].name, optional: MODULES[k].category === "OPTIONAL" }));
+    .map((k) => ({
+      key: k,
+      name: MODULES[k].name,
+      optional: MODULES[k].category === "OPTIONAL",
+      built: isModuleBuilt(k),
+    }));
 
   return (
     <>

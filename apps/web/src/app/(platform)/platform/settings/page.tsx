@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { requirePlatformAdmin } from "@/lib/authz/guard";
 import { Card, CardHeader } from "@/components/ui/Card";
-import { MODULES, type ModuleKey } from "@/lib/catalog";
+import { isModuleBuilt, MODULES, type ModuleKey } from "@/lib/catalog";
 import { loadTrialSettings } from "@/lib/platform/settings";
 import { TrialSettingsForm } from "./TrialSettingsForm";
 
@@ -13,7 +13,12 @@ export default async function PlatformSettingsPage() {
   const settings = await loadTrialSettings();
   const modules = (Object.keys(MODULES) as ModuleKey[])
     .filter((k) => MODULES[k].category !== "CORE")
-    .map((k) => ({ key: k, name: MODULES[k].name, optional: MODULES[k].category === "OPTIONAL" }));
+    .map((k) => ({
+      key: k,
+      name: MODULES[k].name,
+      optional: MODULES[k].category === "OPTIONAL",
+      built: isModuleBuilt(k),
+    }));
 
   return (
     <>

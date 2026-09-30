@@ -3,6 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { UserPlus } from "lucide-react";
 import { checkAccess } from "@/lib/authz/guard";
+import { visibleIds } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
 import { getDb } from "@/lib/db";
 import { devFixtureOffline } from "@/lib/auth/fixture";
 import { Card } from "@/components/ui/Card";
@@ -61,12 +63,18 @@ export default async function AdminEmployeesPage({
   );
   const selectedBranchName = branchName(branchFilter, branchOptions);
 
+  // A Manager, Team Leader or Viewer sees their team and themselves; the
+  // count below is of the same people (lib/authz/scope.ts).
+  const visible = visibleIds(await loadRecordScope(session), session.membership.id);
+  const scopeWhere = visible ? { id: { in: visible } } : {};
+
   const members = devFixtureOffline()
     ? []
     : await getDb().tenantMembership.findMany({
         where: {
           tenantId: session.tenant.id,
           ...statusWhere,
+          ...scopeWhere,
           ...(branchFilter ? { branchId: branchFilter } : {}),
           ...(query.length >= 2
             ? {
@@ -108,7 +116,7 @@ export default async function AdminEmployeesPage({
   const total = devFixtureOffline()
     ? 0
     : await getDb().tenantMembership.count({
-        where: { tenantId: session.tenant.id, ...statusWhere },
+        where: { tenantId: session.tenant.id, ...statusWhere, ...scopeWhere },
       });
 
   const filtered = query.length >= 2 || branchFilter || showInactive;

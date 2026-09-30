@@ -183,7 +183,7 @@ export default async function AdminPayrollPage({
           name: l.name,
           reason: l.statusReason ?? "Needs review",
         }))}
-        unreviewedExceptions={preview.unreviewedExceptions}
+        attendanceBlocker={preview.attendanceBlocker}
       />
 
       {preview.adjustmentsOnExcludedLines.length > 0 && (

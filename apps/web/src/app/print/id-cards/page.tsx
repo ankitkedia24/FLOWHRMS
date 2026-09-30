@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireSession } from "@/lib/authz/guard";
+import { visibleIds } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
 import { getDb } from "@/lib/db";
 import { cardSizeMm, normaliseLayout } from "@/lib/idcard/layout";
 import { mediaUrls } from "@/lib/media/urls";
@@ -15,8 +17,8 @@ export const metadata: Metadata = { title: "ID cards", robots: { index: false } 
  * lines) — nine upright cards or ten sideways ones per sheet.
  *
  * ?member=me     your own card (anyone)
- * ?member=<id>   one person's card (needs employees.view)
- * ?all=1         everyone active, optionally &department=<id>
+ * ?member=<id>   one person's card (needs employees.view, within scope)
+ * ?all=1         everyone active in scope, optionally &department=<id>
  */
 export default async function PrintIdCardsPage({
   searchParams,
@@ -33,12 +35,23 @@ export default async function PrintIdCardsPage({
   if (!own && !canViewOthers) redirect("/unauthorized");
   const isUuid = (v: string | undefined) => Boolean(v && /^[0-9a-f-]{36}$/i.test(v));
 
+  // Others' cards stay within record scope: a Manager or Viewer prints
+  // their team's and their own; anyone else is simply not found
+  // (lib/authz/scope.ts). Cards carry phone numbers, so this matters.
+  const visible = own ? null : visibleIds(await loadRecordScope(session), session.membership.id);
+  if (visible && q.member && isUuid(q.member) && !visible.includes(q.member)) notFound();
+
   const where = own
     ? { tenantId, id: session.membership.id }
     : isUuid(q.member)
       ? { tenantId, id: q.member }
       : q.all === "1"
-        ? { tenantId, status: "ACTIVE" as const, ...(isUuid(q.department) ? { departmentId: q.department } : {}) }
+        ? {
+            tenantId,
+            status: "ACTIVE" as const,
+            ...(isUuid(q.department) ? { departmentId: q.department } : {}),
+            ...(visible ? { id: { in: visible } } : {}),
+          }
         : null;
   if (!where) notFound();
 

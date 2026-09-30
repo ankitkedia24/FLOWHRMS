@@ -1,4 +1,4 @@
-import { MODULES, type ModuleKey } from "@/lib/catalog";
+import { isModuleBuilt, MODULES, type ModuleKey } from "@/lib/catalog";
 
 /**
  * What a new self-signup company gets, until Flowacord changes it in
@@ -35,8 +35,10 @@ export function normaliseTrialSettings(raw: unknown): TrialSettings {
       ? (value.days as number)
       : DEFAULT_TRIAL_SETTINGS.days;
   const known = new Set(Object.keys(MODULES));
+  // A trial never switches on a module with nothing behind it, whatever
+  // was saved before it was marked not built.
   const modules = Array.isArray(value.modules)
-    ? (value.modules.filter((m) => known.has(m)) as ModuleKey[])
+    ? (value.modules.filter((m) => known.has(m) && isModuleBuilt(m)) as ModuleKey[])
     : DEFAULT_TRIAL_SETTINGS.modules;
   // Notifications is core platform plumbing and always on.
   return { days, modules: [...new Set<ModuleKey>([...modules, "NOTIFICATIONS" as ModuleKey])] };

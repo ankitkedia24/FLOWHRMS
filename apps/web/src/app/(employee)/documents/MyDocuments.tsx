@@ -11,7 +11,13 @@ import { uploadDocument } from "@/lib/employees/upload";
 import { DOCUMENT_ACCEPT } from "@/lib/employees/bucket";
 
 /** Add a document (screen E17). Constraints stated before choosing. */
-export function MyDocuments({ membershipId }: { membershipId: string }) {
+export function MyDocuments({
+  tenantId,
+  membershipId,
+}: {
+  tenantId: string;
+  membershipId: string;
+}) {
   const router = useRouter();
   const { show } = useToast();
   const [pending, startTransition] = useTransition();
@@ -82,7 +88,7 @@ export function MyDocuments({ membershipId }: { membershipId: string }) {
           onClick={() =>
             startTransition(async () => {
               if (!file) return;
-              const uploaded = await uploadDocument(membershipId, file);
+              const uploaded = await uploadDocument(tenantId, membershipId, file);
               if (!uploaded.ok) {
                 show({ variant: "error", message: uploaded.error });
                 return;

@@ -35,7 +35,7 @@ export function PayrollControls({
   netTotal,
   excluded,
   blocked,
-  unreviewedExceptions,
+  attendanceBlocker,
 }: {
   period: string;
   periodLabel: string;
@@ -46,7 +46,8 @@ export function PayrollControls({
   netTotal: number;
   excluded: string[];
   blocked: Array<{ name: string; reason: string }>;
-  unreviewedExceptions: number;
+  /** Undecided attendance — blocks Calculate and Approve (server enforces). */
+  attendanceBlocker: string | null;
 }) {
   const router = useRouter();
   const { show } = useToast();
@@ -57,6 +58,7 @@ export function PayrollControls({
 
   const ready = reason.trim().length > 0 && acknowledged;
   const hasBlockers = blocked.length > 0;
+  const waitingOnAttendance = attendanceBlocker !== null;
 
   function calculate() {
     startTransition(async () => {
@@ -111,7 +113,7 @@ export function PayrollControls({
             </div>
             <p className="mt-1 text-secondary text-text-secondary">
               {status === "APPROVED"
-                ? "Approved and locked. Later changes need an auditable adjustment."
+                ? "Approved and locked. Later changes go into next month's payroll as an adjustment."
                 : status === "DRAFT"
                   ? "Draft — not approved. Review the figures before approving."
                   : "Not yet calculated. Payroll uses approved attendance and leave for the period."}
@@ -131,9 +133,13 @@ export function PayrollControls({
               <Button
                 variant={status === "DRAFT" ? "outline" : "primary"}
                 loading={pending}
-                disabled={!canEdit}
+                disabled={!canEdit || waitingOnAttendance}
                 disabledReason={
-                  canEdit ? undefined : "You don't have permission to run payroll."
+                  !canEdit
+                    ? "You don't have permission to run payroll."
+                    : waitingOnAttendance
+                      ? "Decide the waiting attendance records first."
+                      : undefined
                 }
                 onClick={calculate}
               >
@@ -143,13 +149,15 @@ export function PayrollControls({
             {status === "DRAFT" && (
               <Button
                 loading={pending}
-                disabled={!canApprove || hasBlockers}
+                disabled={!canApprove || hasBlockers || waitingOnAttendance}
                 disabledReason={
                   !canApprove
                     ? "You don't have permission to approve payroll."
                     : hasBlockers
                       ? "Fix the blocked employees before approving."
-                      : undefined
+                      : waitingOnAttendance
+                        ? "Decide the waiting attendance records first."
+                        : undefined
                 }
                 onClick={() => setConfirming(true)}
               >
@@ -169,13 +177,13 @@ export function PayrollControls({
         </Alert>
       )}
 
-      {unreviewedExceptions > 0 && status !== "APPROVED" && (
+      {attendanceBlocker && status !== "APPROVED" && (
         <Alert
-          variant="warning"
-          title={`${unreviewedExceptions} attendance exception(s) are still unreviewed.`}
+          variant="error"
+          title="Payroll can't be calculated or approved yet."
         >
-          Their hours are counted as recorded. Reviewing them may change
-          these figures.
+          {attendanceBlocker} Decide them on the Attendance page first —
+          payroll counts only decided records.
         </Alert>
       )}
 
@@ -216,7 +224,7 @@ export function PayrollControls({
             variant="warning"
             title={`Approving locks ${periodLabel} payroll for ${employeeCount} employees.`}
           >
-            After this, changes need an auditable adjustment.
+            After this, changes go into next month&apos;s payroll as an adjustment.
           </Alert>
 
           {/* 2) the figures. Stacked on a phone: a lakh-scale rupee amount
@@ -246,16 +254,8 @@ export function PayrollControls({
             </Alert>
           )}
 
-          {/* 4) warnings */}
-          {unreviewedExceptions > 0 && (
-            <Alert
-              variant="warning"
-              title={`${unreviewedExceptions} attendance exception(s) unreviewed.`}
-            >
-              Their hours are counted as recorded. Reviewing them may change
-              these payslips.
-            </Alert>
-          )}
+          {/* 4) warnings — undecided attendance is a blocker, not a
+              warning, so this modal cannot open while any is waiting. */}
 
           {/* 5) required reason */}
           <TextArea

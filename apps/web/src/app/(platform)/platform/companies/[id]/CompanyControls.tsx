@@ -158,7 +158,7 @@ export function ModuleControls({
   modules,
 }: {
   tenantId: string;
-  modules: Array<{ key: string; name: string; category: string; enabled: boolean; allowed: boolean }>;
+  modules: Array<{ key: string; name: string; category: string; enabled: boolean; allowed: boolean; built: boolean }>;
 }) {
   const { pending, run } = useRun();
   return (
@@ -168,14 +168,24 @@ export function ModuleControls({
           <div className="min-w-0">
             <p className="text-body text-text-primary">{m.name}</p>
             <p className="text-caption text-text-secondary">
-              {m.enabled ? "Included — on" : m.allowed ? "Included — switched off by the company" : "Not in plan"}
+              {!m.built
+                ? m.enabled
+                  ? "Not built yet — on, with no screens. Switch it off."
+                  : "Not built yet"
+                : m.enabled
+                  ? "Included — on"
+                  : m.allowed
+                    ? "Included — switched off by the company"
+                    : "Not in plan"}
               {m.category === "OPTIONAL" ? " · optional module" : ""}
             </p>
           </div>
+          {/* A module with nothing behind it can only ever be switched off. */}
           <Switch
             label={`${m.name} for this company`}
             checked={m.enabled}
-            disabled={pending}
+            disabled={pending || (!m.built && !m.enabled)}
+            disabledReason={!m.built && !m.enabled ? "Not built yet, so it can't be switched on." : undefined}
             onChange={(next) => run(() => setCompanyModuleAction({ tenantId, moduleKey: m.key, enabled: next }))}
           />
         </li>

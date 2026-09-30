@@ -7,6 +7,7 @@ import { evaluateAccess } from "@/lib/authz/flags";
 import { getDb } from "@/lib/db";
 import { recordAdjustment } from "@/lib/payroll/adjustments";
 import { periodLabel, roundRupees } from "@/lib/payroll/engine";
+import { lockPayrollRun } from "@/lib/payroll/lock";
 import { adjustmentLabel, adjustmentReason, settlementMonth } from "./payroll-settlement";
 import { claimRef } from "./state";
 import { transitionClaim } from "./transition";
@@ -18,7 +19,10 @@ import { transitionClaim } from "./transition";
  * Rules, in the order the code applies them:
  *   1. Entitlement first: Payroll off for this tenant → PAYROLL_UNAVAILABLE.
  *   2. Never onto an approved run: the target is the earliest DRAFT run
- *      whose period is on or after the month the claim was decided in.
+ *      whose period is on or after the month the claim was decided in —
+ *      found, then row-LOCKED and found again inside the transaction, so
+ *      an approval or recalculation committing meanwhile is seen (Payroll
+ *      takes the same lock; recordAdjustment re-checks DRAFT as well).
  *   3. Expenses never creates runs: no DRAFT run → NO_OPEN_RUN.
  *   4. The person must be on the run with a payable line → NO_LINE_FOR_PERSON.
  *   5. Whole rupees: the adjustment AND the settlement record carry
@@ -208,15 +212,22 @@ export async function settleViaPayroll(input: {
     return { ok: false, reason: "REFUSED", error: "Nothing approved to settle." };
   }
 
-  // 2–4. Where it lands.
+  // 2–4. Where it lands. Found, then that run's row locked and found
+  // again: an approval (or a recalculation that dropped this person)
+  // committing in between is seen here, and one starting now waits for
+  // this transaction — Calculate and Approve take the same lock.
   const decidedAt = claim.decidedAt ?? new Date();
-  const target = await findPayrollTarget(tx, {
-    tenantId,
-    membershipId: claim.membershipId,
-    decidedAt,
-    timeZone,
-  });
+  const targetInput = { tenantId, membershipId: claim.membershipId, decidedAt, timeZone };
+  const candidate = await findPayrollTarget(tx, targetInput);
+  if (!candidate.ok) return candidate;
+  await lockPayrollRun(tx, tenantId, candidate.run.id);
+  const target = await findPayrollTarget(tx, targetInput);
   if (!target.ok) return target;
+  if (target.run.id !== candidate.run.id) {
+    // The locked run was approved meanwhile and a later one is open. Rare
+    // enough that asking again beats locking a chain of runs.
+    return { ok: false, reason: "REFUSED", error: "Payroll changed while this was being settled. Try again." };
+  }
 
   // 5. One figure on both sides.
   const approvedAmount = Number(claim.approvedAmount);

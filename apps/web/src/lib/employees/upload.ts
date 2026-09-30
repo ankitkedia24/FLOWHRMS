@@ -1,11 +1,14 @@
 "use client";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { documentPath } from "@/lib/storage/paths";
 import { DOCUMENT_BUCKET, DOCUMENT_MAX_BYTES } from "./bucket";
 
 /**
- * Upload an employee document to the PRIVATE bucket. Photos are
- * downscaled client-side before upload, as for task proof.
+ * Upload an employee document to the PRIVATE bucket, under
+ * `{tenantId}/{membershipId}/` — the only folder saveDocumentAction will
+ * record and getDocumentUrl will sign (src/lib/storage/paths.ts). Photos
+ * are downscaled client-side before upload, as for task proof.
  */
 const MAX_LONG_EDGE = 2000;
 
@@ -38,6 +41,7 @@ async function downscale(file: File): Promise<Blob> {
 }
 
 export async function uploadDocument(
+  tenantId: string,
   membershipId: string,
   file: File,
 ): Promise<UploadResult> {
@@ -57,8 +61,7 @@ export async function uploadDocument(
   }
 
   const body = await downscale(file);
-  const safeName = file.name.replace(/[^\w.\-]+/g, "_");
-  const path = `${membershipId}/${Date.now()}-${safeName}`;
+  const path = documentPath(tenantId, membershipId, file.name);
 
   const { error } = await supabase.storage
     .from(DOCUMENT_BUCKET)

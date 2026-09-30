@@ -58,6 +58,8 @@ export const STATUS = {
   enabled: s("enabled", "Enabled", "success"),
   disabled: s("disabled", "Disabled", "neutral"),
   notAvailable: s("not-available", "Not available", "neutral"),
+  /// A catalog module with nothing behind it (catalog `built: false`).
+  notBuilt: s("not-built", "Not built yet", "neutral"),
   /// Invitation lifecycle (Employee Invite & Onboarding).
   invitePending: s("invite-pending", "Pending", "info"),
   inviteAccepted: s("invite-accepted", "Accepted", "success"),

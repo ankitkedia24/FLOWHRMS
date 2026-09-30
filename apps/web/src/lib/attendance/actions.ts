@@ -11,6 +11,15 @@ import {
   SUBJECT,
 } from "@/lib/actions/raise";
 import { checkAccess } from "@/lib/authz/guard";
+import {
+  ALREADY_DECIDED,
+  DECIDABLE_STATUSES,
+  QUESTION_NEEDED,
+  isDecidable,
+  selfDecisionRefusal,
+} from "@/lib/authz/approvals";
+import { decisionScopeRefusal } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
 import { loadEntitlements } from "@/lib/authz/entitlements";
 import { evaluateAccess } from "@/lib/authz/flags";
 import { getPolicyVersion } from "@/lib/policies";
@@ -671,98 +680,6 @@ export async function checkOutAction(
   };
 }
 
-/**
- * Missed check-out correction (edge-cases.md → "Missed check-out").
- *
- * FlowHRMS never invents a check-out time. The employee proposes one with a
- * reason; the manager sees the hours it would record before approving.
- */
-const correctionSchema = z.object({
-  recordId: z.string().uuid(),
-  /** HH:mm in the tenant's timezone. */
-  checkOutTime: z.string().regex(/^\d{2}:\d{2}$/, "Give a time like 18:30."),
-  reason: z.string().trim().min(1, "Say what happened.").max(500),
-});
-
-export async function requestCheckOutCorrectionAction(
-  input: z.input<typeof correctionSchema>,
-): Promise<ActionResult> {
-  const parsed = correctionSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: parsed.error.issues[0]?.message ?? "Check the correction details.",
-    };
-  }
-
-  const { session, decision } = await checkAccess({
-    module: "ATTENDANCE",
-    feature: "missed_punch_correction",
-  });
-  if (!decision.allowed) {
-    return {
-      ok: false,
-      error: decision.message ?? "Corrections are turned off for your company.",
-    };
-  }
-
-  const db = getDb();
-  const record = await db.attendanceRecord.findFirst({
-    where: {
-      id: parsed.data.recordId,
-      tenantId: session.tenant.id,
-      membershipId: session.membership.id, // own records only
-    },
-  });
-  if (!record) {
-    return { ok: false, error: "That record is no longer available." };
-  }
-  if (!record.checkInAt) {
-    return { ok: false, error: "There is no check-in to correct." };
-  }
-  if (record.checkOutAt) {
-    return { ok: false, error: "A check-out is already recorded for that day." };
-  }
-
-  // The proposed time is stored as a request, NOT applied — a manager
-  // approves it, and only then does it become the record.
-  await db.attendanceRecord.update({
-    where: { id: record.id },
-    data: {
-      reviewStatus: "PENDING",
-      checkInReason: record.checkInReason
-        ? `${record.checkInReason} · Correction requested: check-out ${parsed.data.checkOutTime} — ${parsed.data.reason}`
-        : `Correction requested: check-out ${parsed.data.checkOutTime} — ${parsed.data.reason}`,
-    },
-  });
-
-  await recordAuditEvent(session, {
-    action: "attendance.correction_requested",
-    entityType: "attendance_record",
-    entityId: record.id,
-    reason: parsed.data.reason,
-    after: { proposedCheckOut: parsed.data.checkOutTime },
-  });
-
-  await notify.attendanceException(session, record.id);
-  await raiseAttendanceException(
-    session,
-    record.id,
-    session.membership.id,
-    session.user.displayName,
-    `Asked to record a check-out at ${parsed.data.checkOutTime}.`,
-  );
-
-  revalidatePath("/attendance");
-  revalidatePath("/admin/attendance");
-
-  return {
-    ok: true,
-    message: "Correction sent to your manager.",
-    detail: "They will see the hours it would record before deciding.",
-  };
-}
-
 /** Admin/manager decision on an attendance exception (Approval card). */
 const reviewSchema = z.object({
   recordId: z.string().uuid(),
@@ -791,6 +708,9 @@ export async function reviewAttendanceAction(
   if (parsed.data.decision === "REJECTED" && !reason) {
     return { ok: false, error: "Add a reason so the employee knows why." };
   }
+  if (parsed.data.decision === "DETAILS_REQUESTED" && !reason) {
+    return { ok: false, error: QUESTION_NEEDED };
+  }
 
   const db = getDb();
   const record = await db.attendanceRecord.findFirst({
@@ -801,8 +721,24 @@ export async function reviewAttendanceAction(
     return { ok: false, error: "That record is no longer available." };
   }
 
-  // Stale decision: another admin already decided (edge-cases.md).
-  if (record.reviewStatus !== "PENDING") {
+  // Nobody reviews their own attendance, except an Owner (approvals.ts).
+  const own = selfDecisionRefusal({
+    actor: { membershipId: session.membership.id, roleKey: session.membership.roleKey },
+    subjectMembershipId: record.membershipId,
+    kind: "attendance",
+  });
+  if (own) return { ok: false, error: own };
+  // A Manager reviews only their own team (lib/authz/scope.ts).
+  const outside = decisionScopeRefusal(
+    await loadRecordScope(session),
+    session.membership.id,
+    record.membershipId,
+  );
+  if (outside) return { ok: false, error: outside };
+
+  // Stale decision: another admin already decided (edge-cases.md). A
+  // question asked earlier leaves it open, so it can still be decided.
+  if (!isDecidable(record.reviewStatus)) {
     const who = record.reviewedAt
       ? ` at ${formatClockTime(record.reviewedAt, session.tenant.timezone)}`
       : "";
@@ -817,15 +753,27 @@ export async function reviewAttendanceAction(
     lateMinutes: record.lateMinutes,
   };
 
-  await db.attendanceRecord.update({
-    where: { id: record.id },
+  // Conditional on the exception still being open: of two reviewers
+  // pressing at once, exactly one write lands. The other is told, and no
+  // audit, points or notification follow for it.
+  const written = await db.attendanceRecord.updateMany({
+    where: {
+      id: record.id,
+      tenantId: session.tenant.id,
+      reviewStatus: { in: [...DECIDABLE_STATUSES] },
+    },
     data: {
       reviewStatus: parsed.data.decision,
       reviewedById: session.membership.id,
       reviewedAt: new Date(),
-      reviewReason: reason,
+      // Cleared on approval without a note, so an earlier question is not
+      // later shown as the reason for the decision.
+      reviewReason: reason ?? null,
     },
   });
+  if (written.count === 0) {
+    return { ok: false, error: ALREADY_DECIDED };
+  }
 
   await recordAuditEvent(session, {
     action: `attendance.exception_${parsed.data.decision.toLowerCase()}`,

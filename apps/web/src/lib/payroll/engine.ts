@@ -244,8 +244,11 @@ export function runBlockers(
 ): RunBlocker[] {
   const blockers: RunBlocker[] = [];
   for (const line of lines) {
-    // Negative net pay blocks approval (edge-cases.md → Payroll).
-    if (line.status === "READY" && line.net < 0) {
+    // Negative net pay blocks approval (edge-cases.md → Payroll). The
+    // preview marks such a line BLOCKED, so any status counts except a line
+    // left out of the run — matching READY alone let the server approve
+    // what the screen had disabled.
+    if (line.status !== "NO_SALARY_STRUCTURE" && line.net < 0) {
       blockers.push({
         membershipName: line.name,
         reason: "Net pay is negative. Add an adjustment before approving.",

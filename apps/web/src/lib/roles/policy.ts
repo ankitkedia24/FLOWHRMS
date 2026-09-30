@@ -1,4 +1,4 @@
-import { privilegeRank } from "@/lib/catalog";
+import { ALL_PERMISSION_KEYS, isPermissionBuilt, privilegeRank } from "@/lib/catalog";
 
 /**
  * Who may change an access level, and which permissions they may move —
@@ -42,4 +42,22 @@ export function mergePermissions(input: {
   const kept = input.current.filter((p) => !input.mine.has(p));
   const chosen = input.requested.filter((p) => input.mine.has(p));
   return [...new Set([...kept, ...chosen])].sort();
+}
+
+/**
+ * What a save asks for, before mergePermissions. Permissions no code checks
+ * yet (catalog `built: false`) are not on the matrix, so the request can't
+ * speak for them: a role keeps the ones it already holds and gains none.
+ * Keys outside the catalog are dropped.
+ */
+export function matrixRequest(input: {
+  current: readonly string[];
+  requested: readonly string[];
+}): string[] {
+  return [
+    ...input.requested.filter((p) => isPermissionBuilt(p)),
+    ...input.current.filter(
+      (p) => (ALL_PERMISSION_KEYS as string[]).includes(p) && !isPermissionBuilt(p),
+    ),
+  ];
 }

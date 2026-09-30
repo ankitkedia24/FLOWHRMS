@@ -1,4 +1,4 @@
-import { MODULES, type ModuleKey } from "@/lib/catalog";
+import { isModuleBuilt, MODULES, type ModuleKey } from "@/lib/catalog";
 import { missingRequirements, type EnabledMap } from "@/lib/modules/impact";
 
 /**
@@ -11,14 +11,21 @@ export function isModuleKey(key: string): key is ModuleKey {
 }
 
 /**
- * Problems with a plan's module list: unknown keys, and modules whose
- * requirements are not in the plan (Payroll without Attendance, say).
- * Core modules are always included and never need listing.
+ * Problems with a plan's module list: unknown keys, modules with nothing
+ * behind them yet (a plan must not sell what isn't built), and modules
+ * whose requirements are not in the plan (Payroll without Attendance,
+ * say). Core modules are always included and never need listing.
  */
 export function planModuleProblems(modules: string[]): string[] {
   const problems: string[] = [];
   const unknown = modules.filter((m) => !isModuleKey(m));
   if (unknown.length) problems.push(`Unknown module${unknown.length > 1 ? "s" : ""}: ${unknown.join(", ")}`);
+  const unbuilt = modules.filter(isModuleKey).filter((m) => !isModuleBuilt(m));
+  if (unbuilt.length) {
+    problems.push(
+      `${unbuilt.map((m) => MODULES[m].name).join(", ")} ${unbuilt.length > 1 ? "aren't" : "isn't"} built yet`,
+    );
+  }
   const set: EnabledMap = Object.fromEntries(modules.filter(isModuleKey).map((m) => [m, true]));
   for (const key of modules.filter(isModuleKey)) {
     const missing = missingRequirements(set, key);
@@ -47,6 +54,8 @@ export interface ModuleSettingState {
  *   set it — paying never undoes their own choices.
  * - Newly included: switched on, with anything it needs.
  * - Core modules: always on.
+ * - Not built yet: treated as not in the plan, so it is never switched on
+ *   even if an older plan still lists it.
  *
  * Returns only the settings that change.
  */
@@ -54,7 +63,7 @@ export function applyPlanModules(
   current: ModuleSettingState[],
   planModules: string[],
 ): ModuleSettingState[] {
-  const inPlan = new Set(planModules.filter(isModuleKey));
+  const inPlan = new Set(planModules.filter(isModuleKey).filter(isModuleBuilt));
   const next = new Map<ModuleKey, ModuleSettingState>();
   for (const s of current) {
     if (MODULES[s.key].category === "CORE") {

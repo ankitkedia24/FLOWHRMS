@@ -1,6 +1,7 @@
 "use client";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { proofPath } from "@/lib/storage/paths";
 import { PROOF_BUCKET, PROOF_MAX_LONG_EDGE } from "./bucket";
 
 /**
@@ -9,8 +10,8 @@ import { PROOF_BUCKET, PROOF_MAX_LONG_EDGE } from "./bucket";
  * Storage rules (SYSTEM-ARCHITECTURE.md security boundary):
  * - Files live outside any public path; the bucket must be private and
  *   read back only through signed URLs.
- * - Paths are tenant-prefixed by the server-side session at read time; the
- *   client writes under its own task id, and the server records the path.
+ * - Files go under `{tenantId}/{taskId}/`; the server records only paths
+ *   in that folder and signs nothing else (src/lib/storage/paths.ts).
  * - Photos are downscaled client-side to a 2000px long edge before upload
  *   (mobile-first guidelines §5).
  */
@@ -49,6 +50,7 @@ async function downscale(file: File): Promise<Blob> {
 }
 
 export async function uploadProofFiles(
+  tenantId: string,
   taskId: string,
   files: File[],
 ): Promise<UploadResult> {
@@ -73,8 +75,7 @@ export async function uploadProofFiles(
 
   for (const file of files) {
     const body = await downscale(file);
-    const safeName = file.name.replace(/[^\w.\-]+/g, "_");
-    const path = `${taskId}/${Date.now()}-${safeName}`;
+    const path = proofPath(tenantId, taskId, file.name);
     const { error } = await supabase.storage
       .from(PROOF_BUCKET)
       .upload(path, body, {

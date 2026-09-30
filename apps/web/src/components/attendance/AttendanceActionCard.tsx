@@ -586,6 +586,9 @@ export function AttendanceActionCard({ context, firstName, fieldOut }: Props) {
             {today.reviewStatus === "PENDING" && (
               <StatusChip status={STATUS.pendingReview} size="sm" />
             )}
+            {today.reviewStatus === "DETAILS_REQUESTED" && (
+              <StatusChip status={STATUS.needsReview} size="sm" />
+            )}
             {today.reviewStatus === "APPROVED" && (
               <StatusChip status={STATUS.approved} size="sm" />
             )}
