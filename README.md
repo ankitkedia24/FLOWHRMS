@@ -67,9 +67,9 @@ dev preview session — is in `SETUP.md`.
 | `npm run db:generate` | Generate the Prisma client |
 | `npm run db:migrate` | Apply migrations (needs `DIRECT_URL`) |
 | `npm run db:seed` | Seed catalog + fictional demo tenant |
-| `npx tsx scripts/create-tenant.ts --name … --owner-email … --owner-name …` | Create a **real customer company** and get the owner's invitation link. Same code path as `/platform` → Add a company |
+| `npm run create-tenant -- --name … --owner-email … --owner-name …` | Create a **real customer company** and get the owner's invitation link. Same code path as `/platform` → Add a company |
 | `npx tsx scripts/grant-platform-admin.ts --email … [--revoke\|--list]` | Grant the cross-company operator area at `/platform`. Not grantable from inside the product |
-| `npx tsx scripts/delete-tenant.ts --slug … --confirm …` | Remove a company and everything in it. Dry run without `--confirm` |
+| `npm run delete-tenant -- --slug … --confirm …` | Remove a company and everything in it. Dry run without `--confirm` |
 | `npx tsx scripts/setup-rls.ts [--status\|--rollback]` | Row Level Security on every tenant table |
 | `npx tsx scripts/provision-user.ts <email> [ROLE]` | Give a login a role in the demo tenant (dev) |
 | `npx tsx scripts/demo-data.ts [--clear]` | Create/remove placeholder activity for review (dev) |
@@ -77,6 +77,12 @@ dev preview session — is in `SETUP.md`.
 | `npm run setup-storage [-- --status\|--rollback]` (in `apps/web`) | The four private storage buckets and who may upload where (DEPLOY.md §7f) |
 | `npx tsx scripts/smoke-phase2.ts` | Exercise the daily loop against the database (dev) |
 | `npx tsx scripts/smoke-phase3.ts` | Exercise the payroll cycle against the database (dev) |
+
+Run every command from `create-tenant` down inside **`apps/web`** (`cd apps/web`): the scripts live
+there and read `apps/web/.env.local`. From the repo root, the npm ones also work as
+`npm run <name> --workspace=@flowhrms/web -- <flags>`. Scripts that reuse the app's server code
+(`create-tenant`, `delete-tenant`, `sample-data`, `reissue-invite`, `publish-notices`) must go
+through npm, never `npx tsx` — see `apps/web/scripts/tsconfig.json`.
 
 ## Documentation map
 

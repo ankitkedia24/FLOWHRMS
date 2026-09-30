@@ -73,6 +73,7 @@ anon and authenticated API keys can read nothing. The app connects as the
 table owner and is unaffected.
 
 ```bash
+cd apps/web
 npx tsx scripts/setup-rls.ts --status     # report
 npx tsx scripts/setup-rls.ts              # apply (idempotent)
 npx tsx scripts/setup-rls.ts --rollback   # undo

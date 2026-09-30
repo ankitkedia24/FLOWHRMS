@@ -276,6 +276,7 @@ nothing inside the product can grant it — no role, no permission, no
 screen. Sign in to FlowHRMS once so your user exists, then:
 
 ```bash
+cd apps/web
 npx tsx scripts/grant-platform-admin.ts --email you@yourcompany.com
 ```
 
@@ -303,7 +304,7 @@ exactly the flow their staff will use.
 If you would rather not use the browser, the same thing from a terminal:
 
 ```bash
-npx tsx scripts/create-tenant.ts --name "Acme Hardware" --owner-email owner@acme.example --owner-name "Priya Shah"
+npm run create-tenant --workspace=@flowhrms/web -- --name "Acme Hardware" --owner-email owner@acme.example --owner-name "Priya Shah"
 ```
 
 Add `--dry-run` to see what it would do first. Both routes run the same
@@ -322,7 +323,7 @@ appearing in a real company's directory is the kind of thing a customer
 never forgets.
 
 ```bash
-npx tsx scripts/delete-tenant.ts --slug demo-co --confirm demo-co
+npm run delete-tenant --workspace=@flowhrms/web -- --slug demo-co --confirm demo-co
 ```
 
 Without `--confirm` it only reports what it would delete. The slug is
@@ -338,7 +339,8 @@ and refuse if the deployed text and the published text differ. So, in this
 order, whenever a migration or a notice changes:
 
 ```bash
-npm run db:migrate            # schema first (additive migrations)
+npm run db:migrate            # schema first (additive migrations), from the repo root
+cd apps/web
 npx tsx scripts/setup-rls.ts  # keep every table behind row-level security
 npm run publish-notices       # then the exact texts people will consent to
 ```
@@ -629,7 +631,7 @@ payroll, not after.
   package.json), which processes CSS without that helper; `next dev` keeps
   Turbopack. Do not remove `--webpack` unless the host is known to allow it.
 - **App loads but every screen is empty** — `DATABASE_URL` is wrong, or
-  RLS was applied to a new table. `npx tsx scripts/setup-rls.ts --status`.
+  RLS was applied to a new table. `npx tsx scripts/setup-rls.ts --status` (in `apps/web`).
 - **Pages work but every query 500s** — the database is unreachable. Check
   the runtime log for the Prisma error; the host it names tells you which
   of the three mistakes in step 2 you made.
@@ -647,6 +649,7 @@ payroll, not after.
 Verify the database independently of the app at any time:
 
 ```bash
+cd apps/web
 npx tsx scripts/verify-production.ts check
 ```
 
