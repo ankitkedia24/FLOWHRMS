@@ -203,10 +203,15 @@ export const FEATURES: ReadonlyArray<{
   { module: "TASKS", key: "proof_video", name: "Video proof", defaultEnabled: false, built: false },
   { module: "TASKS", key: "gps_proof", name: "GPS proof", defaultEnabled: false, built: false },
   { module: "TASKS", key: "daily_report", name: "Task daily report", defaultEnabled: true, built: false },
-  { module: "NOTIFICATIONS", key: "push", name: "Push notifications", defaultEnabled: true },
-  { module: "NOTIFICATIONS", key: "email", name: "Email notifications", defaultEnabled: true },
-  { module: "NOTIFICATIONS", key: "whatsapp", name: "WhatsApp notifications", defaultEnabled: false },
-  { module: "NOTIFICATIONS", key: "sms", name: "SMS notifications", defaultEnabled: false },
+  // notify() writes the in-app notice and nothing else: no push, email, SMS
+  // or WhatsApp provider sends a notification. Two of these defaulted on,
+  // so settings showed them "Enabled" while nobody was ever told that way
+  // (hardening batch 7). Account emails — invitations, confirmations,
+  // receipts — go out through SMTP and are not governed by these.
+  { module: "NOTIFICATIONS", key: "push", name: "Push notifications", defaultEnabled: true, built: false },
+  { module: "NOTIFICATIONS", key: "email", name: "Email notifications", defaultEnabled: true, built: false },
+  { module: "NOTIFICATIONS", key: "whatsapp", name: "WhatsApp notifications", defaultEnabled: false, built: false },
+  { module: "NOTIFICATIONS", key: "sms", name: "SMS notifications", defaultEnabled: false, built: false },
   { module: "PERFORMANCE", key: "leaderboard", name: "Leaderboard", defaultEnabled: false },
   { module: "PERFORMANCE", key: "rewards", name: "Rewards store", defaultEnabled: false },
 ];
