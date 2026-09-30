@@ -61,20 +61,27 @@ explicit invite flow with tokens.
 location) must write an audit event when those features are built —
 the helper (`lib/audit.ts`) exists and is the only sanctioned writer.
 
-## File storage (task proof) — provisioned
+## File storage — provisioned
 
-The `task-proof` bucket exists and is configured by
-`scripts/setup-storage.ts` (idempotent):
+The `task-proof`, `employee-documents`, `expense-receipts` and
+`company-media` buckets are configured by `apps/web/scripts/setup-storage.ts`
+(idempotent; DEPLOY.md §7f):
 
 - **Private** (`public = false`). Nothing is served from a public path.
-- 10 MB per file; JPEG, PNG, HEIC, WebP and PDF only.
-- One policy: authenticated users may **INSERT**. There is deliberately no
-  select, update or delete policy — reads go through short-lived signed
-  URLs minted server-side in `lib/tasks/proof-access.ts` after the
-  caller's tenant and permission are checked, and each view writes an
-  audit event.
-- Paths are `{taskId}/{timestamp}-{filename}`; the owning tenant is
-  resolved from the task row, never from the path.
+- 10 MB per file; JPEG, PNG, HEIC, WebP and PDF only (company-media also
+  GIF, MP4 and WebM).
+- One policy per bucket: signed-in users may **INSERT**, and only under a
+  company they are an active member of — the path's first folder. For
+  employee documents and expense receipts the second folder must also be
+  the uploader's own membership (`apps/web/scripts/storage-policy.ts`;
+  the check runs in `SECURITY DEFINER` functions in the unexposed
+  `private` schema). There is deliberately no select, update or delete
+  policy — reads go through short-lived signed URLs minted server-side
+  after the caller's tenant and permission are checked, and each view
+  writes an audit event.
+- Paths are company first, then the owning record
+  (`apps/web/src/lib/storage/paths.ts`), and the server re-checks every
+  path when it is recorded and again before it is signed.
 
 ## Payroll data
 

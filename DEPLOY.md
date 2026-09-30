@@ -420,6 +420,113 @@ customer. Set a budget alert on the Cloud project. Route lines for the map
 are dropped after 30 days; the distance itself is kept as a business
 record for travel claims.
 
+## 7f. File storage — who may upload where
+
+Browsers upload files straight into the four private Supabase Storage
+buckets; the database policy on `storage.objects` decides what is
+accepted. Until hardening batch 7 it was only "any signed-in user may
+upload into this bucket", so someone signed in to one company could put
+files into another company's folder (never read them, never get them
+recorded — but fill the space). Now the first folder of every path is the
+company, and it has to be one the uploader is an **active member** of
+(active user, active membership, active company — what signing in needs):
+
+| Bucket | Path | May upload |
+|---|---|---|
+| `task-proof` | `{tenantId}/{taskId}/…` | an active member of that company |
+| `employee-documents` | `{tenantId}/{membershipId}/…` | only that person, into their own folder |
+| `expense-receipts` | `{tenantId}/{membershipId}/{draftId}/…` | only that person, into their own folder |
+| `company-media` | `{tenantId}/{kind}/…` | an active member of that company |
+
+The check is two small `SECURITY DEFINER` functions in a `private` schema
+that the API does not expose, `private.is_active_member(tenant)` and
+`private.is_own_membership(tenant, membership)`, executable by signed-in
+users only (scripts/storage-policy.ts). There is still no select, update or
+delete policy: files are read only through links the server signs.
+
+**Only after the batch 2–6 build is live.** Before batch 3 the app uploaded
+documents to `{membershipId}/…`, proof to `{taskId}/…` and receipts to
+`{tenantId}/{draftId}/…`; this rule refuses all three. So deploy the app
+first (Hostinger shows the deploy of `f8385e0` or later), then apply.
+Nothing about the app needs to change afterwards.
+
+**Apply** (once; safe to repeat), from the repository root:
+
+```bash
+npm run setup-storage --workspace=@flowhrms/web
+```
+
+(or `cd apps/web && npm run setup-storage`). It reads `DIRECT_URL` from
+`apps/web/.env.local`, makes every change in one transaction, and prints
+the buckets, policies and functions it left in place.
+
+**Verify:**
+
+```bash
+npm run setup-storage --workspace=@flowhrms/web -- --status
+```
+
+It changes nothing. Expect four policies named `…_authenticated_insert`,
+each `INSERT` for `{authenticated}` with a check that calls
+`private.is_active_member` (proof, media) or `private.is_own_membership`
+(documents, receipts); and two functions with `security_definer: true`,
+`authenticated_can_execute: true`, `anon_can_execute: false`. The same
+from the Supabase SQL editor:
+
+```sql
+select policyname, cmd, roles, with_check
+from pg_policies
+where schemaname = 'storage' and tablename = 'objects'
+order by policyname;
+```
+
+Then, in the app: upload a document (My documents), a receipt (Expenses),
+proof on a task, and a logo (Settings → Branding). Each should go through
+exactly as before.
+
+The proof that the rule does what this says, without changing the
+database, is `apps/web/src/tests/storage-policy-integration.test.ts`: it
+creates the functions and policies inside one transaction, tries uploads
+as members of demo-co and the sample company, and rolls everything back.
+It holds a lock on `storage.objects` for about a second while it runs, so
+run it outside busy hours:
+
+```bash
+npm run test --workspace=@flowhrms/web -- --project integration src/tests/storage-policy-integration.test.ts
+```
+
+**Roll back** (immediate; no deploy needed):
+
+```bash
+npm run setup-storage --workspace=@flowhrms/web -- --rollback
+```
+
+It restores the previous rule and removes the functions — exactly this,
+which can also be pasted into the SQL editor:
+
+```sql
+begin;
+drop policy if exists "task_proof_authenticated_insert" on storage.objects;
+create policy "task_proof_authenticated_insert" on storage.objects
+  for insert to authenticated with check (bucket_id = 'task-proof');
+drop policy if exists "employee_documents_authenticated_insert" on storage.objects;
+create policy "employee_documents_authenticated_insert" on storage.objects
+  for insert to authenticated with check (bucket_id = 'employee-documents');
+drop policy if exists "expense_receipts_authenticated_insert" on storage.objects;
+create policy "expense_receipts_authenticated_insert" on storage.objects
+  for insert to authenticated with check (bucket_id = 'expense-receipts');
+drop policy if exists "company_media_authenticated_insert" on storage.objects;
+create policy "company_media_authenticated_insert" on storage.objects
+  for insert to authenticated with check (bucket_id = 'company-media');
+drop function if exists private.is_own_membership(text, text);
+drop function if exists private.is_active_member(text);
+drop schema if exists private;  -- leave this line out if anything else lives in private
+commit;
+```
+
+**If uploads start failing for everyone** ("… didn't upload. Try again."),
+run `--status` first, then roll back while you look.
+
 ## 8. Before you hand over the URL (30 min)
 
 - [ ] Sign in as the owner on a **real phone**, not a desktop browser
