@@ -28,28 +28,48 @@ No secret is stored in application tables, and none is committed.
 
 ## Backup and restore
 
-Supabase takes automatic daily backups on paid plans; free projects do
-not. **Check which you have before relying on it** (Supabase → Database →
-Backups).
-
-Manual backup (works on any plan):
+**Weekly, from the office computer** (Google Drive for desktop signed in,
+PostgreSQL 17 installed):
 
 ```bash
-pg_dump "$DIRECT_URL" --no-owner --no-privileges -Fc -f flowhrms-backup.dump
+npm run backup --workspace=@flowhrms/web
+npm run backup-rehearse --workspace=@flowhrms/web
 ```
 
-Restore into a scratch project to rehearse:
+The first saves one encrypted file to `G:\My Drive\FlowHRMS-Backups`
+(`BACKUP_DIR` changes the folder). It holds the database — company data and
+sign-ins — and every file in the four storage buckets. The second opens the
+newest backup, restores the company data into a throwaway database on the
+same computer, checks every table's rows and every file against the counts
+taken when the backup was made, and deletes the throwaway database. Both
+show on **/platform/system**, which warns once the last backup is a week
+old.
 
-```bash
-pg_restore --no-owner --no-privileges -d "$SCRATCH_DIRECT_URL" flowhrms-backup.dump
-```
+- **The passphrase** — `BACKUP_PASSPHRASE` in `apps/web/.env.local`, at
+  least 12 characters — is the only way to open a backup. Keep a copy
+  outside this computer, in a password manager. Lose it and every backup
+  is unreadable.
+- Supabase takes its own daily backups only on paid plans (Supabase →
+  Database → Backups). These backups are ours either way, and unlike
+  Supabase's they include the stored files.
+- Old backups are never deleted automatically; remove old ones from the
+  Drive folder by hand.
 
-**Rehearse the restore before the pilot.** A backup nobody has restored is
-a hope, not a backup. This has **not** been rehearsed yet — it needs a
-second Supabase project, which is the customer's call to create.
+**A real restore** (the Supabase project is lost):
 
-Storage buckets are **not** covered by a database dump. Files must be
-copied separately (Supabase CLI `storage download`, or the dashboard).
+1. Open the backup into an empty folder:
+   `npm run backup-open --workspace=@flowhrms/web -- --file "<backup>.fhbk" --to "<empty folder>"`.
+2. Create a new Supabase project. Restore the company data:
+   `pg_restore --no-owner --no-privileges --schema=public -d "<new DIRECT_URL>" database.dump`.
+   Point `apps/web/.env.local` and Hostinger at the new project, then run
+   `npm run db:migrate` (nothing should be left to apply),
+   `npx tsx scripts/setup-rls.ts` and `npm run setup-storage` (both in
+   `apps/web`).
+3. Upload `files/<bucket>/…` back into the same four buckets, same paths.
+4. Sign-ins are in the backup (the `auth` schema), but restoring them into
+   a new Supabase project **has not been rehearsed**. Until it has, plan on
+   people setting new passwords through "Forgot password".
+5. Delete the opened folder: it is unencrypted personal data.
 
 ## Migrations
 
@@ -168,14 +188,29 @@ data.
 
 ## Monitoring
 
-Not set up. Before a pilot, at minimum: uptime check on the app, Supabase
-project health alerts, and a weekly look at `audit_events` for unexpected
-sensitive-data access.
+Everything below is on **/platform/system** (platform admins only).
+
+- **Crashes.** Server errors on the live site are recorded there, grouped
+  by kind, and the first of each kind in an hour is emailed to
+  info@flowacord.com (`src/instrumentation.ts`, `lib/platform/errors.ts`).
+  Email addresses and long numbers are removed from messages first.
+- **Uptime.** `https://hrms.flowacord.com/api/health` answers
+  `{"status":"ok"}` with 200 when the site and its database answer, and
+  503 when the database doesn't. It shows nothing else. Point an outside
+  monitor at it — for example UptimeRobot (free): an HTTP(s) keyword
+  monitor on that address, every 5 minutes, keyword `ok`, alerts by email
+  and SMS to you. **Not set up yet:** it needs an account only you can
+  create.
+- **Lockout codes.** Every code asked for to suspend a company or end a
+  trial, who asked, why, and whether it was used.
+- Still worth a weekly look at `audit_events` for unexpected
+  sensitive-data access.
 
 ## Known gaps
 
-- Backup restore not rehearsed.
-- No uptime monitoring or error alerting (production has run on Hostinger since September 2026).
+- No outside uptime monitor yet (the health check is ready; see *Monitoring*).
+- A restore into a new Supabase project, sign-ins included, hasn't been
+  rehearsed; the weekly rehearsal restores company data into a local
+  throwaway database.
 - No support-session flow — or, instead, a written rule that support never opens customer data (see *Support access*).
-- Storage files are not in the database backup.
 - Scheduled daily summaries need a notification provider.

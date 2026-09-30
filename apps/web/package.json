@@ -15,7 +15,10 @@
     "delete-tenant": "tsx --tsconfig scripts/tsconfig.json scripts/delete-tenant.ts",
     "reissue-invite": "tsx --tsconfig scripts/tsconfig.json scripts/reissue-invite.ts",
     "publish-notices": "tsx --tsconfig scripts/tsconfig.json scripts/publish-notices.ts",
-    "setup-storage": "tsx --tsconfig scripts/tsconfig.json scripts/setup-storage.ts"
+    "setup-storage": "tsx --tsconfig scripts/tsconfig.json scripts/setup-storage.ts",
+    "backup": "tsx --tsconfig scripts/tsconfig.json scripts/backup.ts",
+    "backup-rehearse": "tsx --tsconfig scripts/tsconfig.json scripts/backup-rehearse.ts",
+    "backup-open": "tsx --tsconfig scripts/tsconfig.json scripts/backup-open.ts"
   },
   "dependencies": {
     "@flowhrms/types": "*",

@@ -77,6 +77,7 @@ dev preview session — is in `SETUP.md`.
 | `npm run setup-storage [-- --status\|--rollback]` (in `apps/web`) | The four private storage buckets and who may upload where (DEPLOY.md §7f) |
 | `npx tsx scripts/smoke-phase2.ts` | Exercise the daily loop against the database (dev) |
 | `npx tsx scripts/smoke-phase3.ts` | Exercise the payroll cycle against the database (dev) |
+| `npm run backup` / `backup-rehearse` / `backup-open` | Encrypted backup to Google Drive, the weekly restore rehearsal, and opening one for a real restore (OPERATIONS.md) |
 
 Run every command from `create-tenant` down inside **`apps/web`** (`cd apps/web`): the scripts live
 there and read `apps/web/.env.local`. From the repo root, the npm ones also work as

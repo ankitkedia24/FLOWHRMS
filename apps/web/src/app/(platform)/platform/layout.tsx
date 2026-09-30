@@ -100,6 +100,12 @@ export default async function PlatformLayout({
               >
                 Settings
               </Link>
+              <Link
+                href="/platform/system"
+                className="inline-flex min-h-11 items-center rounded-button px-3 text-label text-text-secondary hover:bg-surface-sunken hover:text-text-primary"
+              >
+                System
+              </Link>
             </nav>
             <div className="ms-auto flex items-center gap-2">
               <Link

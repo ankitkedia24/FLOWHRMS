@@ -2169,6 +2169,51 @@ model PlatformActionCode {
   @@map("platform_action_codes")
 }
 
+/// A server error on the live site, grouped by kind (lib/platform/errors.ts).
+/// Flowacord's own record for /platform/system; the first of each kind in
+/// an hour is also emailed to info@flowacord.com. The message is scrubbed of
+/// email addresses and long numbers before it is stored.
+model PlatformError {
+  id            String    @id @default(uuid()) @db.Uuid
+  /// Same route, same kind, same message (numbers and ids blanked) = same row.
+  fingerprint   String    @unique
+  message       String
+  /// The route file, e.g. /(admin)/admin/employees/[membershipId]; never a
+  /// URL with its query string.
+  route         String
+  method        String
+  /// render | route | action | proxy
+  kind          String
+  digest        String?
+  count         Int       @default(1)
+  firstSeenAt   DateTime  @default(now())
+  lastSeenAt    DateTime  @default(now())
+  lastEmailedAt DateTime?
+
+  @@index([lastSeenAt])
+  @@map("platform_errors")
+}
+
+/// One encrypted backup made by scripts/backup.ts, and whether a restore of
+/// it was rehearsed (scripts/backup-rehearse.ts). The file itself lives in
+/// Google Drive, never in the database.
+model PlatformBackup {
+  id            String    @id @default(uuid()) @db.Uuid
+  fileName      String    @unique
+  bytes         BigInt
+  databaseBytes BigInt
+  fileCount     Int
+  /// Rows per table at backup time: { "tenants": 7, ... }.
+  tableCounts   Json
+  signIns       Int
+  createdAt     DateTime  @default(now())
+  rehearsedAt   DateTime?
+  rehearsalOk   Boolean?
+  rehearsalNote String?
+
+  @@map("platform_backups")
+}
+
 /// The evidence behind a travel allowance claim made from field visits
 /// (FIELD-VISITS-MODULE.md §7). The expense claim is the claim — approved,
 /// settled and paid like any other; this records, at submission, what it

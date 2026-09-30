@@ -30,6 +30,8 @@ const PUBLIC_PATHS = [
   // Razorpay's servers report payments here. No cookie; the request's
   // HMAC signature is the credential, checked by the route itself.
   "/api/razorpay",
+  // The uptime monitor's check: "ok" or "down", nothing else.
+  "/api/health",
 ];
 
 /**
@@ -45,6 +47,7 @@ const MARKETING_PATHS = [
   "/privacy",
   "/verify-email",
   "/api/razorpay",
+  "/api/health",
 ];
 
 function isPublic(pathname: string): boolean {

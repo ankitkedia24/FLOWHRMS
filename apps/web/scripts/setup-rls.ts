@@ -92,6 +92,9 @@ const TENANT_TABLES = [
   // Codes emailed to Flowacord before a company is suspended or its trial
   // ended (hashes only). Created with RLS on; listed so a re-run keeps it.
   "platform_action_codes",
+  // Flowacord's record of live-site errors (scrubbed) and of backups.
+  "platform_errors",
+  "platform_backups",
   // Field visits (FIELD-VISITS-MODULE.md §8): where people went, and when.
   "field_places",
   "field_trips",
