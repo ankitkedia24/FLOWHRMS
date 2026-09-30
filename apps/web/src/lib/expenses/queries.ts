@@ -5,7 +5,7 @@ import { mayDecideOwn } from "@/lib/authz/approvals";
 import { loadRecordScope } from "@/lib/authz/record-scope";
 import { canSee } from "@/lib/authz/scope";
 import { getDb } from "@/lib/db";
-import { canViewOthersClaims, loadExpensesPolicy } from "./access";
+import { canViewOthersClaims } from "./access";
 import { claimListWhere } from "./queue-scope";
 import { ownClaimRefusal } from "./state";
 
@@ -51,10 +51,8 @@ export async function listMyClaims(session: AppSession, take = 50) {
  * May the signed-in person decide / settle their own claim? Decides which
  * queues include it (queue-scope.ts); the seam enforces the same rule.
  */
-function ownClaimAllowed(session: AppSession, step: "decide" | "settle", allowSelfApproval: boolean) {
-  return (
-    ownClaimRefusal({ step, mayDecideOwn: mayDecideOwn(session.membership.roleKey), allowSelfApproval }) === null
-  );
+function ownClaimAllowed(session: AppSession, step: "decide" | "settle") {
+  return ownClaimRefusal({ step, mayDecideOwn: mayDecideOwn(session.membership.roleKey) }) === null;
 }
 
 /**
@@ -66,14 +64,13 @@ export async function listAdminClaims(session: AppSession) {
   const db = getDb();
   const tenantId = session.tenant.id;
   const me = session.membership.id;
-  const [scope, published] = await Promise.all([loadRecordScope(session), loadExpensesPolicy(tenantId)]);
-  const allowSelfApproval = published?.policy.allowSelfApproval ?? false;
+  const scope = await loadRecordScope(session);
   const [waiting, unsettled, recent] = await Promise.all([
     db.expenseClaim.findMany({
       where: {
         tenantId,
         status: "SUBMITTED",
-        ...claimListWhere(me, scope, ownClaimAllowed(session, "decide", allowSelfApproval)),
+        ...claimListWhere(me, scope, ownClaimAllowed(session, "decide")),
       },
       select: listSelect,
       orderBy: { submittedAt: "asc" },
@@ -82,7 +79,7 @@ export async function listAdminClaims(session: AppSession) {
       where: {
         tenantId,
         status: { in: ["APPROVED", "PARTIALLY_APPROVED"] },
-        ...claimListWhere(me, scope, ownClaimAllowed(session, "settle", allowSelfApproval)),
+        ...claimListWhere(me, scope, ownClaimAllowed(session, "settle")),
       },
       select: listSelect,
       orderBy: { decidedAt: "asc" },
@@ -162,7 +159,7 @@ export async function listClaimsAwaitingPayroll(session: AppSession) {
       ...claimListWhere(
         session.membership.id,
         await loadRecordScope(session),
-        ownClaimAllowed(session, "settle", false),
+        ownClaimAllowed(session, "settle"),
       ),
     },
     select: {

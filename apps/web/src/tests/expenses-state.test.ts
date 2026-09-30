@@ -63,7 +63,6 @@ describe("state machine — the exhaustive 49 pairs (§17)", () => {
       from,
       to,
       actor: OMNIPOTENT,
-      allowSelfApproval: true,
       claimedAmount: 100,
       approvedAmount: to === "PARTIALLY_APPROVED" ? 50 : 100,
       reason: "because",
@@ -115,7 +114,6 @@ describe("decisions are derived from amounts (invariant 4)", () => {
     const base = {
       from: "SUBMITTED" as const,
       actor: { isClaimant: false, canApprove: true },
-      allowSelfApproval: false,
       claimedAmount: 100,
       reason: "trimmed the auto fare",
     };
@@ -132,7 +130,7 @@ describe("the guard: who may do what", () => {
   const bystander = { isClaimant: false, canApprove: false };
 
   it("rejecting needs a reason; partial approval needs a reason; full approval does not", () => {
-    const base = { from: "SUBMITTED" as const, actor: approver, allowSelfApproval: false, claimedAmount: 500 };
+    const base = { from: "SUBMITTED" as const, actor: approver, claimedAmount: 500 };
     expect(transitionGuard({ ...base, to: "REJECTED" }).ok).toBe(false);
     expect(transitionGuard({ ...base, to: "REJECTED", reason: "   " }).ok).toBe(false);
     expect(transitionGuard({ ...base, to: "REJECTED", reason: "No receipt for fuel." }).ok).toBe(true);
@@ -145,7 +143,6 @@ describe("the guard: who may do what", () => {
       from: "SUBMITTED",
       to: "REJECTED",
       actor: approver,
-      allowSelfApproval: false,
       claimedAmount: 500,
       reason: "  Submitted twice — see EXP-000012.  ",
     });
@@ -156,30 +153,30 @@ describe("the guard: who may do what", () => {
     for (const to of ["APPROVED", "PARTIALLY_APPROVED", "REJECTED", "SETTLED"] as const) {
       const from = to === "SETTLED" ? "APPROVED" : "SUBMITTED";
       expect(
-        transitionGuard({ from, to, actor: bystander, allowSelfApproval: true, claimedAmount: 10, approvedAmount: 10, reason: "x", hasSettlementRecord: true }).ok,
+        transitionGuard({ from, to, actor: bystander, claimedAmount: 10, approvedAmount: 10, reason: "x", hasSettlementRecord: true }).ok,
       ).toBe(false);
     }
   });
 
-  it("self-approval is refused by default and allowed-but-flagged when policy says so (invariant 9)", () => {
+  it("only the Owner may decide their own claim, and it is flagged self-approved (invariant 9)", () => {
     const self = { isClaimant: true, canApprove: true };
-    const base = { from: "SUBMITTED" as const, to: "APPROVED" as const, actor: self, claimedAmount: 100, approvedAmount: 100 };
-    expect(transitionGuard({ ...base, allowSelfApproval: false }).ok).toBe(false);
-    const allowed = transitionGuard({ ...base, allowSelfApproval: true });
-    expect(allowed.ok && allowed.selfApproved).toBe(true);
-    const other = transitionGuard({ ...base, actor: approver, allowSelfApproval: false });
+    const base = { from: "SUBMITTED" as const, to: "APPROVED" as const, claimedAmount: 100, approvedAmount: 100 };
+    expect(transitionGuard({ ...base, actor: self }).ok).toBe(false);
+    const owner = transitionGuard({ ...base, actor: { ...self, mayDecideOwn: true } });
+    expect(owner.ok && owner.selfApproved).toBe(true);
+    const other = transitionGuard({ ...base, actor: approver });
     expect(other.ok && other.selfApproved).toBe(false);
   });
 
   it("withdrawal: the claimant only — an approver, even the owner, is refused (invariant 13)", () => {
-    const base = { from: "SUBMITTED" as const, to: "WITHDRAWN" as const, allowSelfApproval: false, claimedAmount: 100 };
+    const base = { from: "SUBMITTED" as const, to: "WITHDRAWN" as const, claimedAmount: 100 };
     expect(transitionGuard({ ...base, actor: claimant }).ok).toBe(true);
     expect(transitionGuard({ ...base, actor: approver }).ok).toBe(false);
     expect(transitionGuard({ ...base, actor: bystander }).ok).toBe(false);
   });
 
   it("withdrawal reason is optional and kept when given", () => {
-    const base = { from: "SUBMITTED" as const, to: "WITHDRAWN" as const, actor: claimant, allowSelfApproval: false, claimedAmount: 100 };
+    const base = { from: "SUBMITTED" as const, to: "WITHDRAWN" as const, actor: claimant, claimedAmount: 100 };
     const silent = transitionGuard(base);
     expect(silent.ok && silent.reason).toBeNull();
     const spoken = transitionGuard({ ...base, reason: "Wrong amount, resubmitting." });
@@ -189,19 +186,19 @@ describe("the guard: who may do what", () => {
   it("withdrawal is refused from every status but SUBMITTED", () => {
     for (const from of CLAIM_STATUSES) {
       if (from === "SUBMITTED") continue;
-      expect(transitionGuard({ from, to: "WITHDRAWN", actor: claimant, allowSelfApproval: false, claimedAmount: 1 }).ok).toBe(false);
+      expect(transitionGuard({ from, to: "WITHDRAWN", actor: claimant, claimedAmount: 1 }).ok).toBe(false);
     }
   });
 
   it("settlement needs the permission and a settlement record", () => {
-    const base = { from: "APPROVED" as const, to: "SETTLED" as const, allowSelfApproval: false, claimedAmount: 100 };
+    const base = { from: "APPROVED" as const, to: "SETTLED" as const, claimedAmount: 100 };
     expect(transitionGuard({ ...base, actor: approver, hasSettlementRecord: true }).ok).toBe(true);
     expect(transitionGuard({ ...base, actor: approver, hasSettlementRecord: false }).ok).toBe(false);
     expect(transitionGuard({ ...base, actor: claimant, hasSettlementRecord: true }).ok).toBe(false);
   });
 
   it("the refusal names the current status so a racing caller learns what happened", () => {
-    const r = transitionGuard({ from: "WITHDRAWN", to: "APPROVED", actor: approver, allowSelfApproval: false, claimedAmount: 1, approvedAmount: 1 });
+    const r = transitionGuard({ from: "WITHDRAWN", to: "APPROVED", actor: approver, claimedAmount: 1, approvedAmount: 1 });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.toLowerCase()).toContain("withdrawn");
   });
@@ -288,11 +285,15 @@ describe("policy normalisation (§8)", () => {
     const p = normalizeExpensesPolicy({});
     expect(p.submissionDeadlineDays).toBe(30);
     expect(p.defaultSettlementRoute).toBe("PAYROLL");
-    expect(p.allowSelfApproval).toBe(false);
     expect(p.receiptRetentionYears).toBe(RECEIPT_RETENTION_FLOOR_YEARS);
     expect(p.categories).toEqual([]);
     expect(policyIsUsable(p)).toBe(false);
     expect(policyIsUsable(DEFAULT_EXPENSES_POLICY)).toBe(true);
+  });
+
+  it("an allowSelfApproval stored by older rules is dropped, whatever it says", () => {
+    const p = normalizeExpensesPolicy({ allowSelfApproval: true });
+    expect("allowSelfApproval" in p).toBe(false);
   });
 
   it("retention cannot go below the floor, can go above; deadline is at least one day", () => {

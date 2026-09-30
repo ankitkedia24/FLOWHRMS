@@ -137,3 +137,18 @@ the last sentence of Amendment 3.*
   self-approved. That switch never extends to settling.
 - Your own claim is left out of the queues you work from unless you may
   act on it there; the Owner's own claim reaches the Owner's tiles.
+
+---
+
+# Amendment 5 — Only the Owner decides their own expense claim
+*Owner decision, 30 September 2026. Appended, not rewritten; supersedes the
+"Nobody decides their own claim" bullet of Amendment 4.*
+
+- Nobody decides (approves, partly approves or rejects) or settles their
+  own expense claim except the **Owner**. The Owner's own decision is
+  recorded as self-approved.
+- The "Allow approving your own claim" switch is gone from the expense
+  rules. No company setting can let anyone else decide their own claim; a
+  value saved by older rules is ignored.
+- Expense claims now follow the same rule as leave, attendance exceptions
+  and task proof (`lib/authz/approvals.ts`).

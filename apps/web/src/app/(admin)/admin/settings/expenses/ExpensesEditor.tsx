@@ -45,7 +45,6 @@ export function ExpensesEditor({
   const [route, setRoute] = useState<ExpensesPolicy["defaultSettlementRoute"]>(
     initial.defaultSettlementRoute,
   );
-  const [selfApproval, setSelfApproval] = useState(initial.allowSelfApproval);
   const [retention, setRetention] = useState(String(initial.receiptRetentionYears));
   const [categories, setCategories] = useState<CategoryDraft[]>(initial.categories.map(toDraft));
 
@@ -86,7 +85,6 @@ export function ExpensesEditor({
       const result = await publishExpensesPolicyAction({
         submissionDeadlineDays: deadlineN,
         defaultSettlementRoute: route,
-        allowSelfApproval: selfApproval,
         receiptRetentionYears: retentionN,
         categories: categories
           .filter((c) => c.name.trim())
@@ -150,14 +148,6 @@ export function ExpensesEditor({
             onChange={(event) => setRoute(event.target.value as ExpensesPolicy["defaultSettlementRoute"])}
             helper="Preselected when settling. Without Payroll, outside payroll is the only route."
           />
-          <div className="pt-6">
-            <Checkbox
-              label="Allow approving your own claim"
-              helper="Off by default. When on, self-approvals are marked as such on the record."
-              checked={selfApproval}
-              onChange={(event) => setSelfApproval(event.target.checked)}
-            />
-          </div>
         </div>
       </Card>
 

@@ -35,7 +35,6 @@ export interface TransitionInput {
   session: AppSession;
   claimId: string;
   to: ClaimStatus;
-  allowSelfApproval: boolean;
   reason?: string;
   approvedAmount?: number;
   /** For SETTLED only: the record that makes settlement a fact (§12). */
@@ -104,15 +103,10 @@ export async function approverRefusal(
   session: AppSession,
   claimantId: string,
   step: ApproverStep,
-  allowSelfApproval: boolean,
 ): Promise<string | null> {
   const actorId = session.membership.id;
   if (claimantId === actorId) {
-    return ownClaimRefusal({
-      step,
-      mayDecideOwn: mayDecideOwn(session.membership.roleKey),
-      allowSelfApproval,
-    });
+    return ownClaimRefusal({ step, mayDecideOwn: mayDecideOwn(session.membership.roleKey) });
   }
   return decisionScopeRefusal(await loadRecordScope(session), actorId, claimantId);
 }
@@ -149,7 +143,7 @@ export async function transitionClaim(input: TransitionInput): Promise<Transitio
   //    claimant's team is refused without learning anything about it.
   const step = APPROVER_STEP[to];
   if (step) {
-    const refusal = await approverRefusal(session, claim.membershipId, step, input.allowSelfApproval);
+    const refusal = await approverRefusal(session, claim.membershipId, step);
     if (refusal) return { ok: false, error: refusal, status: from };
   }
 
@@ -162,7 +156,6 @@ export async function transitionClaim(input: TransitionInput): Promise<Transitio
       canApprove: session.permissions.has("expenses.approve"),
       mayDecideOwn: mayDecideOwn(session.membership.roleKey),
     },
-    allowSelfApproval: input.allowSelfApproval,
     claimedAmount: claim.claimedAmount,
     approvedAmount: input.approvedAmount,
     reason: input.reason,
