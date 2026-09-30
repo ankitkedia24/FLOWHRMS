@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
 import { setPolicy } from "@/lib/policies";
+import { choosableMatrix } from "@/lib/notifications/channels";
 // Values live in constants.ts, not here: a "use server" module may only
 // export async functions, and exporting one to a client component fails at
 // render time rather than at build time.
@@ -101,10 +102,14 @@ export async function saveNotificationSettingsAction(
     return { ok: false, error: decision.message ?? "You don't have access to this." };
   }
 
+  // The server is the control: a tick for a channel nothing sends on is
+  // not stored, whatever the request says (lib/notifications/channels.ts).
+  const policy = { ...parsed.data, matrix: choosableMatrix(parsed.data.matrix) };
+
   const { version, previous } = await setPolicy(
     session.tenant.id,
     "notifications",
-    parsed.data,
+    policy,
     session.user.id,
   );
 
@@ -113,7 +118,7 @@ export async function saveNotificationSettingsAction(
     entityType: "tenant_policy",
     entityId: session.tenant.id,
     before: previous ?? undefined,
-    after: { ...parsed.data, version },
+    after: { ...policy, version },
   });
 
   revalidatePath("/admin/settings/notifications");
@@ -122,6 +127,6 @@ export async function saveNotificationSettingsAction(
     ok: true,
     message: `Notification settings saved as version ${version}.`,
     detail:
-      "Channels without a provider stay off until one is added, and are never silently failed.",
+      "Notifications appear in the app. By email, push, SMS and WhatsApp they aren't available yet.",
   };
 }
