@@ -3,11 +3,18 @@ import "server-only";
 import type { PrismaClient } from "@/generated/prisma/client";
 import type { AppSession } from "@/lib/auth/types";
 import { recordAuditEvent } from "@/lib/audit";
+import { lockPayrollRun } from "./lock";
 
 /**
- * The one way money changes on a payroll line — including after approval
- * (Constitution §6). Extracted from `addAdjustmentAction` so that it can
- * run inside a caller’s transaction; the action is now a thin wrapper.
+ * The one way money changes on a DRAFT payroll line (Constitution §6).
+ * Extracted from `addAdjustmentAction` so that it can run inside a
+ * caller’s transaction; the action is now a thin wrapper.
+ *
+ * Never on an approved run (owner decision, hardening batch 4): approval
+ * fixes what the payslips say, so a later change goes into a later
+ * month's run. The run's row is LOCKED and its status re-read before
+ * anything is written, so an approval committing at the same moment
+ * cannot receive this adjustment — callers must pass their transaction.
  *
  * Deliberately permission-free: the CALLER decides who may reach this.
  * `addAdjustmentAction` demands `payroll.edit`; the Expenses settlement
@@ -16,10 +23,13 @@ import { recordAuditEvent } from "@/lib/audit";
  * Do not add a payroll permission check here — that boundary is intended.
  */
 
-/** The client or a transaction client — whichever the caller holds. */
+export const APPROVED_RUN_ADJUSTMENT_ERROR =
+  "This month's payroll is approved; add it to next month instead.";
+
+/** The transaction client (or the client) — whichever the caller holds. */
 export type PayrollWriter = Pick<
   PrismaClient,
-  "payrollLine" | "payrollAdjustment" | "payrollRun" | "auditEvent"
+  "payrollLine" | "payrollAdjustment" | "payrollRun" | "auditEvent" | "$queryRaw"
 >;
 
 export interface RecordAdjustmentInput {
@@ -36,7 +46,6 @@ export type RecordAdjustmentResult =
       adjustmentId: string;
       lineId: string;
       runId: string;
-      runStatus: "DRAFT" | "APPROVED";
       periodMonth: Date;
       membershipId: string;
       employeeName: string;
@@ -50,11 +59,27 @@ export async function recordAdjustment(
   session: AppSession,
   input: RecordAdjustmentInput,
 ): Promise<RecordAdjustmentResult> {
+  const tenantId = session.tenant.id;
+  const gone = { ok: false as const, error: "That payroll line is no longer available." };
+
+  const found = await db.payrollLine.findFirst({
+    where: { id: input.lineId, tenantId }, // tenant-scoped
+    select: { runId: true },
+  });
+  if (!found) return gone;
+
+  // Lock the run, then read its status and the line again under the lock:
+  // an approval, or a recalculation that removed this line, may have
+  // committed since the read above.
+  const run = await lockPayrollRun(db, tenantId, found.runId);
+  if (!run) return gone;
+  if (run.status === "APPROVED") return { ok: false, error: APPROVED_RUN_ADJUSTMENT_ERROR };
+
   const line = await db.payrollLine.findFirst({
-    where: { id: input.lineId, tenantId: session.tenant.id }, // tenant-scoped
+    where: { id: input.lineId, tenantId },
     include: { run: true, membership: { include: { user: true } } },
   });
-  if (!line) return { ok: false, error: "That payroll line is no longer available." };
+  if (!line) return gone;
 
   const adjustment = await db.payrollAdjustment.create({
     data: {
@@ -114,7 +139,6 @@ export async function recordAdjustment(
     adjustmentId: adjustment.id,
     lineId: line.id,
     runId: line.runId,
-    runStatus: line.run.status,
     periodMonth: line.run.periodMonth,
     membershipId: line.membershipId,
     employeeName: line.membership.user.displayName,
