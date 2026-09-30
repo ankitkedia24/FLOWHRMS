@@ -15,6 +15,10 @@ import { useRef, useState } from "react";
  * are content images — someone who cannot see them should learn what the
  * setting looks like, not read "Warehouse" twice.
  *
+ * Each `desc` names only what the product does today, and calls an optional
+ * module optional. "Day plans", "task boards per bay" and "per-branch
+ * cut-offs" were here once; none of them exists (hardening batch 7).
+ *
  * To change an image, replace the file in public/marketing/use-cases/ at
  * roughly 1280×730 or wider. Nothing in this component needs editing.
  */
@@ -35,7 +39,7 @@ const CASES: UseCase[] = [
   {
     key: "warehouse",
     title: "Warehouse",
-    desc: "Shift check-ins at the gate, task boards per bay, stock-count jobs with photo proof.",
+    desc: "Shift check-ins at the gate, one named owner per job, stock-count jobs with photo proof.",
     chip: "✓ Gate check-in · 08:40",
     photo: "/marketing/use-cases/warehouse.webp",
     alt: "A worker carrying a carton down an aisle of stacked steel racking in a wholesale warehouse, morning light behind him.",
@@ -43,7 +47,7 @@ const CASES: UseCase[] = [
   {
     key: "field",
     title: "Field sales",
-    desc: "Day plans, visit check-ins and expense notes—synced before the rep is back on the bike.",
+    desc: "Tasks closed with a photo, and optional Field visits: each stop, road distance, travel claim.",
     chip: "📍 Visit logged · Malviya Nagar",
     photo: "/marketing/use-cases/field-sales.webp",
     alt: "A field sales representative standing beside his parked motorcycle on a shop-lined street, checking his phone.",
@@ -67,7 +71,7 @@ const CASES: UseCase[] = [
   {
     key: "branch",
     title: "Multi-branch ops",
-    desc: "One owner view across branches, with per-branch cut-offs and comparable day summaries.",
+    desc: "One owner view across branches: attendance and tasks by branch, one payroll run for all.",
     chip: "4 branches · one view",
     photo: "/marketing/use-cases/multi-branch.webp",
     alt: "A business owner at his desk reading a printed record beside an open laptop, ledgers and files stacked around him.",
