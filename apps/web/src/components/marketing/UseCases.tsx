@@ -51,7 +51,7 @@ const CASES: UseCase[] = [
   {
     key: "retail",
     title: "Retail / trading",
-    desc: "Counter rosters, store-open checklists, and advances recorded at the desk, not remembered later.",
+    desc: "Counter check-ins, store-open tasks closed with a photo, and leave on record, not remembered later.",
     chip: "Store opened · 09:00",
     photo: "/marketing/use-cases/retail.webp",
     alt: "A shopkeeper at the wooden counter of a hardware shop, shelves of pipe fittings and hand tools behind him.",

@@ -57,7 +57,7 @@ export const MODULES = {
     key: "TASKS",
     name: "Tasks",
     description:
-      "Assignments, priority, due dates, notes, files, proof, status and recurring templates.",
+      "Assignments, priority, due dates, notes, files, proof and status.",
     category: "STANDARD" as ModuleCategory,
     sortOrder: 50,
   },
@@ -65,7 +65,7 @@ export const MODULES = {
     key: "DAILY_REPORTING",
     name: "Daily Reporting",
     description:
-      "Summaries of attendance, task status and exceptions with configured delivery.",
+      "Today's attendance, task status and exceptions in one live summary.",
     category: "STANDARD" as ModuleCategory,
     sortOrder: 60,
   },
@@ -81,7 +81,7 @@ export const MODULES = {
     key: "NOTIFICATIONS",
     name: "Notifications",
     description:
-      "In-app, push, email, SMS or WhatsApp delivery through configured providers.",
+      "In-app notices for requests and decisions. Push, email, SMS and WhatsApp delivery are not built yet.",
     category: "CORE" as ModuleCategory,
     sortOrder: 80,
   },

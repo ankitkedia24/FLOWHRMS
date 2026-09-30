@@ -38,19 +38,19 @@ const TILES: Tile[] = [
   },
   {
     label: "Leave approval",
-    desc: "Requests go straight to the right manager with dates and cover options. Approve or decline in one tap.",
+    desc: "Requests go straight to the right manager with the dates and the reason. Approve or decline in one tap.",
     dot: "var(--m-green)",
     chip: "Approved ✓",
   },
   {
     label: "Payroll visibility",
-    desc: "Days present, overtime and advances add themselves up through the month. Cut-off day stops being a fire drill.",
+    desc: "Days present, approved leave and late marks add themselves up through the month. Cut-off day stops being a fire drill.",
     dot: "var(--m-navy)",
     chip: "₹4,82,600 this cycle",
   },
   {
     label: "Accountability",
-    desc: "Every check-in, task and advance is timestamped and attributed. Month-end disputes become a scroll, not an argument.",
+    desc: "Every check-in, task and approval is timestamped and attributed. Month-end disputes become a scroll, not an argument.",
     dot: "var(--m-red)",
     chip: "Audit trail · 4 events",
   },
@@ -317,7 +317,7 @@ function SceneLeave() {
           <div className="mt-0.5 text-xs text-[color:var(--m-on-navy-2)]">Decides on the spot</div>
         </div>
       </div>
-      <SceneNote>No chits, no missed calls. Requests reach the right manager with cover suggestions.</SceneNote>
+      <SceneNote>No chits, no missed calls. Requests reach the right manager with the dates and the reason.</SceneNote>
     </div>
   );
 }
@@ -325,8 +325,8 @@ function SceneLeave() {
 function ScenePayroll({ total }: { total: number }) {
   const rows = [
     { label: "Days present × rate", value: "₹4,26,000", delay: "0.2s", tint: false },
-    { label: "Overtime hours", value: "₹68,400", delay: "0.45s", tint: false },
-    { label: "Advances deducted", value: "− ₹11,800", delay: "0.7s", tint: true },
+    { label: "Paid leave days", value: "₹68,400", delay: "0.45s", tint: false },
+    { label: "Unpaid days deducted", value: "− ₹11,800", delay: "0.7s", tint: true },
   ];
   return (
     <div className="m-scene">
@@ -358,7 +358,7 @@ function ScenePayroll({ total }: { total: number }) {
         </div>
       </div>
       <SceneNote>
-        Attendance, overtime and advances flow straight into cut-off. No last-night Excel.
+        Attendance, approved leave and late marks flow straight into cut-off. No last-night Excel.
       </SceneNote>
     </div>
   );
@@ -368,8 +368,8 @@ function SceneAudit() {
   const events = [
     { time: "09:12 · Checked in", sub: "Jaipur warehouse · Ramesh", dot: "var(--m-green)", delay: "0.15s" },
     { time: "11:40 · Task closed with photo", sub: "Dispatch order #2214 · Arjun", dot: "var(--m-amber)", delay: "0.55s" },
-    { time: "14:05 · Advance recorded", sub: "₹2,000 · approved by Sanjay", dot: "var(--m-red)", delay: "0.95s" },
-    { time: "18:31 · Checked out", sub: "Day summary sent to owner", dot: "var(--m-navy)", delay: "1.35s" },
+    { time: "14:05 · Leave approved", sub: "2 days · approved by Sanjay", dot: "var(--m-red)", delay: "0.95s" },
+    { time: "18:31 · Checked out", sub: "Day summary ready for the owner", dot: "var(--m-navy)", delay: "1.35s" },
   ];
   return (
     <div className="m-scene">
