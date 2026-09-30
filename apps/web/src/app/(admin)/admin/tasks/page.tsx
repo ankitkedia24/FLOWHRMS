@@ -11,6 +11,7 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { PRIORITY, STATUS } from "@/lib/status";
 import { evaluateAccess } from "@/lib/authz/flags";
 import { loadEntitlements } from "@/lib/authz/entitlements";
+import { reviewableProofWhere } from "@/lib/tasks/review";
 import { CreateTaskPanel } from "./CreateTaskPanel";
 import { ProofQueue } from "./ProofQueue";
 import { BranchFilter } from "@/components/filters/BranchFilter";
@@ -81,9 +82,11 @@ export default async function AdminTasksPage({
 
   // A Manager or Team Leader sees their team's tasks and the ones they
   // set, assigns within their team (or to themselves), and reviews their
-  // team's proof — never their own (lib/authz/scope.ts).
+  // team's proof. Nobody but an Owner is offered their own proof to review
+  // (lib/tasks/review.ts).
   const scope = await loadRecordScope(session);
   const visible = visibleIds(scope, session.membership.id);
+  const me = { membershipId: session.membership.id, roleKey: session.membership.roleKey };
 
   const [tasks, assignees, awaitingReview] = devFixtureOffline()
     ? [[], [], []]
@@ -120,7 +123,7 @@ export default async function AdminTasksPage({
             tenantId: session.tenant.id,
             status: "SUBMITTED_FOR_REVIEW",
             ...assigneeWhere,
-            ...(scope === "all" ? {} : { assigneeId: { in: [...scope] } }),
+            ...reviewableProofWhere(me, scope),
           },
           include: {
             assignee: { include: { user: true } },
@@ -166,7 +169,8 @@ export default async function AdminTasksPage({
               title: task.title,
               assignee: task.assignee.user.displayName,
               note: task.proofs[0]?.note ?? null,
-              fileNames: task.proofs[0]?.files.map((f) => f.name) ?? [],
+              files:
+                task.proofs[0]?.files.map((f) => ({ id: f.id, name: f.name })) ?? [],
               submittedAt: task.proofs[0]
                 ? new Intl.DateTimeFormat("en-GB", {
                     day: "numeric",

@@ -1,6 +1,7 @@
 "use client";
 
 import { ApprovalCard } from "@/components/approvals/ApprovalCard";
+import { ViewProofFile } from "@/components/tasks/ViewProofFile";
 import { STATUS } from "@/lib/status";
 import { reviewProofAction } from "@/lib/tasks/actions";
 import { proofAnchorId } from "@/lib/tasks/links";
@@ -8,14 +9,15 @@ import { proofAnchorId } from "@/lib/tasks/links";
 /**
  * Task proof review (screen A9). The impact line names what approving
  * does (copy-deck.md §4): the task becomes Completed and appears in the
- * day's summary and the employee's record.
+ * day's summary and the employee's record. Each file can be opened before
+ * deciding — approving proof nobody looked at is no review.
  */
 export interface ProofQueueItem {
   taskId: string;
   title: string;
   assignee: string;
   note: string | null;
-  fileNames: string[];
+  files: Array<{ id: string; name: string }>;
   submittedAt: string;
 }
 
@@ -44,11 +46,14 @@ export function ProofQueue({ items }: { items: ProofQueueItem[] }) {
                 {item.note && (
                   <p className="text-text-primary">{item.note}</p>
                 )}
-                {item.fileNames.length > 0 ? (
-                  <ul className="flex flex-col gap-0.5">
-                    {item.fileNames.map((name) => (
-                      <li key={name} className="font-mono text-mono">
-                        {name}
+                {item.files.length > 0 ? (
+                  <ul className="flex flex-col gap-1">
+                    {item.files.map((file) => (
+                      <li key={file.id} className="flex items-center justify-between gap-3">
+                        <span className="min-w-0 truncate font-mono text-mono">
+                          {file.name}
+                        </span>
+                        <ViewProofFile fileId={file.id} name={file.name} />
                       </li>
                     ))}
                   </ul>
