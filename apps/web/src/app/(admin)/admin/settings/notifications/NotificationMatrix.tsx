@@ -7,9 +7,9 @@ import { Card, CardHeader } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
+import type { ChannelState } from "@/lib/notifications/channels";
 import { saveNotificationSettingsAction } from "@/lib/settings/actions";
 import {
-  NOTIFICATION_CHANNELS,
   NOTIFICATION_EVENTS,
   type NotificationPolicy,
 } from "@/lib/settings/constants";
@@ -17,8 +17,10 @@ import {
 /**
  * Event × channel matrix (screen A18).
  *
- * A channel with no provider renders disabled WITH ITS REASON, rather
- * than being hidden — the admin needs to know why it cannot be used.
+ * A channel nothing delivers on renders disabled and unticked WITH ITS
+ * REASON ("Not available yet"), rather than being hidden — the admin needs
+ * to know it exists and why it cannot be used. What each channel really
+ * does comes from lib/notifications/channels.ts, never from the flag alone.
  */
 function toTime(minutes: number): string {
   const h = Math.floor(minutes / 60);
@@ -34,11 +36,11 @@ function toMinutes(time: string): number {
 export function NotificationMatrix({
   policy,
   version,
-  available,
+  channels,
 }: {
   policy: NotificationPolicy | null;
   version: number;
-  available: Record<string, boolean>;
+  channels: ChannelState[];
 }) {
   const router = useRouter();
   const { show } = useToast();
@@ -55,10 +57,20 @@ export function NotificationMatrix({
     },
   );
 
-  const isOn = (event: string, channel: string) => {
-    if (channel === "in_app") return true;
-    return matrix[`${event}.${channel}`] ?? false;
+  const isOn = (event: string, channel: ChannelState) => {
+    if (channel.alwaysOn) return true;
+    // Nothing goes out this way, whatever an earlier save ticked.
+    if (!channel.delivers) return false;
+    return matrix[`${event}.${channel.key}`] ?? false;
   };
+
+  /** Read out with the checkbox, so a disabled box says why. */
+  const note = (channel: ChannelState) =>
+    channel.alwaysOn
+      ? " — always on"
+      : channel.reason
+        ? ` — ${channel.reason.toLowerCase()}`
+        : "";
 
   return (
     <>
@@ -86,8 +98,8 @@ export function NotificationMatrix({
                 {event.label}
               </p>
               <div className="mt-2 flex flex-col gap-1">
-                {NOTIFICATION_CHANNELS.map((channel) => {
-                  const locked = channel.alwaysOn || !available[channel.key];
+                {channels.map((channel) => {
+                  const locked = channel.alwaysOn || !channel.delivers;
                   return (
                     <label
                       key={channel.key}
@@ -96,18 +108,18 @@ export function NotificationMatrix({
                       <span className="text-secondary text-text-secondary">
                         {channel.label}
                         {channel.alwaysOn && " — always on"}
-                        {!channel.alwaysOn && !available[channel.key] && (
+                        {channel.reason && (
                           <span className="block text-caption text-text-tertiary">
-                            No provider configured
+                            {channel.reason}
                           </span>
                         )}
                       </span>
                       <input
                         type="checkbox"
                         className="size-5 shrink-0 accent-[var(--fh-color-brand-primary)] disabled:cursor-not-allowed"
-                        checked={isOn(event.key, channel.key)}
+                        checked={isOn(event.key, channel)}
                         disabled={locked}
-                        aria-label={`${event.label} by ${channel.label}`}
+                        aria-label={`${event.label} by ${channel.label}${note(channel)}`}
                         onChange={(e) =>
                           setMatrix((prev) => ({
                             ...prev,
@@ -136,16 +148,16 @@ export function NotificationMatrix({
                 >
                   Event
                 </th>
-                {NOTIFICATION_CHANNELS.map((channel) => (
+                {channels.map((channel) => (
                   <th
                     key={channel.key}
                     scope="col"
                     className="micro-label px-2 py-2 text-center text-text-tertiary"
                   >
                     {channel.label}
-                    {!available[channel.key] && (
+                    {channel.reason && (
                       <span className="block font-body text-caption normal-case tracking-normal text-text-tertiary">
-                        Not configured
+                        {channel.reason}
                       </span>
                     )}
                   </th>
@@ -161,22 +173,16 @@ export function NotificationMatrix({
                   >
                     {event.label}
                   </th>
-                  {NOTIFICATION_CHANNELS.map((channel) => {
-                    const locked = channel.alwaysOn || !available[channel.key];
+                  {channels.map((channel) => {
+                    const locked = channel.alwaysOn || !channel.delivers;
                     return (
                       <td key={channel.key} className="px-2 py-2.5 text-center">
                         <input
                           type="checkbox"
                           className="size-5 accent-[var(--fh-color-brand-primary)] disabled:cursor-not-allowed"
-                          checked={isOn(event.key, channel.key)}
+                          checked={isOn(event.key, channel)}
                           disabled={locked}
-                          aria-label={`${event.label} by ${channel.label}${
-                            channel.alwaysOn
-                              ? " — always on"
-                              : !available[channel.key]
-                                ? " — no provider configured"
-                                : ""
-                          }`}
+                          aria-label={`${event.label} by ${channel.label}${note(channel)}`}
                           onChange={(e) =>
                             setMatrix((prev) => ({
                               ...prev,
@@ -193,15 +199,16 @@ export function NotificationMatrix({
           </table>
         </div>
         <p className="px-5 pb-5 text-caption text-text-secondary">
-          In-app is always on so nothing is missed. SMS and WhatsApp need a
-          provider in Company settings to switch them on.
+          In-app is always on, so nothing is missed. Notifications by email,
+          push, SMS and WhatsApp aren&apos;t available yet; everything appears
+          in the app&apos;s notifications.
         </p>
       </Card>
 
       <Card>
         <CardHeader
           title="Quiet hours for employees"
-          meta="Nothing is lost — messages wait rather than waking someone."
+          meta="In-app notices never wake anyone, so there is nothing to hold yet."
         />
         <Checkbox
           checked={quiet.enabled}
@@ -229,7 +236,7 @@ export function NotificationMatrix({
           </div>
         )}
         <p className="mt-2 text-caption text-text-secondary">
-          Urgent task changes are still delivered.
+          Saved for when notifications by push, SMS or WhatsApp are available.
         </p>
 
         <div className="mt-4">

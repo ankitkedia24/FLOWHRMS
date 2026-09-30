@@ -60,6 +60,10 @@ export const STATUS = {
   notAvailable: s("not-available", "Not available", "neutral"),
   /// A catalog module with nothing behind it (catalog `built: false`).
   notBuilt: s("not-built", "Not built yet", "neutral"),
+  /// A notification channel nothing delivers on yet (push, email, SMS,
+  /// WhatsApp; catalog `built: false`). Worded as availability because the
+  /// owner's question is "can my people get this by SMS?", not "is it built?".
+  notAvailableYet: s("not-available-yet", "Not available yet", "neutral"),
   /// Invitation lifecycle (Employee Invite & Onboarding).
   invitePending: s("invite-pending", "Pending", "info"),
   inviteAccepted: s("invite-accepted", "Accepted", "success"),

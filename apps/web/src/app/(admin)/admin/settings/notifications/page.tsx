@@ -5,6 +5,7 @@ import { checkAccess } from "@/lib/authz/guard";
 import { loadEntitlements } from "@/lib/authz/entitlements";
 import { evaluateAccess } from "@/lib/authz/flags";
 import { getPolicy, getPolicyVersion } from "@/lib/policies";
+import { notificationChannelStates } from "@/lib/notifications/channels";
 import { Alert } from "@/components/ui/Alert";
 import type { NotificationPolicy } from "@/lib/settings/constants";
 import { NotificationMatrix } from "./NotificationMatrix";
@@ -51,21 +52,16 @@ export default async function NotificationSettingsPage() {
       </div>
 
       <Alert variant="info" title="In-app notifications are always on">
-        Everyone sees updates inside FlowHRMS. Push, email, WhatsApp and SMS need
-        a provider before they can be switched on — an unconfigured channel
-        is shown as off and is never silently failed.
+        Everything appears in the app&apos;s notifications. Notifications by
+        email, push, SMS and WhatsApp aren&apos;t available yet, so they
+        can&apos;t be switched on. Account emails — invitations, email
+        confirmation, password changes and payment receipts — are still sent.
       </Alert>
 
       <NotificationMatrix
         version={version}
         policy={policy}
-        available={{
-          in_app: true,
-          push: channelOn("push"),
-          email: channelOn("email"),
-          whatsapp: channelOn("whatsapp"),
-          sms: channelOn("sms"),
-        }}
+        channels={notificationChannelStates(channelOn)}
       />
     </div>
   );
