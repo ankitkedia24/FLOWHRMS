@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db";
 import { awardForOnboarding } from "@/lib/performance/award";
 import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
+import { documentPathOk } from "@/lib/storage/paths";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { DOCUMENT_BUCKET } from "./bucket";
 
@@ -64,6 +65,14 @@ export async function saveDocumentAction(
   });
   if (!membership) {
     return { ok: false, error: "That employee is no longer available." };
+  }
+
+  // The browser uploaded the file and sent back its path, so the path is
+  // untrusted: record it only if it sits in this company's folder for this
+  // person. Files are later signed with the service-role key, which could
+  // read anyone's — see src/lib/storage/paths.ts.
+  if (!documentPathOk(parsed.data.path, session.tenant.id, membership.id)) {
+    return { ok: false, error: `${parsed.data.name} could not be read. Upload it again.` };
   }
 
   const document = await db.employeeDocument.create({

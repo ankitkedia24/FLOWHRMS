@@ -9,6 +9,7 @@ import { config as loadEnv } from "dotenv";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { workDateInTimezone } from "../src/lib/attendance/policy";
+import { proofPath } from "../src/lib/storage/paths";
 
 loadEnv({ path: [".env.local", ".env"], quiet: true });
 
@@ -169,7 +170,7 @@ async function main() {
             create: [
               {
                 tenantId: tenant.id,
-                path: `${reviewTask.id}/challan-4821.pdf`,
+                path: proofPath(tenant.id, reviewTask.id, "challan-4821.pdf"),
                 name: "challan-4821.pdf",
                 mime: "application/pdf",
                 sizeBytes: 284_113,

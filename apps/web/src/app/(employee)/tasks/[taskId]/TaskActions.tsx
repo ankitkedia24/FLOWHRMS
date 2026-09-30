@@ -18,11 +18,13 @@ import { useOffline } from "@/lib/offline/OfflineProvider";
  * enforced server-side — this is the friendly half of that contract.
  */
 export function TaskActions({
+  tenantId,
   taskId,
   status,
   proofRequirement,
   managerName,
 }: {
+  tenantId: string;
   taskId: string;
   status: "NOT_STARTED" | "IN_PROGRESS" | "SUBMITTED_FOR_REVIEW" | "COMPLETED";
   proofRequirement: "NONE" | "PHOTO" | "FILE";
@@ -126,6 +128,7 @@ export function TaskActions({
               // reference to it, so closing the app doesn't lose the work.
               if (!online) {
                 const queued = await enqueue("taskProof", {
+                  tenantId,
                   taskId,
                   note: note.trim() || undefined,
                   files: await Promise.all(
@@ -150,7 +153,7 @@ export function TaskActions({
                 return;
               }
 
-              const uploaded = await uploadProofFiles(taskId, files);
+              const uploaded = await uploadProofFiles(tenantId, taskId, files);
               if (!uploaded.ok) {
                 show({ variant: "error", message: uploaded.error });
                 return;

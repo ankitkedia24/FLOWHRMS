@@ -48,7 +48,10 @@ export default async function MyDocumentsPage() {
         are not shared with other employees.
       </p>
 
-      <MyDocuments membershipId={session.membership.id} />
+      <MyDocuments
+        tenantId={session.tenant.id}
+        membershipId={session.membership.id}
+      />
 
       {documents.length === 0 ? (
         <Card flush>

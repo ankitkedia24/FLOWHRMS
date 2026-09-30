@@ -1,6 +1,7 @@
 "use client";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { receiptPath } from "@/lib/storage/paths";
 import {
   RECEIPT_BUCKET,
   RECEIPT_MAX_BYTES,
@@ -45,12 +46,13 @@ async function downscale(file: File): Promise<Blob> {
 }
 
 /**
- * `draftId` is a client-generated UUID for this submission; the server
- * accepts only paths under `${tenantId}/` and records them against the
- * claim it creates.
+ * `draftId` is a client-generated UUID for this submission. Files go under
+ * `{tenantId}/{membershipId}/{draftId}/`; the server records only paths in
+ * the claimant's own folder and signs nothing else (src/lib/storage/paths.ts).
  */
 export async function uploadReceipt(
   tenantId: string,
+  membershipId: string,
   draftId: string,
   file: File,
 ): Promise<ReceiptUploadResult> {
@@ -71,8 +73,7 @@ export async function uploadReceipt(
   }
 
   const body = await downscale(file);
-  const safeName = file.name.replace(/[^\w.\-]+/g, "_");
-  const path = `${tenantId}/${draftId}/${Date.now()}-${safeName}`;
+  const path = receiptPath(tenantId, membershipId, draftId, file.name);
 
   const { error } = await supabase.storage
     .from(RECEIPT_BUCKET)

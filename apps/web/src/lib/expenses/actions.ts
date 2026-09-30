@@ -7,6 +7,7 @@ import { checkAccess } from "@/lib/authz/guard";
 import { getDb } from "@/lib/db";
 import { notify } from "@/lib/notifications";
 import { raiseActionRequest, resolveActionRequest } from "@/lib/actions/service";
+import { receiptPathOk } from "@/lib/storage/paths";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { RECEIPT_BUCKET, RECEIPT_MAX_BYTES, RECEIPT_MAX_FILES, RECEIPT_MIME } from "./bucket";
 import { canViewOthersClaims, loadExpensesPolicy, todayIn } from "./access";
@@ -104,9 +105,12 @@ export async function submitClaimAction(
   );
   if (!check.ok) return check;
 
-  // Receipts must sit under this tenant’s prefix — nothing else is recorded.
+  // The browser uploaded these and sent back their paths, so the paths are
+  // untrusted: each must sit in this company's folder for the person
+  // claiming. Receipts are later signed with the service-role key, which
+  // could read anyone's — see src/lib/storage/paths.ts.
   for (const receipt of parsed.data.receipts) {
-    if (!receipt.path.startsWith(`${tenantId}/`)) {
+    if (!receiptPathOk(receipt.path, tenantId, membershipId)) {
       return { ok: false, error: `${receipt.name} could not be read. Upload it again.` };
     }
   }
