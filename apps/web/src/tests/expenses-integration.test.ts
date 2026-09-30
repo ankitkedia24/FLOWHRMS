@@ -269,7 +269,7 @@ d("expenses flow (integration, sample tenant)", () => {
     if (!after.ok) expect(after.error.toLowerCase()).toContain("withdrawn");
   });
 
-  it("self-approval is refused under the default policy", async () => {
+  it("an approver who is not the Owner can't decide their own claim", async () => {
     const sent = await submitAs(employee, { amount: 60 });
     expect(sent.ok).toBe(true);
     if (!sent.ok || !sent.claimId) return;
@@ -330,11 +330,11 @@ d("expenses flow (integration, sample tenant)", () => {
 
     const [w, a] = await Promise.all([
       db.$transaction(
-        (tx) => transitionClaim({ tx, session: employee, claimId: id, to: "WITHDRAWN", allowSelfApproval: false }),
+        (tx) => transitionClaim({ tx, session: employee, claimId: id, to: "WITHDRAWN" }),
         { timeout: 15_000 },
       ),
       db.$transaction(
-        (tx) => transitionClaim({ tx, session: approver, claimId: id, to: "APPROVED", allowSelfApproval: false, approvedAmount: 88 }),
+        (tx) => transitionClaim({ tx, session: approver, claimId: id, to: "APPROVED", approvedAmount: 88 }),
         { timeout: 15_000 },
       ),
     ]);

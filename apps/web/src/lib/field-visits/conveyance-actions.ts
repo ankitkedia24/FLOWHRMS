@@ -238,7 +238,6 @@ export async function claimTravelAction(input: z.input<typeof claimSchema>): Pro
           session,
           claimId: claim.id,
           to: "SUBMITTED",
-          allowSelfApproval: expenses.policy.allowSelfApproval,
         });
         if (!result.ok) throw new Error(result.error);
         ref = result.ref;

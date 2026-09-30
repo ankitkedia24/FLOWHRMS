@@ -1,6 +1,6 @@
 # FlowHRMS — Expenses
 
-Version: 1.3  |  Date: 8 September 2026  |  Status: **Approved** (owner, 4 September 2026; v1.1 added employee withdrawal to E1) · **E1 built, verified and deployed** (4 September 2026; §19 records the three deviations the owner accepted at verification) · **E2 built and verified** (8 September 2026; §13 carries the whole-rupee decision the owner took at the readiness review).
+Version: 1.4  |  Date: 30 September 2026  |  Status: **Approved** (owner, 4 September 2026; v1.1 added employee withdrawal to E1) · **E1 built, verified and deployed** (4 September 2026; §19 records the three deviations the owner accepted at verification) · **E2 built and verified** (8 September 2026; §13 carries the whole-rupee decision the owner took at the readiness review) · **v1.4** (30 September 2026, owner decision): only the Owner may decide or settle their own claim; the "allow self-approval" rule was removed (invariant 9, USER-ROLES.md Amendment 5).
 
 MODULES.md admits Expenses in one clause: *"Expenses … may be enabled per tenant only when their detailed rules are approved."* The catalog carries the module already (`EXPENSES`, optional, sort order 110) with the placeholder description *"enabled only after its rules are approved."* This document is those rules.
 
@@ -40,8 +40,8 @@ The owner's architectural direction, which everything below obeys: **FlowHRMS st
 - Categories with per-category receipt requirement and optional cap.
 - Submission deadline (days after the expense date).
 - Default settlement route.
-- Whether self-approval is permitted.
 - Receipt retention window.
+- *(v1.4: there is no self-approval setting — only the Owner may decide their own claim.)*
 
 **Where it lives**
 - Employee: `/expenses` (history + submit), `/expenses/[id]`.
@@ -94,7 +94,7 @@ Enforced in the transition function and, where the database can express them, as
 6. `REJECTED`, `WITHDRAWN` and `SETTLED` are terminal. No transition leaves them.
 7. A claim has at most one `ExpenseSettlement`; a settlement's `payrollAdjustmentId`, when present, is unique across the tenant (one claim → at most one adjustment; one adjustment ← at most one claim).
 8. `submittedAt`, `policyVersion` and `claimNumber` are set at the `DRAFT → SUBMITTED` transition and never change.
-9. The claimant cannot be the decider (`decidedById ≠ claimant's userId`) unless policy `allowSelfApproval = true`, in which case the transition and audit event both carry `selfApproved: true`.
+9. The claimant cannot be the decider or the settler, unless they are the tenant **Owner** (nobody sits above them). The Owner's own decision carries `selfApproved: true` on the transition and the audit event. No policy setting changes this. *(v1.4, 30 September 2026; before, a policy `allowSelfApproval` let any approver decide their own claim. A value stored by older rule versions is ignored.)*
 10. Every status change has exactly one `ExpenseClaimTransition` row whose `toStatus` equals the new status, written in the same transaction.
 11. Snapshots are immutable: `categoryName`, `receiptRequiredAtSubmission`, `maxClaimAmountAtSubmission`, the warning flags. A later category edit never rewrites what the approver saw.
 12. Warning flags are computed once at submission from the policy version stamped on the claim, and stored — never recomputed on read.
@@ -163,7 +163,6 @@ type ExpensesPolicy = {
   submissionDeadlineDays: number;      // default 30; ≥ 1; late = flagged, never refused
   defaultSettlementRoute: "PAYROLL" | "OUTSIDE"; // default "PAYROLL"; effective route falls back
                                                   // to OUTSIDE when Payroll is unavailable
-  allowSelfApproval: boolean;          // default false
   receiptRetentionYears: number;       // default 7; floor RECEIPT_RETENTION_FLOOR_YEARS (7) — upward only
   categories: Array<{
     key: string;                       // stable slug, never shown
@@ -360,7 +359,7 @@ Flags (stored on the claim, shown to the approver, never refuse): `isLate` (subm
 - **Never inline.** `APPROVE_INLINE.EXPENSE_CLAIM = { allowed: false, because: "Approving means choosing the amount and where it settles." }` — the same reasoning that keeps leave and reward decisions off the one-tap path (integrity pattern 1). The tile links to `/admin/expenses/[id]`.
 - **The decision card shows** the amount, category, date, description, receipts, submitter, the three warning flags with their meaning spelled out, the policy version's deadline and cap for that category, and any earlier claims that triggered the duplicate flag.
 - **Three outcomes**, one form: *Approve* (full amount) · *Approve a different amount* (amount field + mandatory reason) · *Reject* (mandatory reason). The transition derives `APPROVED` vs `PARTIALLY_APPROVED` from the amounts (invariant 4).
-- **Self-approval** is refused unless policy allows it; when allowed, the transition and audit event both carry `selfApproved: true` and the card says so.
+- **Self-approval** is refused for everyone but the Owner (invariant 9, v1.4). The Owner's own decision carries `selfApproved: true` on the transition and audit event, and the card says so.
 - **Single step.** One approver, one decision. Multi-level chains, amount-tiered approvers and delegation are non-goals (§18).
 - **Resolution** resolves the tile for everyone; the employee gets a bell notification with the reason verbatim.
 - **Withdrawal resolves the tile too.** `SUBMITTED → WITHDRAWN` resolves the `EXPENSE_CLAIM` request with resolution `withdrawn`; an approver who opens a stale link sees the claim's history and the claimant's reason, not a decision form. No notification goes to approvers — a withdrawn claim asks nothing of them.
@@ -484,7 +483,7 @@ Each phase ships on its own: tests, typecheck, lint, build, browser at 360 px an
 - [ ] `PARTIALLY_APPROVED` cannot be requested; it results from `approvedAmount < claimedAmount`.
 - [ ] Approving more than claimed, approving zero, and rejecting without a reason are refused.
 - [ ] `REJECTED`, `WITHDRAWN` and `SETTLED` accept no transition.
-- [ ] Self-approval is refused with default policy; permitted and flagged when policy allows.
+- [ ] Self-approval is refused for everyone but the Owner; the Owner's is permitted and flagged (v1.4).
 - [ ] Every status change has one transition row and one audit event in the same transaction; a failure in either rolls back the status.
 - [ ] Two concurrent transitions on one claim (withdraw vs. approve) yield exactly one success; the other is refused with the claim's current status named.
 

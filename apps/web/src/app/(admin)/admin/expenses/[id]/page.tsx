@@ -69,11 +69,8 @@ export default async function AdminExpenseClaimPage({
 
   // Your own claim: the same rule the seam applies (state.ts), so the page
   // never offers a button that would only refuse. Outsiders never get here.
-  const allowSelfApproval = published?.policy.allowSelfApproval ?? false;
   const ownRefusal = (step: "decide" | "settle") =>
-    isOwn
-      ? ownClaimRefusal({ step, mayDecideOwn: mayDecideOwn(session.membership.roleKey), allowSelfApproval })
-      : null;
+    isOwn ? ownClaimRefusal({ step, mayDecideOwn: mayDecideOwn(session.membership.roleKey) }) : null;
   const awaitingSettlement = claim.status === "APPROVED" || claim.status === "PARTIALLY_APPROVED";
   const ownSettleRefusal = awaitingSettlement && canApprove ? ownRefusal("settle") : null;
 

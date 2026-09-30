@@ -33,7 +33,6 @@ const categorySchema = z.object({
 const policySchema = z.object({
   submissionDeadlineDays: z.number().int().min(1).max(3650),
   defaultSettlementRoute: z.enum(["PAYROLL", "OUTSIDE"]),
-  allowSelfApproval: z.boolean(),
   receiptRetentionYears: z.number().int().min(RECEIPT_RETENTION_FLOOR_YEARS).max(99),
   categories: z.array(categorySchema).min(1).max(50),
 });
@@ -87,7 +86,6 @@ export async function publishExpensesPolicyAction(
       activeCategories: normalized.categories.filter((c) => c.isActive).length,
       submissionDeadlineDays: normalized.submissionDeadlineDays,
       defaultSettlementRoute: normalized.defaultSettlementRoute,
-      allowSelfApproval: normalized.allowSelfApproval,
       receiptRetentionYears: normalized.receiptRetentionYears,
     },
   });

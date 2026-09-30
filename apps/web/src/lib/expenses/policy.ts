@@ -36,7 +36,6 @@ export interface ExpensesPolicy {
   submissionDeadlineDays: number;
   /** Falls back to OUTSIDE when Payroll is unavailable (§12). */
   defaultSettlementRoute: SettlementRoute;
-  allowSelfApproval: boolean;
   /** Years after settlement; ≥ RECEIPT_RETENTION_FLOOR_YEARS. */
   receiptRetentionYears: number;
   categories: ExpenseCategory[];
@@ -55,7 +54,6 @@ export const DEFAULT_CATEGORIES: ExpenseCategory[] = [
 export const DEFAULT_EXPENSES_POLICY: ExpensesPolicy = {
   submissionDeadlineDays: 30,
   defaultSettlementRoute: "PAYROLL",
-  allowSelfApproval: false,
   receiptRetentionYears: RECEIPT_RETENTION_FLOOR_YEARS,
   categories: DEFAULT_CATEGORIES,
 };
@@ -136,7 +134,8 @@ export function normalizeExpensesPolicy(input: unknown): ExpensesPolicy {
     submissionDeadlineDays: Math.min(3650, Math.max(1, deadline)),
     defaultSettlementRoute:
       route === "OUTSIDE" || route === "PAYROLL" ? route : DEFAULT_EXPENSES_POLICY.defaultSettlementRoute,
-    allowSelfApproval: bool(raw.allowSelfApproval, false),
+    // `allowSelfApproval` in older published rules is ignored: only the
+    // Owner may decide their own claim (state.ts ownClaimRefusal).
     receiptRetentionYears: Math.min(99, Math.max(RECEIPT_RETENTION_FLOOR_YEARS, retention)),
     categories,
   };

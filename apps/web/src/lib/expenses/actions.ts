@@ -190,7 +190,6 @@ export async function submitClaimAction(
         session,
         claimId: claim.id,
         to: "SUBMITTED",
-        allowSelfApproval: policy.allowSelfApproval,
       });
       if (!result.ok) throw new Error(result.error);
       ref = result.ref;
@@ -260,7 +259,6 @@ export async function withdrawClaimAction(
         session,
         claimId: parsed.data.claimId,
         to: "WITHDRAWN",
-        allowSelfApproval: false,
         reason: parsed.data.reason,
       });
       if (!result.ok) throw new Error(result.error);
@@ -339,9 +337,6 @@ export async function decideClaimAction(
     to = derived.status;
   }
 
-  const published = await loadExpensesPolicy(tenantId);
-  const allowSelfApproval = published?.policy.allowSelfApproval ?? false;
-
   let ref = "";
   let selfApproved = false;
   try {
@@ -351,7 +346,6 @@ export async function decideClaimAction(
         session,
         claimId: claim.id,
         to,
-        allowSelfApproval,
         approvedAmount,
         reason: parsed.data.reason,
       });
@@ -470,7 +464,6 @@ async function settleOutside(
         session,
         claimId,
         to: "SETTLED",
-        allowSelfApproval: false,
         settlement: { route: "OUTSIDE", reference },
       });
       if (!result.ok) throw new Error(result.error);

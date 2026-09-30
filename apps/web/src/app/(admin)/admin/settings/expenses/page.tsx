@@ -12,9 +12,10 @@ export const metadata: Metadata = { title: "Expense rules" };
 
 /**
  * The expense rules (EXPENSES-MODULE.md §8): categories, receipt
- * requirement, caps, deadline, settlement preference, self-approval,
- * retention. Publishing is the deliberate act; claims can only be
- * submitted once a version exists.
+ * requirement, caps, deadline, settlement preference, retention. There is
+ * no self-approval switch: only the Owner may decide their own claim.
+ * Publishing is the deliberate act; claims can only be submitted once a
+ * version exists.
  */
 export default async function ExpenseRulesPage() {
   const { session, decision } = await checkAccess({

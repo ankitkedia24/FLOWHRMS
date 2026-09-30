@@ -30,7 +30,7 @@ export function DecisionCard({
   isOwn: boolean;
   /**
    * Why they may not decide their own claim (state.ts `ownClaimRefusal`),
-   * or null — the Owner, or a company that allows self-approval.
+   * or null — only the Owner may decide their own.
    */
   ownRefusal: string | null;
 }) {
@@ -68,7 +68,7 @@ export function DecisionCard({
         {selfBlocked
           ? `This is your own claim. ${ownRefusal}`
           : isOwn
-            ? "This is your own claim. You may decide it; it will be recorded as self-approved."
+            ? "This is your own claim. As the Owner you may decide it; it will be recorded as self-approved."
             : "The employee reads any reason you give word for word."}
       </Alert>
 

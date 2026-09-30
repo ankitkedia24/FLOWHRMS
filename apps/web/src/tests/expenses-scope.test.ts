@@ -9,26 +9,18 @@ import { claimListWhere } from "@/lib/expenses/queue-scope";
  */
 
 describe("your own claim (ownClaimRefusal)", () => {
-  it("lets the Owner decide and settle their own, whatever the policy", () => {
-    for (const allowSelfApproval of [false, true]) {
-      expect(ownClaimRefusal({ step: "decide", mayDecideOwn: true, allowSelfApproval })).toBeNull();
-      expect(ownClaimRefusal({ step: "settle", mayDecideOwn: true, allowSelfApproval })).toBeNull();
-    }
+  it("lets the Owner decide and settle their own", () => {
+    expect(ownClaimRefusal({ step: "decide", mayDecideOwn: true })).toBeNull();
+    expect(ownClaimRefusal({ step: "settle", mayDecideOwn: true })).toBeNull();
   });
 
-  it("lets anyone else decide their own only when the company allows self-approval", () => {
-    expect(ownClaimRefusal({ step: "decide", mayDecideOwn: false, allowSelfApproval: false })).toBe(
+  it("lets nobody but the Owner decide or settle their own — there is no setting for it", () => {
+    expect(ownClaimRefusal({ step: "decide", mayDecideOwn: false })).toBe(
       "You can't decide your own claim. Ask another approver.",
     );
-    expect(ownClaimRefusal({ step: "decide", mayDecideOwn: false, allowSelfApproval: true })).toBeNull();
-  });
-
-  it("never lets anyone but the Owner settle their own — self-approval does not reach settlement", () => {
-    for (const allowSelfApproval of [false, true]) {
-      expect(ownClaimRefusal({ step: "settle", mayDecideOwn: false, allowSelfApproval })).toBe(
-        "You can't settle your own claim. Another approver has to.",
-      );
-    }
+    expect(ownClaimRefusal({ step: "settle", mayDecideOwn: false })).toBe(
+      "You can't settle your own claim. Another approver has to.",
+    );
   });
 });
 
@@ -38,23 +30,36 @@ describe("the guard applies it", () => {
 
   it("refuses a settler settling their own approved claim (the audit's finding)", () => {
     const self = { isClaimant: true, canApprove: true };
-    const r = transitionGuard({ ...settle, actor: self, allowSelfApproval: true });
+    const r = transitionGuard({ ...settle, actor: self });
     expect(!r.ok && r.error).toBe("You can't settle your own claim. Another approver has to.");
-    expect(transitionGuard({ ...settle, actor: { ...self, mayDecideOwn: false }, allowSelfApproval: false }).ok).toBe(false);
+    expect(transitionGuard({ ...settle, actor: { ...self, mayDecideOwn: false } }).ok).toBe(false);
   });
 
   it("lets the Owner settle their own, and someone else settle anyone's", () => {
-    expect(transitionGuard({ ...settle, actor: { isClaimant: true, canApprove: true, mayDecideOwn: true }, allowSelfApproval: false }).ok).toBe(true);
-    expect(transitionGuard({ ...settle, actor: { isClaimant: false, canApprove: true }, allowSelfApproval: false }).ok).toBe(true);
+    expect(transitionGuard({ ...settle, actor: { isClaimant: true, canApprove: true, mayDecideOwn: true } }).ok).toBe(true);
+    expect(transitionGuard({ ...settle, actor: { isClaimant: false, canApprove: true } }).ok).toBe(true);
   });
 
-  it("lets the Owner approve their own under the default policy, recorded as self-approved", () => {
-    const r = transitionGuard({ ...decide, actor: { isClaimant: true, canApprove: true, mayDecideOwn: true }, allowSelfApproval: false });
+  it("refuses anyone but the Owner deciding their own claim, whatever they may approve", () => {
+    for (const to of ["APPROVED", "PARTIALLY_APPROVED", "REJECTED"] as const) {
+      const r = transitionGuard({
+        ...decide,
+        to,
+        approvedAmount: to === "PARTIALLY_APPROVED" ? 50 : 100,
+        reason: "because",
+        actor: { isClaimant: true, canApprove: true },
+      });
+      expect(!r.ok && r.error).toBe("You can't decide your own claim. Ask another approver.");
+    }
+  });
+
+  it("lets the Owner approve their own, recorded as self-approved", () => {
+    const r = transitionGuard({ ...decide, actor: { isClaimant: true, canApprove: true, mayDecideOwn: true } });
     expect(r.ok && r.selfApproved).toBe(true);
   });
 
   it("still needs the permission, Owner or not", () => {
-    const r = transitionGuard({ ...settle, actor: { isClaimant: true, canApprove: false, mayDecideOwn: true }, allowSelfApproval: false });
+    const r = transitionGuard({ ...settle, actor: { isClaimant: true, canApprove: false, mayDecideOwn: true } });
     expect(r.ok).toBe(false);
   });
 });
