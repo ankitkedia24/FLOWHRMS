@@ -74,3 +74,18 @@ an owner can fix it rather than wonder why nothing arrives.
 - The last active Owner cannot be deactivated. A company must never be
   left with nobody who can manage it.
 - Nobody can deactivate their own account.
+
+---
+
+# Amendment 2 — Deciding your own, and requests waiting on a question
+*Approved by the owner, 30 September 2026 (Hardening batch 2). Appended, not rewritten.*
+
+- Nobody decides their own leave or attendance exception. The **Owner** is
+  the one exception: nobody sits above them, so refusing would leave their
+  own requests undecidable. Their own requests reach their tiles; everyone
+  else's own are left out of their queues and tiles.
+- The first final decision wins. Two approvers pressing at once get one
+  decision; the other is told "Already decided. Open the activity log to
+  see who decided."
+- Ask for details needs the question. The employee sees it ("Your approver
+  asked: …") and the request stays in the queue, still decidable.

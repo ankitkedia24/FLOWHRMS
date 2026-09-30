@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { checkAccess } from "@/lib/authz/guard";
+import { DECIDABLE_STATUSES, withoutOwn } from "@/lib/authz/approvals";
 import { getDb } from "@/lib/db";
 import { devFixtureOffline } from "@/lib/auth/fixture";
 import { Alert } from "@/components/ui/Alert";
@@ -72,11 +73,18 @@ export default async function AdminAttendancePage({
           },
           orderBy: { checkInAt: "asc" },
         }),
+        // Waiting ones, including those waiting on an answer to a question.
+        // Your own are left out unless you are an Owner: you could not
+        // decide them (lib/authz/approvals.ts).
         getDb().attendanceRecord.findMany({
           where: {
             tenantId: session.tenant.id,
-            reviewStatus: "PENDING",
+            reviewStatus: { in: [...DECIDABLE_STATUSES] },
             ...recordWhere,
+            ...withoutOwn({
+              membershipId: session.membership.id,
+              roleKey: session.membership.roleKey,
+            }),
           },
           include: { membership: { include: { user: true } }, branch: true },
           orderBy: { checkInAt: "asc" },
@@ -194,6 +202,10 @@ export default async function AdminAttendancePage({
               branchName: record.branch?.name ?? null,
               outcome: record.checkInOutcome,
               reason: record.checkInReason,
+              question:
+                record.reviewStatus === "DETAILS_REQUESTED"
+                  ? record.reviewReason
+                  : null,
               lateMinutes: record.lateMinutes,
               conflictNote: record.conflictNote,
               offlineCaptured: record.offlineCaptured,

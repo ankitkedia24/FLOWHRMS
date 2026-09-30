@@ -11,6 +11,13 @@ import {
   SUBJECT,
 } from "@/lib/actions/raise";
 import { checkAccess } from "@/lib/authz/guard";
+import {
+  ALREADY_DECIDED,
+  DECIDABLE_STATUSES,
+  QUESTION_NEEDED,
+  isDecidable,
+  selfDecisionRefusal,
+} from "@/lib/authz/approvals";
 import { loadEntitlements } from "@/lib/authz/entitlements";
 import { evaluateAccess } from "@/lib/authz/flags";
 import { getPolicyVersion } from "@/lib/policies";
@@ -791,6 +798,9 @@ export async function reviewAttendanceAction(
   if (parsed.data.decision === "REJECTED" && !reason) {
     return { ok: false, error: "Add a reason so the employee knows why." };
   }
+  if (parsed.data.decision === "DETAILS_REQUESTED" && !reason) {
+    return { ok: false, error: QUESTION_NEEDED };
+  }
 
   const db = getDb();
   const record = await db.attendanceRecord.findFirst({
@@ -801,8 +811,17 @@ export async function reviewAttendanceAction(
     return { ok: false, error: "That record is no longer available." };
   }
 
-  // Stale decision: another admin already decided (edge-cases.md).
-  if (record.reviewStatus !== "PENDING") {
+  // Nobody reviews their own attendance, except an Owner (approvals.ts).
+  const own = selfDecisionRefusal({
+    actor: { membershipId: session.membership.id, roleKey: session.membership.roleKey },
+    subjectMembershipId: record.membershipId,
+    kind: "attendance",
+  });
+  if (own) return { ok: false, error: own };
+
+  // Stale decision: another admin already decided (edge-cases.md). A
+  // question asked earlier leaves it open, so it can still be decided.
+  if (!isDecidable(record.reviewStatus)) {
     const who = record.reviewedAt
       ? ` at ${formatClockTime(record.reviewedAt, session.tenant.timezone)}`
       : "";
@@ -817,15 +836,27 @@ export async function reviewAttendanceAction(
     lateMinutes: record.lateMinutes,
   };
 
-  await db.attendanceRecord.update({
-    where: { id: record.id },
+  // Conditional on the exception still being open: of two reviewers
+  // pressing at once, exactly one write lands. The other is told, and no
+  // audit, points or notification follow for it.
+  const written = await db.attendanceRecord.updateMany({
+    where: {
+      id: record.id,
+      tenantId: session.tenant.id,
+      reviewStatus: { in: [...DECIDABLE_STATUSES] },
+    },
     data: {
       reviewStatus: parsed.data.decision,
       reviewedById: session.membership.id,
       reviewedAt: new Date(),
-      reviewReason: reason,
+      // Cleared on approval without a note, so an earlier question is not
+      // later shown as the reason for the decision.
+      reviewReason: reason ?? null,
     },
   });
+  if (written.count === 0) {
+    return { ok: false, error: ALREADY_DECIDED };
+  }
 
   await recordAuditEvent(session, {
     action: `attendance.exception_${parsed.data.decision.toLowerCase()}`,

@@ -7,9 +7,11 @@ import { isTileVisible } from "./snooze";
 import {
   resolveAudience,
   DECIDING_PERMISSION,
+  OWNER_DECIDES_OWN,
   type AudienceCandidate,
   type Recipient,
 } from "./audience";
+import { mayDecideOwn } from "@/lib/authz/approvals";
 import { MODULE_FOR_KIND, type ActionKind } from "./kinds";
 import { loadEntitlements } from "@/lib/authz/entitlements";
 import { enabledModuleKeys } from "@/lib/authz/flags";
@@ -59,7 +61,12 @@ async function loadCandidates(
   tenantId: string,
   kind: ActionKind,
   aboutMembershipId?: string | null,
-): Promise<{ candidates: AudienceCandidate[]; departmentName: string | null; aboutUserId: string | null }> {
+): Promise<{
+  candidates: AudienceCandidate[];
+  departmentName: string | null;
+  aboutUserId: string | null;
+  aboutMayDecideOwn: boolean;
+}> {
   const db = getDb();
   const permission = DECIDING_PERMISSION[kind];
 
@@ -68,6 +75,7 @@ async function loadCandidates(
         where: { id: aboutMembershipId, tenantId },
         select: {
           userId: true,
+          role: { select: { key: true } },
           department: { select: { id: true, name: true, headId: true, isActive: true } },
         },
       })
@@ -98,6 +106,8 @@ async function loadCandidates(
     })),
     departmentName: department?.name ?? null,
     aboutUserId: about?.userId ?? null,
+    aboutMayDecideOwn:
+      OWNER_DECIDES_OWN.has(kind) && Boolean(about && mayDecideOwn(about.role.key)),
   };
 }
 
@@ -111,15 +121,13 @@ export async function raiseActionRequest(input: RaiseInput): Promise<void> {
     if (input.recipients) {
       recipients = input.recipients;
     } else {
-      const { candidates, departmentName, aboutUserId } = await loadCandidates(
-        input.tenantId,
-        input.kind,
-        input.aboutMembershipId,
-      );
+      const { candidates, departmentName, aboutUserId, aboutMayDecideOwn } =
+        await loadCandidates(input.tenantId, input.kind, input.aboutMembershipId);
       recipients = resolveAudience({
         candidates,
         actorUserId: input.actorUserId,
         aboutUserId,
+        aboutMayDecideOwn,
         departmentName,
       });
     }

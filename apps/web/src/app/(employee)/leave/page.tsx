@@ -99,13 +99,28 @@ export default async function EmployeeLeavePage() {
                         : `${request.unpaidDays} unpaid days will be applied to payroll.`}
                     </p>
                   )}
-                  {request.decisionReason && (
-                    <p className="mt-1 text-secondary text-text-secondary">
-                      Reason from your manager: {request.decisionReason}
-                    </p>
+                  {request.status === "DETAILS_REQUESTED" ? (
+                    <>
+                      <p className="mt-2 text-secondary text-text-primary">
+                        {request.decisionReason
+                          ? `Your approver asked: ${request.decisionReason}`
+                          : "Your approver asked for more details."}
+                      </p>
+                      <p className="mt-1 text-caption text-text-secondary">
+                        Answer them directly. They can still approve or
+                        reject this request.
+                      </p>
+                    </>
+                  ) : (
+                    request.decisionReason && (
+                      <p className="mt-1 text-secondary text-text-secondary">
+                        Reason from your manager: {request.decisionReason}
+                      </p>
+                    )
                   )}
 
-                  {request.status === "PENDING" && (
+                  {(request.status === "PENDING" ||
+                    request.status === "DETAILS_REQUESTED") && (
                     <div className="mt-3">
                       <CancelLeaveButton requestId={request.id} />
                     </div>

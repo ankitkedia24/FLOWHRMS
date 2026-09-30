@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { checkAccess } from "@/lib/authz/guard";
+import { DECIDABLE_STATUSES, withoutOwn } from "@/lib/authz/approvals";
 import { getDb } from "@/lib/db";
 import { devFixtureOffline } from "@/lib/auth/fixture";
 import { Alert } from "@/components/ui/Alert";
@@ -26,10 +27,20 @@ export default async function AdminLeavePage() {
   const canApprove = session.permissions.has("leave.approve");
   const tz = session.tenant.timezone;
 
+  // Waiting ones, including those waiting on an answer to a question —
+  // they can still be decided. Your own are left out unless you are an
+  // Owner: pressing Approve on them would only be refused.
   const requests = devFixtureOffline()
     ? []
     : await getDb().leaveRequest.findMany({
-        where: { tenantId: session.tenant.id, status: "PENDING" },
+        where: {
+          tenantId: session.tenant.id,
+          status: { in: [...DECIDABLE_STATUSES] },
+          ...withoutOwn({
+            membershipId: session.membership.id,
+            roleKey: session.membership.roleKey,
+          }),
+        },
         include: { membership: { include: { user: true } } },
         orderBy: { createdAt: "asc" },
         take: 25,
@@ -72,6 +83,10 @@ export default async function AdminLeavePage() {
                   ? "Emergency"
                   : "Full day",
             reason: request.reason,
+            question:
+              request.status === "DETAILS_REQUESTED"
+                ? request.decisionReason
+                : null,
             days: request.unpaidDays,
             impactUnpaid: leaveApprovalImpact({
               days: request.unpaidDays,

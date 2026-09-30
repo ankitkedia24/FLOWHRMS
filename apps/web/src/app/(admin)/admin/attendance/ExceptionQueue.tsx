@@ -18,6 +18,8 @@ export interface ExceptionItem {
   branchName: string | null;
   outcome: "INSIDE" | "OUTSIDE" | "UNCONFIRMED" | "NOT_REQUIRED" | null;
   reason: string | null;
+  /** The question an approver asked; the exception stays decidable. */
+  question?: string | null;
   lateMinutes: number;
   /** Both versions, when a queued check-in clashed with a saved one. */
   conflictNote: string | null;
@@ -81,6 +83,12 @@ export function ExceptionQueue({ items }: { items: ExceptionItem[] }) {
                     <div className="flex gap-2">
                       <dt className="font-medium">Reason</dt>
                       <dd className="text-text-primary">{item.reason}</dd>
+                    </div>
+                  )}
+                  {item.question && (
+                    <div className="flex gap-2">
+                      <dt className="font-medium">Asked</dt>
+                      <dd className="text-text-primary">{item.question}</dd>
                     </div>
                   )}
                 </dl>

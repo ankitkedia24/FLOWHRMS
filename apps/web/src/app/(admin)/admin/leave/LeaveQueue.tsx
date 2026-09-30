@@ -15,6 +15,8 @@ export interface LeaveQueueItem {
   dates: string;
   type: string;
   reason: string;
+  /** The question an approver asked; the request stays decidable. */
+  question?: string | null;
   days: number;
   impactUnpaid: string;
 }
@@ -54,6 +56,12 @@ export function LeaveQueue({ items }: { items: LeaveQueueItem[] }) {
                   <dt className="font-medium">Reason</dt>
                   <dd className="text-text-primary">{item.reason}</dd>
                 </div>
+                {item.question && (
+                  <div className="flex gap-2">
+                    <dt className="font-medium">Asked</dt>
+                    <dd className="text-text-primary">{item.question}</dd>
+                  </div>
+                )}
               </dl>
             }
             onDecide={async ({ decision, reason, paid }) => {

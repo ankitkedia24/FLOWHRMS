@@ -12,9 +12,11 @@ import type { ActionKind } from "./kinds";
  * included by virtue of being the head, but still filtered by permission,
  * and the department screen warns an owner when that filter is biting.
  *
- * Two people are always excluded: whoever raised the request, and whoever
- * it is about. Nobody approves their own leave, even if they run the
- * department (Product Constitution §5).
+ * Two people are excluded: whoever raised the request, and whoever it is
+ * about. Nobody approves their own leave, even if they run the department
+ * (Product Constitution §5). The one exception is an Owner's own leave or
+ * attendance: nobody sits above them, and the action lets them decide it
+ * (lib/authz/approvals.ts), so the tile reaches them too.
  *
  * Pure. The database query that produces `candidates` lives in service.ts.
  */
@@ -41,13 +43,30 @@ export interface AudienceInput {
   actorUserId?: string | null;
   /** Whose work it concerns — never asked to decide about themselves. */
   aboutUserId?: string | null;
+  /**
+   * The person it concerns may decide it themselves — an Owner, for the
+   * kinds in OWNER_DECIDES_OWN. They are then asked like anyone able to.
+   */
+  aboutMayDecideOwn?: boolean;
   /** For the head's reason line: "You are the head of Dispatch." */
   departmentName?: string | null;
 }
 
+/**
+ * The kinds whose deciding action lets an Owner decide their own request
+ * (lib/authz/approvals.ts). Everywhere else they are excluded like anyone.
+ */
+export const OWNER_DECIDES_OWN: ReadonlySet<ActionKind> = new Set<ActionKind>([
+  "LEAVE_REQUEST",
+  "ATTENDANCE_EXCEPTION",
+]);
+
 export function resolveAudience(input: AudienceInput): Recipient[] {
+  const self = input.aboutMayDecideOwn ? input.aboutUserId : null;
   const excluded = new Set(
-    [input.actorUserId, input.aboutUserId].filter(Boolean) as string[],
+    [input.actorUserId, input.aboutUserId].filter(
+      (id): id is string => Boolean(id) && id !== self,
+    ),
   );
 
   const seen = new Set<string>();
@@ -65,9 +84,11 @@ export function resolveAudience(input: AudienceInput): Recipient[] {
     recipients.push({
       userId: c.userId,
       reason:
-        c.isDepartmentHead && input.departmentName
-          ? `You are the head of ${input.departmentName}.`
-          : "You handle approvals for this company.",
+        c.userId === self
+          ? "Nobody sits above the owner, so you decide your own."
+          : c.isDepartmentHead && input.departmentName
+            ? `You are the head of ${input.departmentName}.`
+            : "You handle approvals for this company.",
     });
   }
 

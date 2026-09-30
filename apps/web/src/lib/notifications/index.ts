@@ -86,18 +86,21 @@ async function attendanceDecision(
   });
 }
 
-/** Leave decision for the requester. */
+/** Leave decision — or the approver's question — for the requester. */
 async function leaveDecision(
   session: AppSession,
   userId: string,
-  decision: "APPROVED" | "REJECTED",
+  decision: "APPROVED" | "REJECTED" | "DETAILS_REQUESTED",
   dates: string,
   reason?: string,
 ): Promise<void> {
   await create({
     tenantId: session.tenant.id,
     userId,
-    title: `Leave ${decision === "APPROVED" ? "approved" : "rejected"}: ${dates}`,
+    title:
+      decision === "DETAILS_REQUESTED"
+        ? `Question about your leave: ${dates}`
+        : `Leave ${decision === "APPROVED" ? "approved" : "rejected"}: ${dates}`,
     body: reason,
     href: "/leave",
   });

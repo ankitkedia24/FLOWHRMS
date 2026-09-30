@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { describeAction } from "@/lib/activity-labels";
 import Link from "next/link";
 import { requireAdminArea } from "@/lib/authz/guard";
+import { DECIDABLE_STATUSES, withoutOwn } from "@/lib/authz/approvals";
 import { loadEntitlements } from "@/lib/authz/entitlements";
 import { evaluateAccess } from "@/lib/authz/flags";
 import { getDb } from "@/lib/db";
@@ -48,6 +49,7 @@ export default async function AdminDashboardPage() {
 
   const workDate = workDateInTimezone(new Date(), tz);
   const db = devFixtureOffline() ? null : getDb();
+  const me = { membershipId: session.membership.id, roleKey: session.membership.roleKey };
 
   const payrollRun =
     db && payrollOn
@@ -79,14 +81,24 @@ export default async function AdminDashboardPage() {
                 },
               })
             : [],
+          // The same items the review queues offer: still decidable, and
+          // not your own unless you are an Owner (lib/authz/approvals.ts).
           attendanceOn
             ? db.attendanceRecord.count({
-                where: { tenantId: session.tenant.id, reviewStatus: "PENDING" },
+                where: {
+                  tenantId: session.tenant.id,
+                  reviewStatus: { in: [...DECIDABLE_STATUSES] },
+                  ...withoutOwn(me),
+                },
               })
             : 0,
           leaveOn
             ? db.leaveRequest.count({
-                where: { tenantId: session.tenant.id, status: "PENDING" },
+                where: {
+                  tenantId: session.tenant.id,
+                  status: { in: [...DECIDABLE_STATUSES] },
+                  ...withoutOwn(me),
+                },
               })
             : 0,
           tasksOn
