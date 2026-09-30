@@ -44,6 +44,7 @@ export default async function ExpensesPage() {
       {usable ? (
         <ClaimForm
           tenantId={session.tenant.id}
+          membershipId={session.membership.id}
           categories={activeCategories(published.policy).map((c) => ({
             key: c.key,
             name: c.name,

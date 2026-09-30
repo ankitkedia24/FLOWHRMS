@@ -101,6 +101,7 @@ export default async function TaskDetailPage({
 
       {task.status !== "COMPLETED" && (
         <TaskActions
+          tenantId={session.tenant.id}
           taskId={task.id}
           status={task.status}
           proofRequirement={task.proofRequirement}

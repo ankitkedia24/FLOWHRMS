@@ -28,11 +28,13 @@ export interface CategoryOption {
  */
 export function ClaimForm({
   tenantId,
+  membershipId,
   categories,
   deadlineDays,
   today,
 }: {
   tenantId: string;
+  membershipId: string;
   categories: CategoryOption[];
   deadlineDays: number;
   today: string;
@@ -82,7 +84,7 @@ export function ClaimForm({
       const draftId = crypto.randomUUID();
       const receipts: Array<{ path: string; name: string; mime: string; sizeBytes: number }> = [];
       for (const file of files) {
-        const uploaded = await uploadReceipt(tenantId, draftId, file);
+        const uploaded = await uploadReceipt(tenantId, membershipId, draftId, file);
         if (!uploaded.ok) {
           show({ variant: "error", message: uploaded.error });
           return;

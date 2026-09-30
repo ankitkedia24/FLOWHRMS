@@ -10,6 +10,7 @@ import { checkAccess } from "@/lib/authz/guard";
 import { canSee, decisionScopeRefusal, OUTSIDE_TEAM } from "@/lib/authz/scope";
 import { loadRecordScope } from "@/lib/authz/record-scope";
 import { awardForTaskCompletion } from "@/lib/performance/award";
+import { proofPathOk } from "@/lib/storage/paths";
 
 /**
  * Task server actions.
@@ -235,6 +236,16 @@ export async function submitProofAction(
   if (!task) return { ok: false, error: "That task is no longer available." };
 
   const files = parsed.data.files ?? [];
+
+  // The browser uploaded these and sent back their paths, so the paths are
+  // untrusted: each must sit in this company's folder for this task. Proof
+  // is later signed with the service-role key, which could read anyone's
+  // — see src/lib/storage/paths.ts.
+  for (const file of files) {
+    if (!proofPathOk(file.path, session.tenant.id, task.id)) {
+      return { ok: false, error: `${file.name} could not be read. Upload it again.` };
+    }
+  }
 
   // A task requiring proof cannot be completed without proof on file.
   if (task.proofRequirement !== "NONE" && files.length === 0) {

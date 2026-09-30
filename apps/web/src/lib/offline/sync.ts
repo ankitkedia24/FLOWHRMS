@@ -46,6 +46,11 @@ export interface LeavePayload {
 }
 
 export interface ProofPayload {
+  /**
+   * The company folder the files upload into. Optional only because proof
+   * queued before it was added carries none; that is refused, not guessed.
+   */
+  tenantId?: string;
   taskId: string;
   note?: string;
   /** Kept as Blobs in IndexedDB so a photo survives the tab closing. */
@@ -117,7 +122,13 @@ async function send(action: QueuedAction): Promise<SendOutcome> {
         const files = payload.files.map(
           (file) => new File([file.blob], file.name, { type: file.type }),
         );
-        const uploaded = await uploadProofFiles(payload.taskId, files);
+        if (!payload.tenantId) {
+          return {
+            status: "rejected",
+            error: "This proof was saved by an older version of the app. Open the task and send it again.",
+          };
+        }
+        const uploaded = await uploadProofFiles(payload.tenantId, payload.taskId, files);
         if (!uploaded.ok) {
           // Storage refused the file (too large, wrong type): retrying
           // will not help, so tell the person.

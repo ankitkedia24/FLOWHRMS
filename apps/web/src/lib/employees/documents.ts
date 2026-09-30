@@ -8,7 +8,8 @@ import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
 import { canSee, OUTSIDE_TEAM } from "@/lib/authz/scope";
 import { loadRecordScope } from "@/lib/authz/record-scope";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { documentPathOk } from "@/lib/storage/paths";
+import { signPrivateFile } from "@/lib/storage/sign";
 import { DOCUMENT_BUCKET } from "./bucket";
 
 /**
@@ -66,6 +67,14 @@ export async function saveDocumentAction(
   });
   if (!membership) {
     return { ok: false, error: "That employee is no longer available." };
+  }
+
+  // The browser uploaded the file and sent back its path, so the path is
+  // untrusted: record it only if it sits in this company's folder for this
+  // person. Files are later signed with the service-role key, which could
+  // read anyone's — see src/lib/storage/paths.ts.
+  if (!documentPathOk(parsed.data.path, session.tenant.id, membership.id)) {
+    return { ok: false, error: `${parsed.data.name} could not be read. Upload it again.` };
   }
 
   const document = await db.employeeDocument.create({
@@ -218,17 +227,22 @@ export async function getDocumentUrl(
     };
   }
 
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) {
-    return { ok: false, error: "File storage isn't configured yet. Ask your admin." };
+  // Defence in depth: never sign a stored path outside this person's
+  // folder, however it got into the row.
+  if (!documentPathOk(document.path, session.tenant.id, document.membershipId)) {
+    return { ok: false, error: "That file can't be opened. Ask for it to be uploaded again." };
   }
 
-  const { data, error } = await supabase.storage
-    .from(DOCUMENT_BUCKET)
-    .createSignedUrl(document.path, SIGNED_URL_TTL_SECONDS);
-
-  if (error || !data) {
-    return { ok: false, error: "We couldn't open that file. Try again." };
+  // Signed with the service role only now, after every check above.
+  const signed = await signPrivateFile(DOCUMENT_BUCKET, document.path, SIGNED_URL_TTL_SECONDS);
+  if (!signed.ok) {
+    return {
+      ok: false,
+      error:
+        signed.reason === "unconfigured"
+          ? "File storage isn't configured yet. Ask your admin."
+          : "We couldn't open that file. Try again.",
+    };
   }
 
   await recordAuditEvent(session, {
@@ -242,5 +256,5 @@ export async function getDocumentUrl(
     },
   });
 
-  return { ok: true, url: data.signedUrl };
+  return { ok: true, url: signed.url };
 }
