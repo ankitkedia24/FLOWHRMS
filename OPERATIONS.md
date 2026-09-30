@@ -136,6 +136,22 @@ is the mechanism working, not a bug.
 5. **Write it down.** Add a dated entry to `DECISIONS.md` if the fix
    changes behaviour.
 
+## Suspending a company
+
+From `/platform` or a company's page: **Suspend** → say why → **Email the
+code** → a 6-digit code arrives at **info@flowacord.com** → type it →
+**Suspend this company**. "End trial now" works the same way. The code
+works once, for ten minutes, only for the person who asked (DECISIONS.md
+D-PL-01).
+
+- A code email nobody expected means someone with platform access is
+  trying to lock a company out: don't share the code, and check who has
+  platform access (`cd apps/web`, then
+  `npx tsx scripts/grant-platform-admin.ts --list`).
+- If email is down, nothing can be suspended from the product — by
+  design. Fix the SMTP settings first.
+- Restoring needs only a reason.
+
 ## Support access
 
 There is **no impersonation feature**, deliberately. If support needs to

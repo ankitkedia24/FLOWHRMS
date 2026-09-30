@@ -250,3 +250,71 @@ export function signupCodeEmail(input: { code: string }): { subject: string; tex
 </div>`;
   return { subject, text, html };
 }
+
+export interface LockoutCodeEmailInput {
+  code: string;
+  /** "suspend", or "end the free trial of". */
+  doing: string;
+  /** What happens to the company, in one sentence. */
+  consequence: string;
+  companyName: string;
+  requestedByName: string;
+  requestedByEmail: string | null;
+  reason: string;
+  requestedAt: Date;
+  expiresAt: Date;
+}
+
+function istTime(at: Date): string {
+  return `${new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(at)} IST`;
+}
+
+/**
+ * The code Flowacord's own inbox gets before a company is locked out
+ * (lib/platform/lockout-code.ts). It is the alarm as well as the key: it
+ * names the company, the action, who asked and why, so one nobody expected
+ * is noticed. The code stays out of the subject line, which phones show on
+ * the lock screen.
+ */
+export function lockoutCodeEmail(input: LockoutCodeEmailInput): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  const spaced = `${input.code.slice(0, 3)} ${input.code.slice(3)}`;
+  const who = input.requestedByEmail
+    ? `${input.requestedByName} <${input.requestedByEmail}>`
+    : input.requestedByName;
+  const subject = `FlowHRMS: code to ${input.doing} ${input.companyName}`;
+  const ask = `Someone with FlowHRMS platform access wants to ${input.doing} ${input.companyName}. ${input.consequence}`;
+  const rules = `The code works once, until ${istTime(input.expiresAt)}, and only for the person who asked. Give it to them only if you expected this.`;
+  const alarm =
+    "If you didn't expect this, don't share the code — nothing happens without it — and check who has platform access.";
+  const text = [
+    ask,
+    "",
+    `Code: ${spaced}`,
+    "",
+    `Asked by: ${who}`,
+    `When: ${istTime(input.requestedAt)}`,
+    `Their reason: ${input.reason}`,
+    "",
+    rules,
+    "",
+    alarm,
+  ].join("\n");
+  const html = `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;line-height:1.6;color:#1A1A1A;max-width:520px">
+<p>${escapeHtml(ask)}</p>
+<p style="margin:20px 0;font-size:32px;font-weight:700;letter-spacing:6px;color:#17163E">${escapeHtml(spaced)}</p>
+<p>Asked by: ${escapeHtml(who)}<br>When: ${escapeHtml(istTime(input.requestedAt))}<br>Their reason: ${escapeHtml(input.reason)}</p>
+<p>${escapeHtml(rules)}</p>
+<p style="font-size:14px;color:#5A5A5A">${escapeHtml(alarm)}</p>
+</div>`;
+  return { subject, text, html };
+}

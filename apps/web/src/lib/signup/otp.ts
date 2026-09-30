@@ -1,8 +1,12 @@
 /**
  * PAUSED (28 Sept 2026, owner's decision): email/mobile one-time codes at
- * sign-up are built but not wired into /start. Only the parked
- * contact-actions.ts and its tests use this file.
- * Resume only when the owner asks; mobile needs MSG91 keys (see msg91.ts).
+ * sign-up are built but not wired into /start; the parked contact-actions.ts
+ * is their only caller. Resume only when the owner asks; mobile needs MSG91
+ * keys (see msg91.ts).
+ *
+ * LIVE elsewhere: generateOtp / hashOtp / otpMatches also make the code
+ * emailed to Flowacord before a company is locked out
+ * (lib/platform/lockout-code.ts). Change them with both in mind.
  */
 
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";

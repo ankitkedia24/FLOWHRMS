@@ -134,7 +134,12 @@ export default async function PlatformCompanyPage({
                     : "Internal company (sample, demo or added before trials). Never expires."}
         </p>
         <div className="mt-4 flex flex-col gap-4">
-          <TrialControls tenantId={tenant.id} plan={tenant.plan} />
+          <TrialControls
+            tenantId={tenant.id}
+            name={tenant.name}
+            plan={tenant.plan}
+            trialEnded={access.kind === "trial_ended"}
+          />
           <PaidPlanControl
             tenantId={tenant.id}
             plans={plans.map((p) => ({ key: p.key, name: `${p.name}${p.active ? "" : " (hidden)"}` }))}

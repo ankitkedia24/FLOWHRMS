@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { TextArea } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
 import { setTenantStatusAction } from "@/lib/platform/actions";
+import { LockoutCodeModal } from "./LockoutCodeModal";
 
 /**
  * Suspend or restore a company.
@@ -15,9 +16,10 @@ import { setTenantStatusAction } from "@/lib/platform/actions";
  * Suspending is the sharpest thing on this screen — it stops every person
  * at that company signing in — so it follows the impact-confirm order the
  * rest of FlowHRMS uses: name the consequence, say how many people it lands on,
- * require a reason, and only then offer the button. Restoring is the same
- * control in reverse and needs the same reason, because "why were they off
- * for three days" is a question someone will eventually ask.
+ * require a reason, and only then offer the button — and, since 30 Sept
+ * 2026, a code emailed to info@flowacord.com (LockoutCodeModal): nobody
+ * suspends a company without it. Restoring needs only a reason, because
+ * "why were they off for three days" is a question someone will ask.
  */
 export function TenantStatusControl({
   tenantId,
@@ -41,13 +43,34 @@ export function TenantStatusControl({
   }
 
   const suspending = status === "ACTIVE";
-  const next = suspending ? "SUSPENDED" : "ACTIVE";
+
+  if (suspending) {
+    return (
+      <>
+        <Button size="sm" variant="dangerSubtle" onClick={() => setOpen(true)}>
+          Suspend
+        </Button>
+        <LockoutCodeModal
+          open={open}
+          onClose={() => setOpen(false)}
+          tenantId={tenantId}
+          action="SUSPEND"
+          title={`Suspend ${name}?`}
+          consequence={`All ${people} ${people === 1 ? "person" : "people"} at ${name} will stop being able to sign in.`}
+          consequenceDetail="Nothing is deleted. Attendance, payroll and documents stay exactly as recorded, and all of it comes back if you restore them."
+          confirmLabel="Suspend this company"
+          cancelLabel="Leave them active"
+          onConfirm={(codeId, code) => setTenantStatusAction({ tenantId, status: "SUSPENDED", codeId, code })}
+        />
+      </>
+    );
+  }
 
   function submit() {
     startTransition(async () => {
       const result = await setTenantStatusAction({
         tenantId,
-        status: next,
+        status: "ACTIVE",
         reason: reason.trim(),
       });
       if (result.ok) {
@@ -66,30 +89,17 @@ export function TenantStatusControl({
 
   return (
     <>
-      <Button
-        size="sm"
-        variant={suspending ? "dangerSubtle" : "outline"}
-        onClick={() => setOpen(true)}
-      >
-        {suspending ? "Suspend" : "Restore"}
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        Restore
       </Button>
 
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title={suspending ? `Suspend ${name}?` : `Restore ${name}?`}
+        title={`Restore ${name}?`}
       >
-        <Alert
-          variant={suspending ? "consequence" : "info"}
-          title={
-            suspending
-              ? `All ${people} ${people === 1 ? "person" : "people"} at ${name} will stop being able to sign in.`
-              : `Everyone at ${name} will be able to sign in again.`
-          }
-        >
-          {suspending
-            ? "Nothing is deleted. Attendance, payroll and documents stay exactly as recorded, and all of it comes back if you restore them."
-            : "Their data is exactly as they left it."}
+        <Alert variant="info" title={`Everyone at ${name} will be able to sign in again.`}>
+          Their data is exactly as they left it.
         </Alert>
 
         <div className="mt-4">
@@ -106,16 +116,16 @@ export function TenantStatusControl({
 
         <div className="mt-5 flex flex-wrap justify-end gap-3">
           <Button variant="outline" onClick={() => setOpen(false)}>
-            {suspending ? "Leave them active" : "Leave them suspended"}
+            Leave them suspended
           </Button>
           <Button
-            variant={suspending ? "danger" : "primary"}
+            variant="primary"
             loading={pending}
             disabled={reason.trim().length === 0}
             disabledReason={reason.trim().length === 0 ? "Say why first." : undefined}
             onClick={submit}
           >
-            {suspending ? "Suspend this company" : "Restore this company"}
+            Restore this company
           </Button>
         </div>
       </Modal>

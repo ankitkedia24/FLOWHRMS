@@ -7,6 +7,9 @@ import { requirePlatformAdmin } from "@/lib/authz/guard";
 import { isModuleBuilt, MODULES, type ModuleKey } from "@/lib/catalog";
 import { dependentModules, missingRequirements, type EnabledMap } from "@/lib/modules/impact";
 import { sendHeldInvitations, type HeldResult } from "@/lib/invites/held";
+import { pausesSooner } from "@/lib/billing/pricing";
+import { LockoutRefused, redeemLockoutCode } from "./lockout-code";
+import { PLATFORM_APPROVAL_EMAIL, lockoutPrecondition } from "./lockout-policy";
 import { saveTrialSettings } from "./settings";
 import type { TrialSettings } from "./trial-defaults";
 
@@ -66,6 +69,11 @@ export async function extendTrialAction(input: z.input<typeof extendSchema>): Pr
   const db = getDb();
   const tenant = await db.tenant.findUnique({ where: { id: parsed.data.tenantId } });
   if (!tenant) return { ok: false, error: "That company no longer exists." };
+  // Only a trial is extended. Turning a paying or internal company into a
+  // trial would schedule a pause nobody confirmed with the emailed code.
+  if (tenant.plan !== "TRIAL") {
+    return { ok: false, error: "Only a free trial can be extended. This company isn't on one." };
+  }
 
   const now = new Date();
   const endsAt = parsed.data.until
@@ -75,6 +83,12 @@ export async function extendTrialAction(input: z.input<typeof extendSchema>): Pr
           parsed.data.days! * DAY,
       );
   if (endsAt <= now) return { ok: false, error: "Choose a date in the future." };
+  if (pausesSooner(tenant, { plan: "TRIAL", trialEndsAt: endsAt, paidUntil: tenant.paidUntil }, now)) {
+    return {
+      ok: false,
+      error: `That's earlier than their trial ends now. Extending can only move it later — to end a trial early, use End trial now, which needs the code emailed to ${PLATFORM_APPROVAL_EMAIL}.`,
+    };
+  }
 
   await db.tenant.update({
     where: { id: tenant.id },
@@ -93,24 +107,46 @@ export async function extendTrialAction(input: z.input<typeof extendSchema>): Pr
   );
 }
 
-export async function endTrialAction(input: { tenantId: string; reason: string }): Promise<Result> {
+/**
+ * End a free trial now: everyone at the company is paused until it pays.
+ * Like suspending, it needs the code emailed to info@flowacord.com
+ * (requestLockoutCodeAction first), and only a trial can be ended — a
+ * paying company is stopped by suspending it. The reason is the one given
+ * when the code was sent.
+ */
+export async function endTrialAction(input: { tenantId: string; codeId: string; code: string }): Promise<Result> {
   const session = await requirePlatformAdmin();
-  const reason = input.reason?.trim();
-  if (!reason) return { ok: false, error: "Say why. It goes on the record." };
-  const db = getDb();
-  const tenant = await db.tenant.findUnique({ where: { id: input.tenantId } });
-  if (!tenant) return { ok: false, error: "That company no longer exists." };
-  const now = new Date();
-  await db.tenant.update({ where: { id: tenant.id }, data: { plan: "TRIAL", trialEndsAt: now } });
-  await audit({
-    tenantId: tenant.id,
-    actorUserId: session.user.id,
-    action: "tenant.trial_ended",
-    reason,
-    before: { plan: tenant.plan, trialEndsAt: tenant.trialEndsAt?.toISOString() ?? null },
-    after: { plan: "TRIAL", trialEndsAt: now.toISOString() },
-  });
-  return done(tenant.id, `${tenant.name}'s trial has ended. Their access is paused; nothing is deleted.`);
+  if (!input.codeId || !input.code?.trim()) {
+    return { ok: false, error: `Ending a trial needs the code emailed to ${PLATFORM_APPROVAL_EMAIL}.` };
+  }
+  const redeemed = await redeemLockoutCode(
+    { codeId: input.codeId, code: input.code, actorId: session.user.id, tenantId: input.tenantId, action: "END_TRIAL" },
+    async (tx, reason) => {
+      const tenant = await tx.tenant.findUnique({ where: { id: input.tenantId } });
+      if (!tenant) throw new LockoutRefused("That company no longer exists.");
+      const now = new Date();
+      const refusal = lockoutPrecondition("END_TRIAL", tenant, now);
+      if (refusal) throw new LockoutRefused(refusal);
+      await tx.tenant.update({ where: { id: tenant.id }, data: { trialEndsAt: now } });
+      await tx.auditEvent.create({
+        data: {
+          tenantId: tenant.id,
+          actorType: "PLATFORM",
+          actorUserId: session.user.id,
+          action: "tenant.trial_ended",
+          entityType: "tenant",
+          entityId: tenant.id,
+          reason,
+          before: { plan: tenant.plan, trialEndsAt: tenant.trialEndsAt?.toISOString() ?? null },
+          after: { plan: tenant.plan, trialEndsAt: now.toISOString() },
+          metadata: { confirmedWith: `code emailed to ${PLATFORM_APPROVAL_EMAIL}`, codeId: input.codeId },
+        },
+      });
+      return tenant.name;
+    },
+  );
+  if (!redeemed.ok) return { ok: false, error: redeemed.error };
+  return done(input.tenantId, `${redeemed.value}'s trial has ended. Their access is paused; nothing is deleted.`);
 }
 
 export async function verifyOwnerEmailAction(input: { tenantId: string; reason: string }): Promise<Result> {

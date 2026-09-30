@@ -89,6 +89,9 @@ const TENANT_TABLES = [
   "designations",
   // Sign-up codes: hashes only, but tied to emails and phone numbers.
   "signup_verifications",
+  // Codes emailed to Flowacord before a company is suspended or its trial
+  // ended (hashes only). Created with RLS on; listed so a re-run keeps it.
+  "platform_action_codes",
   // Field visits (FIELD-VISITS-MODULE.md §8): where people went, and when.
   "field_places",
   "field_trips",

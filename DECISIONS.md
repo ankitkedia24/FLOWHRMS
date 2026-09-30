@@ -587,3 +587,24 @@ deliberately. Reverses the earlier rule "not in the plan: off and locked".
 
 *Reopens if:* tiers are decided (D-PR-02), or the brief's statutory-payroll
 promise for CORE is accepted (conflicts with D-P3-01).
+
+## Platform — locking a company out
+
+**D-PL-01 · 2026-09-30 · Nobody locks a company out without a code emailed
+to info@flowacord.com** — suspending a company, or ending its free trial
+now, takes a 6-digit code sent to info@flowacord.com, whoever asks (the
+owner's own words: "not even me"). The address is fixed in code
+(`lib/platform/lockout-policy.ts`), not a setting. The code works once,
+for ten minutes, only for that company, action and admin, and dies after
+five wrong tries; one admin gets one code a minute, five an hour. The email
+names the company, the action, who asked and why, so it is the alarm too.
+If email can't be sent, nothing can be suspended (fails closed).
+Restoring a company needs only a reason. To keep the promise whole, the
+date screens may never pause a company sooner: "Extend trial" works only
+on a trial and only later, "Set paid plan" refuses a paid-until date that
+pauses them sooner, and a paying or internal company is no longer put on a
+trial. Anyone with the database password can still change anything; the
+code guards the product.
+
+*Reopens if:* a second approver or a different inbox is wanted, or billing
+needs to shorten a paid period (today only suspending cuts access short).

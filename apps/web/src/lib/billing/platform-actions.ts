@@ -5,7 +5,9 @@ import { z } from "zod";
 import { requirePlatformAdmin } from "@/lib/authz/guard";
 import { getDb } from "@/lib/db";
 import { applyPlanToTenant } from "./activate";
+import { PLATFORM_APPROVAL_EMAIL } from "@/lib/platform/lockout-policy";
 import { planModuleProblems } from "./plan-modules";
+import { pausesSooner } from "./pricing";
 import { saveSeller, type PlanFeature } from "./store";
 import { sellerGaps } from "./seller";
 
@@ -249,6 +251,14 @@ export async function setCompanyPlanAction(input: z.input<typeof manualSchema>):
   if (!plan) return { ok: false, error: "Choose a plan." };
   const paidUntil = d.until ? new Date(`${d.until}T23:59:59.000+05:30`) : null;
   if (paidUntil && paidUntil <= new Date()) return { ok: false, error: "Choose a date in the future, or leave it empty for no end." };
+  // A paid-until date may only move access later. Cutting a company short
+  // is Suspend or End trial, which need the code emailed to Flowacord.
+  if (pausesSooner(tenant, { plan: "PAID", trialEndsAt: null, paidUntil }, new Date())) {
+    return {
+      ok: false,
+      error: `That would pause them sooner than they pause now. Choose a later date, or leave it empty for no end. To cut a company short, suspend it — that needs the code emailed to ${PLATFORM_APPROVAL_EMAIL}.`,
+    };
+  }
 
   const changes = await db.$transaction(async (tx) => {
     await tx.tenant.update({

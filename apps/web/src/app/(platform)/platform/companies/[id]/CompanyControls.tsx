@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/Switch";
 import { useToast } from "@/components/ui/Toast";
 import { setCompanyPlanAction } from "@/lib/billing/platform-actions";
 import { Select } from "@/components/ui/Select";
+import { LockoutCodeModal } from "../../LockoutCodeModal";
 import {
   endTrialAction,
   extendTrialAction,
@@ -34,23 +35,39 @@ function useRun() {
   return { pending, run };
 }
 
+/**
+ * A trial company only: extend it (never to an earlier date), or end it now
+ * — which, like suspending, needs the code emailed to info@flowacord.com.
+ * A paying or internal company is not put on a trial from here; that would
+ * schedule a pause nobody confirmed with the code. Suspend stops anyone.
+ */
 export function TrialControls({
   tenantId,
+  name,
   plan,
+  trialEnded,
 }: {
   tenantId: string;
+  name: string;
   plan: "TRIAL" | "PAID" | "INTERNAL";
+  trialEnded: boolean;
 }) {
   const { pending, run } = useRun();
   const [until, setUntil] = useState("");
-  const [reason, setReason] = useState("");
+  const [ending, setEnding] = useState(false);
+
+  if (plan !== "TRIAL") {
+    return (
+      <p className="text-caption text-text-tertiary">
+        Not on a free trial, so there is no trial to extend or end. To stop this company&apos;s access, suspend it.
+      </p>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <p className="text-label text-text-primary">
-          {plan === "TRIAL" ? "Extend the trial" : "Put on a trial"}
-        </p>
+        <p className="text-label text-text-primary">Extend the trial</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {[7, 15, 30].map((days) => (
             <Button key={days} size="sm" variant="outline" loading={pending} onClick={() => run(() => extendTrialAction({ tenantId, days }))}>
@@ -59,19 +76,36 @@ export function TrialControls({
           ))}
         </div>
         <div className="mt-2 flex flex-wrap items-end gap-2">
-          <Input label="Or until" type="date" value={until} onChange={(e) => setUntil(e.target.value)} />
+          <Input
+            label="Or until"
+            helper="Later than it ends now"
+            type="date"
+            value={until}
+            onChange={(e) => setUntil(e.target.value)}
+          />
           <Button size="sm" variant="outline" loading={pending} disabled={!until} onClick={() => run(() => extendTrialAction({ tenantId, until }), () => setUntil(""))}>
             Set end date
           </Button>
         </div>
       </div>
 
-      {plan === "TRIAL" && (
-        <div className="flex flex-wrap items-end gap-2 border-t border-border-subtle pt-4">
-          <Input label="Reason to end the trial now" value={reason} onChange={(e) => setReason(e.target.value)} />
-          <Button size="sm" variant="dangerSubtle" loading={pending} disabled={!reason.trim()} onClick={() => run(() => endTrialAction({ tenantId, reason }), () => setReason(""))}>
+      {!trialEnded && (
+        <div className="border-t border-border-subtle pt-4">
+          <Button size="sm" variant="dangerSubtle" onClick={() => setEnding(true)}>
             End trial now
           </Button>
+          <LockoutCodeModal
+            open={ending}
+            onClose={() => setEnding(false)}
+            tenantId={tenantId}
+            action="END_TRIAL"
+            title={`End ${name}’s trial now?`}
+            consequence={`Everyone at ${name} will be paused until the company pays.`}
+            consequenceDetail="Nothing is deleted. They can still pay, sign out and use their data rights; paying brings everything back."
+            confirmLabel="End the trial now"
+            cancelLabel="Keep the trial"
+            onConfirm={(codeId, code) => endTrialAction({ tenantId, codeId, code })}
+          />
         </div>
       )}
     </div>

@@ -75,6 +75,7 @@ export async function purgeTenant(
       await tx.salaryComponent.deleteMany({ where: t });
       await tx.employeeInvite.deleteMany({ where: t });
       await tx.emailVerification.deleteMany({ where: t });
+      await tx.platformActionCode.deleteMany({ where: t });
       // consent_records and data_requests are deliberately NOT removed: they
       // are evidence and must outlive the company (DPDP Act s.6(10)).
       await tx.notification.deleteMany({ where: t });
