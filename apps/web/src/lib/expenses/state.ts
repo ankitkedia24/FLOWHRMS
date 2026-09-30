@@ -190,6 +190,40 @@ export function computeFlags(input: {
   };
 }
 
+// ------------------------------------------------------ your own claim
+
+/** What an approver does to a claim: decide it, or record it as paid. */
+export type ApproverStep = "decide" | "settle";
+
+const OWN_CLAIM: Record<ApproverStep, string> = {
+  decide: "You can't decide your own claim. Ask another approver.",
+  settle: "You can't settle your own claim. Another approver has to.",
+};
+
+/**
+ * Why the claimant may not take this step on their own claim, or null if
+ * they may (Hardening batch 7, USER-ROLES.md Amendment 4).
+ *
+ * - The Owner may do both: nobody sits above them, so refusing would leave
+ *   their own claim undecidable and unpaid (the approvals rule,
+ *   lib/authz/approvals.ts). It is still recorded as self-approved.
+ * - Deciding: anyone else only when the company has switched on
+ *   `allowSelfApproval` (invariant 9) — an explicit, flagged choice.
+ * - Settling: nobody else, whatever the policy. Settling records money as
+ *   paid — through payroll it lands on the settler's own payslip — so a
+ *   second person always sees it.
+ */
+export function ownClaimRefusal(input: {
+  step: ApproverStep;
+  /** The actor is the Owner (approvals.ts `mayDecideOwn`). */
+  mayDecideOwn: boolean;
+  allowSelfApproval: boolean;
+}): string | null {
+  if (input.mayDecideOwn) return null;
+  if (input.step === "decide" && input.allowSelfApproval) return null;
+  return OWN_CLAIM[input.step];
+}
+
 // ------------------------------------------------------------- the guard
 
 export interface GuardInput {
@@ -198,6 +232,8 @@ export interface GuardInput {
   actor: {
     isClaimant: boolean;
     canApprove: boolean;
+    /** The Owner, who may decide and settle their own claim. Default no. */
+    mayDecideOwn?: boolean;
   };
   allowSelfApproval: boolean;
   claimedAmount: number;
@@ -252,8 +288,13 @@ export function transitionGuard(input: GuardInput): GuardResult {
         return { ok: false, error: "You don't have permission to decide expense claims." };
       }
       const selfApproved = actor.isClaimant;
-      if (selfApproved && !input.allowSelfApproval) {
-        return { ok: false, error: "You can't decide your own claim. Ask another approver." };
+      if (selfApproved) {
+        const own = ownClaimRefusal({
+          step: "decide",
+          mayDecideOwn: Boolean(actor.mayDecideOwn),
+          allowSelfApproval: input.allowSelfApproval,
+        });
+        if (own) return { ok: false, error: own };
       }
       if (to === "REJECTED") {
         if (!reason) {
@@ -284,6 +325,14 @@ export function transitionGuard(input: GuardInput): GuardResult {
     case "SETTLED": {
       if (!actor.canApprove) {
         return { ok: false, error: "You don't have permission to settle expense claims." };
+      }
+      if (actor.isClaimant) {
+        const own = ownClaimRefusal({
+          step: "settle",
+          mayDecideOwn: Boolean(actor.mayDecideOwn),
+          allowSelfApproval: input.allowSelfApproval,
+        });
+        if (own) return { ok: false, error: own };
       }
       if (!input.hasSettlementRecord) {
         return { ok: false, error: "Settlement needs a record of how it was paid." };

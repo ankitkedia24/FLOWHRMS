@@ -3,7 +3,16 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import type { AppSession } from "@/lib/auth/types";
 import { recordAuditEvent } from "@/lib/audit";
-import { claimRef, transitionGuard, type ClaimStatus } from "./state";
+import { mayDecideOwn } from "@/lib/authz/approvals";
+import { loadRecordScope } from "@/lib/authz/record-scope";
+import { decisionScopeRefusal } from "@/lib/authz/scope";
+import {
+  claimRef,
+  ownClaimRefusal,
+  transitionGuard,
+  type ApproverStep,
+  type ClaimStatus,
+} from "./state";
 
 /**
  * The ONE seam through which an expense claim changes status
@@ -12,8 +21,9 @@ import { claimRef, transitionGuard, type ClaimStatus } from "./state";
  * Runs inside the caller’s transaction. Locks the claim row first, so two
  * transitions racing each other — a withdrawal and an approval in the same
  * second — resolve to exactly one winner: the second sees the new status
- * and is refused with that status named. Then the pure guard decides;
- * then, in this order, the settlement record (if any), the claim update,
+ * and is refused with that status named. Then an approver's reach (their
+ * team, and their own claim); then the pure guard decides; then, in this
+ * order, the settlement record (if any), the claim update,
  * the transition row, and the audit event — all in the same transaction,
  * so a failure in any of them rolls back the status.
  */
@@ -75,6 +85,38 @@ const AUDIT_ACTION: Record<ClaimStatus, string> = {
   SETTLED: "expense.settled",
 };
 
+/** The moves an approver makes on a claim: deciding it, and settling it. */
+const APPROVER_STEP: Partial<Record<ClaimStatus, ApproverStep>> = {
+  APPROVED: "decide",
+  PARTIALLY_APPROVED: "decide",
+  REJECTED: "decide",
+  SETTLED: "settle",
+};
+
+/**
+ * Why this session may not take `step` on a claim by `claimantId`, or null
+ * (Hardening batch 7). Someone else's claim must be in the approver's team
+ * — record scope, lib/authz/scope.ts; company-wide roles always pass —
+ * and their own follows `ownClaimRefusal`. Checked by the seam below for
+ * every decision and settlement, and by the payroll seam before it writes.
+ */
+export async function approverRefusal(
+  session: AppSession,
+  claimantId: string,
+  step: ApproverStep,
+  allowSelfApproval: boolean,
+): Promise<string | null> {
+  const actorId = session.membership.id;
+  if (claimantId === actorId) {
+    return ownClaimRefusal({
+      step,
+      mayDecideOwn: mayDecideOwn(session.membership.roleKey),
+      allowSelfApproval,
+    });
+  }
+  return decisionScopeRefusal(await loadRecordScope(session), actorId, claimantId);
+}
+
 export async function transitionClaim(input: TransitionInput): Promise<TransitionResult> {
   const { tx, session, claimId, to } = input;
   const tenantId = session.tenant.id;
@@ -103,13 +145,22 @@ export async function transitionClaim(input: TransitionInput): Promise<Transitio
   };
   const from = claim.status;
 
-  // 2. The pure guard decides.
+  // 2. Whose claim it is, before its status: an approver outside the
+  //    claimant's team is refused without learning anything about it.
+  const step = APPROVER_STEP[to];
+  if (step) {
+    const refusal = await approverRefusal(session, claim.membershipId, step, input.allowSelfApproval);
+    if (refusal) return { ok: false, error: refusal, status: from };
+  }
+
+  // 3. The pure guard decides.
   const guard = transitionGuard({
     from,
     to,
     actor: {
       isClaimant: claim.membershipId === session.membership.id,
       canApprove: session.permissions.has("expenses.approve"),
+      mayDecideOwn: mayDecideOwn(session.membership.roleKey),
     },
     allowSelfApproval: input.allowSelfApproval,
     claimedAmount: claim.claimedAmount,
@@ -122,7 +173,7 @@ export async function transitionClaim(input: TransitionInput): Promise<Transitio
   const now = new Date();
   const ref = claimRef(claim.claimNumber);
 
-  // 3. Settlement record first — the fact that makes SETTLED true.
+  // 4. Settlement record first — the fact that makes SETTLED true.
   let settledAmount: number | null = null;
   if (to === "SETTLED" && input.settlement) {
     if (claim.approvedAmount === null) {
@@ -143,7 +194,7 @@ export async function transitionClaim(input: TransitionInput): Promise<Transitio
     });
   }
 
-  // 4. The claim itself.
+  // 5. The claim itself.
   const data: Prisma.ExpenseClaimUpdateInput = { status: to };
   switch (to) {
     case "SUBMITTED":
@@ -171,7 +222,7 @@ export async function transitionClaim(input: TransitionInput): Promise<Transitio
   }
   await tx.expenseClaim.update({ where: { id: claim.id }, data });
 
-  // 5. The claim’s own timeline (§14).
+  // 6. The claim’s own timeline (§14).
   await tx.expenseClaimTransition.create({
     data: {
       tenantId,
@@ -187,7 +238,7 @@ export async function transitionClaim(input: TransitionInput): Promise<Transitio
     },
   });
 
-  // 6. The tenant-wide log, in the same transaction.
+  // 7. The tenant-wide log, in the same transaction.
   await recordAuditEvent(
     session,
     {

@@ -10,7 +10,7 @@ import { periodLabel, roundRupees } from "@/lib/payroll/engine";
 import { lockPayrollRun } from "@/lib/payroll/lock";
 import { adjustmentLabel, adjustmentReason, settlementMonth } from "./payroll-settlement";
 import { claimRef } from "./state";
-import { transitionClaim } from "./transition";
+import { approverRefusal, transitionClaim } from "./transition";
 
 /**
  * The Expenses → Payroll seam (EXPENSES-MODULE.md §13) — the ONLY file
@@ -183,6 +183,12 @@ export async function settleViaPayroll(input: {
     include: { settlement: true },
   });
   const ref = claimRef(claim.claimNumber);
+
+  // Whose claim it is, before anything is read or written: the settler's
+  // team only, and never their own unless they are the Owner. The seam
+  // checks again, but by then the adjustment would already be written.
+  const refusal = await approverRefusal(session, claim.membershipId, "settle", false);
+  if (refusal) return { ok: false, reason: "REFUSED", error: refusal };
 
   // 6. Idempotent: already settled through payroll → hand back the record.
   if (claim.status === "SETTLED") {

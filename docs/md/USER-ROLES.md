@@ -110,3 +110,30 @@ an owner can fix it rather than wonder why nothing arrives.
   themselves. Set reporting lines and department heads to give them a team.
 - Field visits keep their own reach (FIELD-VISITS-MODULE.md §5). Expense
   claims are not yet narrowed by this rule.
+
+---
+
+# Amendment 4 — Expense claims follow record scope
+*Hardening batch 7, 30 September 2026. Appended, not rewritten; supersedes
+the last sentence of Amendment 3.*
+
+- Expense claims now follow Amendment 3. A Manager, Team Leader, Viewer or
+  custom role with `expenses.view` or `expenses.approve` sees, opens,
+  decides and settles only their team's claims: the admin Expenses lists
+  and counts, the claim page (outside the team: not found), approving,
+  partly approving, rejecting, settling outside payroll and through
+  payroll, the receipt links, a travel allowance claim's trip evidence,
+  and the claims offered on the payroll screen. Refusals say "That person
+  isn't in your team." The approval tile reaches only approvers who have
+  the claimant in their team, plus the company-wide roles. Owner, Super
+  Admin, Admin and HR are unchanged: the whole company.
+- Nobody settles their own claim except the **Owner** (nobody sits above
+  them). Settling records the money as paid — through payroll, onto the
+  settler's own payslip — so a second person always does it.
+- Nobody decides their own claim except the **Owner** — or, as before,
+  anyone with `expenses.approve` in a company that has switched on "Allow
+  approving your own claim" in its expense rules (off by default;
+  EXPENSES-MODULE.md invariant 9). Either way it is recorded as
+  self-approved. That switch never extends to settling.
+- Your own claim is left out of the queues you work from unless you may
+  act on it there; the Owner's own claim reaches the Owner's tiles.

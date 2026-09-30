@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { checkAccess } from "@/lib/authz/guard";
+import { mayDecideOwn } from "@/lib/authz/approvals";
 import { loadEntitlements } from "@/lib/authz/entitlements";
 import { evaluateAccess } from "@/lib/authz/flags";
 import { devFixtureOffline } from "@/lib/auth/fixture";
@@ -21,7 +22,7 @@ import {
 } from "@/lib/expenses/payroll-settlement";
 import { previewPayrollSettlement } from "@/lib/expenses/settle-payroll";
 import { loadClaimForViewer } from "@/lib/expenses/queries";
-import { claimRef } from "@/lib/expenses/state";
+import { claimRef, ownClaimRefusal } from "@/lib/expenses/state";
 import { CLAIM_STATUS, flagMeanings, flagStatuses } from "@/lib/expenses/status-map";
 import { DecisionCard } from "./DecisionCard";
 import { loadClaimEvidence } from "@/lib/field-visits/conveyance";
@@ -66,12 +67,19 @@ export default async function AdminExpenseClaimPage({
   const flags = flagStatuses(claim);
   const canApprove = canApproveClaims(session);
 
+  // Your own claim: the same rule the seam applies (state.ts), so the page
+  // never offers a button that would only refuse. Outsiders never get here.
+  const allowSelfApproval = published?.policy.allowSelfApproval ?? false;
+  const ownRefusal = (step: "decide" | "settle") =>
+    isOwn
+      ? ownClaimRefusal({ step, mayDecideOwn: mayDecideOwn(session.membership.roleKey), allowSelfApproval })
+      : null;
+  const awaitingSettlement = claim.status === "APPROVED" || claim.status === "PARTIALLY_APPROVED";
+  const ownSettleRefusal = awaitingSettlement && canApprove ? ownRefusal("settle") : null;
+
   // Settlement (§12): routes from the entitlement, preselected from policy,
   // and what payroll would do — computed here, before the click.
-  const settleable =
-    (claim.status === "APPROVED" || claim.status === "PARTIALLY_APPROVED") &&
-    canApprove &&
-    approved !== null;
+  const settleable = awaitingSettlement && canApprove && !ownSettleRefusal && approved !== null;
   const routes = offeredRoutes({
     payrollOn,
     defaultRoute: published?.policy.defaultSettlementRoute ?? "OUTSIDE",
@@ -193,7 +201,7 @@ export default async function AdminExpenseClaimPage({
           claimedAmount={claimed}
           personName={person}
           isOwn={isOwn}
-          allowSelfApproval={published?.policy.allowSelfApproval ?? false}
+          ownRefusal={ownRefusal("decide")}
         />
       )}
 
@@ -203,6 +211,12 @@ export default async function AdminExpenseClaimPage({
           title={`${claim.status === "REJECTED" ? "Refused" : "Decision"} — reason on the record:`}
         >
           &ldquo;{claim.decisionReason}&rdquo;
+        </Alert>
+      )}
+
+      {ownSettleRefusal && (
+        <Alert variant="info" title="This is your own claim.">
+          {ownSettleRefusal}
         </Alert>
       )}
 
