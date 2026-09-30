@@ -5,6 +5,7 @@ import { requireAdminArea } from "@/lib/authz/guard";
 import { DECIDABLE_STATUSES } from "@/lib/authz/approvals";
 import { canSee, decidableWhere, visibleIds } from "@/lib/authz/scope";
 import { loadRecordScope } from "@/lib/authz/record-scope";
+import { reviewableProofWhere } from "@/lib/tasks/review";
 import { loadEntitlements } from "@/lib/authz/entitlements";
 import { evaluateAccess } from "@/lib/authz/flags";
 import { getDb } from "@/lib/db";
@@ -143,7 +144,7 @@ export default async function AdminDashboardPage() {
                 where: {
                   tenantId: session.tenant.id,
                   status: "SUBMITTED_FOR_REVIEW",
-                  ...(scope === "all" ? {} : { assigneeId: { in: [...scope] } }),
+                  ...reviewableProofWhere(me, scope),
                 },
               })
             : 0,

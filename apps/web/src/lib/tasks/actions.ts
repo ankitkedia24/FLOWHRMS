@@ -7,10 +7,12 @@ import { recordAuditEvent } from "@/lib/audit";
 import { notify } from "@/lib/notifications";
 import { clearActionRequest, raiseTaskProof, SUBJECT } from "@/lib/actions/raise";
 import { checkAccess } from "@/lib/authz/guard";
-import { canSee, decisionScopeRefusal, OUTSIDE_TEAM } from "@/lib/authz/scope";
+import { ALREADY_DECIDED } from "@/lib/authz/approvals";
+import { canSee, OUTSIDE_TEAM } from "@/lib/authz/scope";
 import { loadRecordScope } from "@/lib/authz/record-scope";
 import { awardForTaskCompletion } from "@/lib/performance/award";
 import { proofPathOk } from "@/lib/storage/paths";
+import { proofReviewRefusal, REVIEWABLE_PROOF_DECISIONS } from "./review";
 
 /**
  * Task server actions.
@@ -19,7 +21,8 @@ import { proofPathOk } from "@/lib/storage/paths";
  * - A task with a proof requirement can NEVER reach Completed without
  *   proof on file — checked server-side, not in the UI.
  * - Reject proof always requires a reason.
- * - First decision wins; the second reviewer is told who decided.
+ * - First decision wins; the second reviewer is told where to see who
+ *   decided. Nobody reviews their own proof except the Owner (review.ts).
  * - Proof types respect their feature flags at creation time.
  */
 
@@ -303,12 +306,17 @@ export async function submitProofAction(
     after: { proofId: proof.id, files: files.length, status: nextStatus },
   });
 
-  await notify.proofSubmitted(
-    session,
-    task.createdBy.userId,
-    task.title,
-    task.id,
-  );
+  // The bell tells whoever set the task. Someone who set their own already
+  // knows they just sent it — and, below Owner, may not review it
+  // (review.ts), so the bell would lead to a card that isn't there for them.
+  if (task.createdById !== session.membership.id) {
+    await notify.proofSubmitted(
+      session,
+      task.createdBy.userId,
+      task.title,
+      task.id,
+    );
+  }
   if (nextStatus === "SUBMITTED_FOR_REVIEW") {
     await raiseTaskProof(
       session,
@@ -378,45 +386,57 @@ export async function reviewProofAction(
     },
   });
   if (!task) return { ok: false, error: "That task is no longer available." };
-  // A Manager reviews their team's proof, never their own (lib/authz/scope.ts).
-  const outside = decisionScopeRefusal(
-    await loadRecordScope(session),
-    session.membership.id,
-    task.assigneeId,
-  );
-  if (outside) return { ok: false, error: outside };
+  // Nobody reviews their own proof but the Owner, and a Manager only their
+  // team's (review.ts).
+  const refused = proofReviewRefusal({
+    actor: { membershipId: session.membership.id, roleKey: session.membership.roleKey },
+    scope: await loadRecordScope(session),
+    assigneeId: task.assigneeId,
+  });
+  if (refused) return { ok: false, error: refused };
 
   const proof = task.proofs[0];
   if (!proof) return { ok: false, error: "There is no proof to review yet." };
 
   // First decision wins (edge-cases.md).
-  if (proof.decision !== "PENDING") {
-    return {
-      ok: false,
-      error: "This proof has already been reviewed. See the activity log.",
-    };
+  if (!(REVIEWABLE_PROOF_DECISIONS as readonly string[]).includes(proof.decision)) {
+    return { ok: false, error: ALREADY_DECIDED };
   }
-
-  await db.taskProof.update({
-    where: { id: proof.id },
-    data: {
-      decision: parsed.data.decision,
-      decidedById: session.membership.id,
-      decidedAt: new Date(),
-      decisionReason: reason,
-    },
-  });
 
   const nextStatus =
     parsed.data.decision === "APPROVED" ? "COMPLETED" : "IN_PROGRESS";
 
-  await db.task.update({
-    where: { id: task.id },
-    data: {
-      status: nextStatus,
-      completedAt: nextStatus === "COMPLETED" ? new Date() : null,
-    },
+  // Conditional on the proof still waiting: of two reviewers pressing at
+  // once, exactly one write lands. The other is told, and nothing else —
+  // no audit, no points, no notification — happens for it. The task moves
+  // in the same transaction, so a decided proof never sits on a task still
+  // waiting for review.
+  const decided = await db.$transaction(async (tx) => {
+    const written = await tx.taskProof.updateMany({
+      where: {
+        id: proof.id,
+        tenantId: session.tenant.id,
+        decision: { in: [...REVIEWABLE_PROOF_DECISIONS] },
+      },
+      data: {
+        decision: parsed.data.decision,
+        decidedById: session.membership.id,
+        decidedAt: new Date(),
+        decisionReason: reason,
+      },
+    });
+    if (written.count === 0) return false;
+
+    await tx.task.update({
+      where: { id: task.id },
+      data: {
+        status: nextStatus,
+        completedAt: nextStatus === "COMPLETED" ? new Date() : null,
+      },
+    });
+    return true;
   });
+  if (!decided) return { ok: false, error: ALREADY_DECIDED };
 
   await recordAuditEvent(session, {
     action: `task.proof_${parsed.data.decision.toLowerCase()}`,

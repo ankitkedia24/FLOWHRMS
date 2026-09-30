@@ -59,6 +59,8 @@ export interface AudienceInput {
 export const OWNER_DECIDES_OWN: ReadonlySet<ActionKind> = new Set<ActionKind>([
   "LEAVE_REQUEST",
   "ATTENDANCE_EXCEPTION",
+  // Task proof too (lib/tasks/review.ts, Hardening 7E.4).
+  "TASK_PROOF",
 ]);
 
 /**
