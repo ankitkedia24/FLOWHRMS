@@ -1,4 +1,4 @@
-import { FEATURES, MODULES, type ModuleKey, type PermissionKey } from "@/lib/catalog";
+import { FEATURES, MODULES, isFeatureBuilt, type ModuleKey, type PermissionKey } from "@/lib/catalog";
 import type { AppSession, TenantEntitlements } from "@/lib/auth/types";
 
 /**
@@ -62,6 +62,12 @@ export function evaluateAccess(input: {
 
   // Feature (tenant scope, then user-scope exception).
   if (feature) {
+    // A switch with nothing behind it (catalog `built: false`) is never on,
+    // whatever its catalog default or a company's saved value says — the
+    // same rule the settings screens follow (catalog.ts isFeatureBuilt).
+    if (!isFeatureBuilt(moduleKey, feature)) {
+      return deny("feature-disabled", "This isn't available yet.");
+    }
     const featureId = `${moduleKey}.${feature}`;
     const setting = entitlements.features[featureId];
     const catalogDefault = FEATURES.find(

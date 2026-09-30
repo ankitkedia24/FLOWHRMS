@@ -94,7 +94,7 @@ export default async function EmployeeHomePage() {
 
       {attendance && (
         <section aria-label="Attendance today">
-          <AttendanceActionCard context={attendance} firstName={firstName} fieldOut={fieldOut} />
+          <AttendanceActionCard context={attendance} fieldOut={fieldOut} />
         </section>
       )}
 

@@ -14,7 +14,6 @@ import {
   checkInConsequence,
   lateMinutes,
   minutesInTimezone,
-  workDateInTimezone,
 } from "../src/lib/attendance/policy";
 
 loadEnv({ path: [".env.local", ".env"], quiet: true });

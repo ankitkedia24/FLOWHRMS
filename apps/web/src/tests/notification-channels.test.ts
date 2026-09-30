@@ -70,10 +70,10 @@ describe("notification channel states", () => {
     }
   });
 
-  it("the catalog still defaults push and email on, and that no longer shows as Enabled", () => {
-    // The trap this closes: evaluateAccess says yes, nothing is sent.
-    expect(catalogDefaults("push")).toBe(true);
-    expect(catalogDefaults("email")).toBe(true);
+  it("the catalog still defaults push and email on, but neither counts as on or shows as Enabled", () => {
+    // The trap this closes: evaluateAccess said yes, and nothing was sent.
+    expect(catalogDefaults("push")).toBe(false);
+    expect(catalogDefaults("email")).toBe(false);
     const states = notificationChannelStates(catalogDefaults);
     for (const key of ["push", "email"]) {
       expect(states.find((c) => c.key === key)!.status).not.toBe(STATUS.enabled);
