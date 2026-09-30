@@ -3,8 +3,10 @@
  * will record or sign: employee documents, expense receipts, task proof.
  *
  * WHY this exists: the browser uploads straight into the private buckets
- * (their only storage policy is "signed-in users may insert"), then hands
- * the path back to a server action to record. That path is untrusted
+ * (their only storage policy is "active members may insert under their own
+ * company's folder" — scripts/storage-policy.ts, which relies on this
+ * layout), then hands the path back to a server action to record. That
+ * path is still untrusted
  * input. Files are read through links signed server-side with the
  * service-role key, which can read EVERY company's files — so a recorded
  * path pointing at another company's, or another person's, file would
