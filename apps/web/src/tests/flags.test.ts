@@ -93,9 +93,28 @@ describe("evaluateAccess", () => {
         userExceptions: {},
       },
       module: "ATTENDANCE",
-      feature: "gps_capture", // defaultEnabled: true
+      feature: "geofence", // defaultEnabled: true
     });
     expect(decision.allowed).toBe(true);
+  });
+
+  it("never counts an unbuilt switch as on — not by default, not when a company saved it on", () => {
+    for (const [module, feature] of [
+      ["ATTENDANCE", "gps_capture"],
+      ["NOTIFICATIONS", "push"],
+      ["NOTIFICATIONS", "email"],
+    ] as const) {
+      for (const features of [{}, { [`${module}.${feature}`]: { enabled: true } }]) {
+        const decision = evaluateAccess({
+          session: makeSession(),
+          entitlements: { modules: { [module]: true }, features, userExceptions: {} },
+          module,
+          feature,
+        });
+        expect(decision.allowed).toBe(false);
+        expect(decision.message).toBe("This isn't available yet.");
+      }
+    }
   });
 
   it("user-scope exception overrides the tenant feature setting", () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { CloudOff, LogIn, LogOut, MapPinOff, TriangleAlert } from "lucide-react";
+import { LogIn, LogOut, MapPinOff } from "lucide-react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -44,7 +44,6 @@ import { useOffline } from "@/lib/offline/OfflineProvider";
 
 interface Props {
   context: AttendanceContext;
-  firstName: string;
   /**
    * Set while the person is out on a field trip: checking out also ends
    * it (FIELD-VISITS-MODULE.md §3), and they are told so before the tap.
@@ -68,7 +67,7 @@ type GeoState =
 const CHECK_OUT_REMINDER =
   "You've checked in today. Don't forget to check out at the end of the day.";
 
-export function AttendanceActionCard({ context, firstName, fieldOut }: Props) {
+export function AttendanceActionCard({ context, fieldOut }: Props) {
   const { show } = useToast();
   // Connection state and the queue are shared with the offline bar, so
   // the card and the bar can never disagree about whether we are online.

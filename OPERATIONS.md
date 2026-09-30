@@ -9,16 +9,20 @@ when something breaks — not as a compliance artefact.
 |---|---|
 | Database | Supabase Postgres (`db.mcwuzmzslujnlzagijhc.supabase.co`) |
 | Auth | Supabase Auth |
-| Files | Supabase Storage, buckets `task-proof` and `employee-documents` (both private) |
-| App | Next.js, run locally today; no production host chosen yet |
+| Files | Supabase Storage, four private buckets: `task-proof`, `employee-documents`, `expense-receipts`, `company-media` |
+| App | Next.js on Hostinger (standalone Node server) at https://hrms.flowacord.com; deploys itself from `main` of ankitkedia24/FLOWHRMS (DEPLOY.md §3b) |
+| Email | SMTP, for account emails and the lockout codes; settings in Hostinger's environment |
 
 ## Secrets
 
 | Secret | Where it lives | Rotate when |
 |---|---|---|
-| Database password | `.env.local`, gitignored | **Now** — it was shared in chat during development. Supabase → Settings → Database → Reset password, then update `.env.local`. |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `.env.local` | Public by design; rotate only if the project is compromised |
-| `service_role` key | **Not used by this app** | — |
+| Database password | `apps/web/.env.local` (gitignored) and Hostinger's environment | At the end of the project (owner's plan) — it was shared in chat during development. Supabase → Settings → Database → Reset password, then update both places. |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Both | Public by design; rotate only if the project is compromised |
+| `SUPABASE_SECRET_KEY` (service role) | Both; server code only (`lib/supabase/admin.ts`) | If it leaks: it bypasses row-level security. Used to create sign-ins and to sign file links |
+| `SMTP_PASSWORD` | Both | If it leaks, or when the mailbox password changes |
+| `GOOGLE_MAPS_SERVER_KEY`, `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Both | If they leak; keep the public one restricted to hrms.flowacord.com in Google Cloud |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Hostinger, once online payment is switched on | If they leak |
 
 No secret is stored in application tables, and none is committed.
 
@@ -171,7 +175,7 @@ sensitive-data access.
 ## Known gaps
 
 - Backup restore not rehearsed.
-- No production host, no monitoring, no alerting.
-- No support-session flow.
+- No uptime monitoring or error alerting (production has run on Hostinger since September 2026).
+- No support-session flow — or, instead, a written rule that support never opens customer data (see *Support access*).
 - Storage files are not in the database backup.
 - Scheduled daily summaries need a notification provider.

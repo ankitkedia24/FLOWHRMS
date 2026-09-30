@@ -39,12 +39,6 @@ function formatDay(at: Date, timeZone: string): string {
 
 export const metadata: Metadata = { title: "Employee" };
 
-const docStatus: Record<string, Status> = {
-  PENDING_REVIEW: STATUS.needsReview,
-  VERIFIED: STATUS.verified,
-  REJECTED: STATUS.rejected,
-};
-
 /**
  * Employee profile (screen A5).
  *
