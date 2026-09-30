@@ -23,6 +23,7 @@ import { loadBranding } from "@/lib/branding/load";
 import { SplashScreen } from "@/components/shell/SplashScreen";
 import { cookies } from "next/headers";
 import { SPLASH_COOKIE, splashAlreadySeen } from "@/lib/branding/splash";
+import { SupportStrip } from "@/components/shell/SupportStrip";
 
 /**
  * Admin shell: cool surface, 240px sidebar (lg+) / 72px rail (md) / drawer
@@ -107,8 +108,11 @@ export default async function AdminLayout({
         </a>
         <Sidebar {...nav} label="Modules" />
         <OfflineProvider>
-          <ActionQueueProvider enabled={session.source === "supabase"}>
+          <ActionQueueProvider enabled={session.source !== "dev-fixture"}>
             <div className="flex min-w-0 flex-1 flex-col">
+              {session.support && (
+                <SupportStrip companyName={session.tenant.name} platformUserName={session.support.platformUserName} />
+              )}
               <AdminTopBar
                 tenantName={session.tenant.name}
                 logoUrl={branding.logoUrl}

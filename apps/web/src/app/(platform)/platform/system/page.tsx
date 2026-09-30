@@ -29,7 +29,8 @@ function mb(bytes: bigint | number): string {
 /**
  * Flowacord's view of FlowHRMS itself: is the database answering, what has
  * crashed on the live site, when the last backup was made and whether it
- * restored, and every code asked for to lock a company out. Platform admins
+ * restored, every code asked for to lock a company out, and every support
+ * session opened inside a company. Platform admins
  * only — no company sees any of this.
  */
 export default async function PlatformSystemPage() {
@@ -40,15 +41,25 @@ export default async function PlatformSystemPage() {
 
   const database = await checkDatabase();
 
-  const [errors, backups, codes] = await Promise.all([
+  const [errors, backups, codes, supportSessions] = await Promise.all([
     db.platformError.findMany({ where: { lastSeenAt: { gte: since } }, orderBy: { lastSeenAt: "desc" }, take: 30 }),
     db.platformBackup.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
     db.platformActionCode.findMany({ where: { createdAt: { gte: since } }, orderBy: { createdAt: "desc" }, take: 30 }),
+    db.supportSession.findMany({
+      where: { OR: [{ startedAt: { gte: since } }, { endedAt: null }] },
+      orderBy: { startedAt: "desc" },
+      take: 30,
+    }),
   ]);
   const [tenants, admins] = await Promise.all([
-    db.tenant.findMany({ where: { id: { in: [...new Set(codes.map((c) => c.tenantId))] } }, select: { id: true, name: true } }),
+    db.tenant.findMany({
+      where: { id: { in: [...new Set([...codes.map((c) => c.tenantId), ...supportSessions.map((s) => s.tenantId)])] } },
+      select: { id: true, name: true },
+    }),
     db.user.findMany({
-      where: { id: { in: [...new Set(codes.map((c) => c.requestedById))] } },
+      where: {
+        id: { in: [...new Set([...codes.map((c) => c.requestedById), ...supportSessions.map((s) => s.platformUserId)])] },
+      },
       select: { id: true, displayName: true },
     }),
   ]);
@@ -222,6 +233,47 @@ export default async function PlatformSystemPage() {
                     </td>
                     <td className="py-2 pr-3 text-secondary">{c.reason}</td>
                     <td className="py-2 text-secondary">{lockoutCodeStatus(c, now)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <Card className="mt-4">
+        <CardHeader title="Support sessions in the last 30 days" meta="Plus any still open. The company sees changes made as “Flowacord support”." />
+        {supportSessions.length === 0 ? (
+          <p className="text-secondary text-text-secondary">Nobody has opened a company as support in the last 30 days.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-body">
+              <thead>
+                <tr className="border-b border-border-default text-caption text-text-secondary">
+                  <th className="py-2 pr-3 font-semibold">Opened</th>
+                  <th className="py-2 pr-3 font-semibold">Who</th>
+                  <th className="py-2 pr-3 font-semibold">Company</th>
+                  <th className="py-2 font-semibold">Closed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {supportSessions.map((s) => (
+                  <tr key={s.id} className="border-b border-border-subtle align-top last:border-0">
+                    <td className="py-2 pr-3 font-mono text-secondary">{fmt(s.startedAt)}</td>
+                    <td className="py-2 pr-3">{adminName.get(s.platformUserId) ?? "A removed admin"}</td>
+                    <td className="py-2 pr-3">
+                      {tenantName.has(s.tenantId) ? (
+                        <Link
+                          href={`/platform/companies/${s.tenantId}`}
+                          className="text-brand-primary underline-offset-2 hover:underline"
+                        >
+                          {tenantName.get(s.tenantId)}
+                        </Link>
+                      ) : (
+                        "a deleted company"
+                      )}
+                    </td>
+                    <td className="py-2 text-secondary">{s.endedAt ? fmt(s.endedAt) : "Still open"}</td>
                   </tr>
                 ))}
               </tbody>

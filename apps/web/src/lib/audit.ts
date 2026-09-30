@@ -37,11 +37,18 @@ export async function recordAuditEvent(
     return;
   }
 
+  // In a support session the actor is the "Flowacord support" identity, so
+  // the company's log says Flowacord support did it; the metadata says which
+  // Flowacord person and which session.
+  const support = session.support
+    ? { supportSessionId: session.support.sessionId, supportBy: session.support.platformUserId }
+    : undefined;
+
   await client.auditEvent.create({
     data: {
       tenantId: session.tenant.id,
       actorUserId: session.user.id,
-      actorType: "USER",
+      actorType: support ? "PLATFORM" : "USER",
       action: input.action,
       entityType: input.entityType,
       entityId: input.entityId,
@@ -49,7 +56,9 @@ export async function recordAuditEvent(
       before: input.before === undefined ? undefined : (input.before as object),
       after: input.after === undefined ? undefined : (input.after as object),
       metadata:
-        input.metadata === undefined ? undefined : (input.metadata as object),
+        input.metadata === undefined && !support
+          ? undefined
+          : ({ ...(input.metadata ?? {}), ...(support ?? {}) } as object),
     },
   });
 }

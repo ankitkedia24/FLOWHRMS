@@ -29,8 +29,18 @@ export interface AppSession {
   };
   /** Effective permission keys from the membership's role. */
   permissions: ReadonlySet<PermissionKey>;
-  /** Where this session came from — fixture sessions exist only in dev. */
-  source: "supabase" | "dev-fixture";
+  /**
+   * Where this session came from — fixture sessions exist only in dev;
+   * "support" is a Flowacord person working inside this company
+   * (lib/auth/support.ts).
+   */
+  source: "supabase" | "dev-fixture" | "support";
+  /** Set only in a support session: who is really at the keyboard. */
+  support?: {
+    sessionId: string;
+    platformUserId: string;
+    platformUserName: string;
+  };
 }
 
 /**

@@ -103,8 +103,10 @@ not accept a decision it cannot guarantee.
 - Scheduled daily summaries by email or WhatsApp (needs a provider).
 - Phone sign-in with an OTP (needs an SMS provider; today it is email).
 - Company logo upload.
-- Support access to your data — there is no impersonation feature, so
-  nobody at FlowHRMS can open your company's records from the product.
+- Support access to your data. Flowacord support can open your company's
+  records only after you accept updated Terms that allow it; until then
+  nobody at FlowHRMS can open them from the product. When they can, every
+  change they make shows in your activity log as "Flowacord support".
 
 ## Getting help
 

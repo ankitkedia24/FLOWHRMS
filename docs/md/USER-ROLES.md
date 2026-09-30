@@ -152,3 +152,20 @@ the last sentence of Amendment 3.*
   value saved by older rules is ignored.
 - Expense claims now follow the same rule as leave, attendance exceptions
   and task proof (`lib/authz/approvals.ts`).
+
+---
+
+# Amendment 6 — Flowacord support inside a company
+*Owner decision, 30 September 2026 (DECISIONS.md D-PL-03). Appended, not
+rewritten; changes the Platform Super Admin's "time-bound" access above.*
+
+- A Platform Super Admin may open a company as **Flowacord support** and
+  work with the Owner's access — changing data where needed — with **no
+  time limit**, until they exit or sign out.
+- It is recorded: each session on /platform/system, and every change in the
+  company's own Activity log as "Flowacord support", never under one of the
+  company's people. Nothing is shown to the company while it happens.
+- The support member is not one of the company's people: it is never
+  listed, counted, billed, paid, notified or asked to decide anything.
+- Real companies can be opened only after their owner accepts Terms that
+  allow it (docs/md/SUPPORT-ACCESS.md).

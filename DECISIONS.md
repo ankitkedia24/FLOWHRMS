@@ -622,3 +622,21 @@ since a crash can concern any company.
 *Reopens if:* backups move off the office computer (a server-side
 schedule), or a restore of sign-ins into a new Supabase project is
 rehearsed.
+
+**D-PL-03 · 2026-09-30 · Flowacord support can work inside a company** —
+a platform admin opens a company from /platform and works with the
+Owner's access, changing data where needed, with no time limit, while the
+product is in development and companies need a lot of help. The company
+sees no banner. Every change is recorded as "Flowacord support" — never
+under one of the company's own people — and shows in the company's
+Activity log; each session is listed on /platform/system. The support
+member is hidden from the company's lists, counts, billing and payroll.
+Real companies open only once their owner has accepted Terms that allow
+support; the wording is drafted for legal review in
+docs/md/SUPPORT-ACCESS.md. Until then only the placeholder and sample
+companies open. The owner first asked for no record at all; recording
+changes as Flowacord support was kept so no employee is shown doing what
+they didn't, and so what customers accepted stays true.
+
+*Reopens if:* the lawyer's wording changes what support may do, or
+companies should see support sessions themselves.

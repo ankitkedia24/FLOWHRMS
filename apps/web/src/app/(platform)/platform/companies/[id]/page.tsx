@@ -10,6 +10,9 @@ import { accessState, formatPaise } from "@/lib/billing/pricing";
 import { loadPlans } from "@/lib/billing/store";
 import { TenantStatusControl } from "../../TenantStatusControl";
 import { TrialControls, ModuleControls, PaidPlanControl, VerifyEmailControl } from "./CompanyControls";
+import { SupportControl } from "./SupportControl";
+import { supportRefusal } from "@/lib/platform/support-policy";
+import { ownerTermsVersion } from "@/lib/platform/support-terms";
 
 export const metadata: Metadata = { title: "Company" };
 
@@ -41,10 +44,11 @@ export default async function PlatformCompanyPage({
     where: { id },
     include: {
       billingPlan: { select: { key: true, name: true } },
-      _count: { select: { memberships: true } },
+      // Not the hidden Flowacord support member (lib/auth/support.ts).
+      _count: { select: { memberships: { where: { status: { not: "SUPPORT" } } } } },
       moduleSettings: { include: { module: { select: { key: true } } } },
       memberships: {
-        where: { role: { key: "OWNER" } },
+        where: { role: { key: "OWNER" }, status: { not: "SUPPORT" } },
         orderBy: { createdAt: "asc" },
         include: { user: { select: { displayName: true, email: true, phone: true } } },
       },
@@ -52,7 +56,7 @@ export default async function PlatformCompanyPage({
   });
   if (!tenant) notFound();
 
-  const [consents, payments, plans] = await Promise.all([
+  const [consents, payments, plans, termsVersion] = await Promise.all([
     db.consentRecord.findMany({
       where: { tenantId: tenant.id },
       orderBy: { seq: "desc" },
@@ -64,6 +68,7 @@ export default async function PlatformCompanyPage({
       take: 20,
     }),
     loadPlans(),
+    ownerTermsVersion(tenant.id),
   ]);
 
   const now = new Date();
@@ -211,6 +216,11 @@ export default async function PlatformCompanyPage({
       <Card>
         <CardHeader title="Access" />
         <TenantStatusControl tenantId={tenant.id} name={tenant.name} status={tenant.status} people={tenant._count.memberships} />
+      </Card>
+
+      <Card>
+        <CardHeader title="Support" meta="Work inside this company to help them — docs/md/SUPPORT-ACCESS.md." />
+        <SupportControl tenantId={tenant.id} refusal={supportRefusal(tenant, termsVersion)} />
       </Card>
 
       <Card>

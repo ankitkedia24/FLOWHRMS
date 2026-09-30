@@ -19,10 +19,14 @@ how Phase 1 implements them and what is deliberately deferred.
 
 - Every tenant-owned table carries `tenantId`; queries take it from the
   resolved session, never from client input.
-- Cross-tenant access is platform-level only (Constitution §2) and is not
-  implemented in Phase 1 — there is no impersonation path yet. When built,
-  it must be justified, time-bound, logged, and show the persistent
-  "Support session" warning band.
+- Cross-tenant access is platform-level only (Constitution §2). The one
+  way in is a Flowacord support session (docs/md/SUPPORT-ACCESS.md,
+  DECISIONS.md D-PL-03): opened deliberately from /platform, recorded on
+  /platform/system, shown to the support person as a persistent strip, and
+  every change attributed to "Flowacord support" — never to a company's
+  own people. By the owner's decision it has no time limit and shows no
+  banner to the company. Real companies stay locked until their owner has
+  accepted Terms that allow it.
 - Supabase Row Level Security is NOT yet enabled because all database
   access goes through the server (service role never reaches the client).
   Before production, enable RLS on all tenant tables as a second fence.

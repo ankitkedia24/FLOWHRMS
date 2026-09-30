@@ -63,7 +63,7 @@ export default async function AttendancePolicyPage() {
         orderBy: { startMinutes: "asc" },
         include: {
           _count: {
-            select: { memberships: { where: { status: { not: "DEACTIVATED" } } } },
+            select: { memberships: { where: { status: { notIn: ["DEACTIVATED", "SUPPORT"] } } } },
           },
         },
       }),

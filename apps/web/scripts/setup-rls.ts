@@ -95,6 +95,8 @@ const TENANT_TABLES = [
   // Flowacord's record of live-site errors (scrubbed) and of backups.
   "platform_errors",
   "platform_backups",
+  // Who opened which company as Flowacord support, and when.
+  "support_sessions",
   // Field visits (FIELD-VISITS-MODULE.md §8): where people went, and when.
   "field_places",
   "field_trips",

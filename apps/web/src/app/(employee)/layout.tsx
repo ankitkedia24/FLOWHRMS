@@ -19,6 +19,7 @@ import { OfflineProvider } from "@/lib/offline/OfflineProvider";
 import { OfflineBar } from "@/components/offline/OfflineBar";
 import { ActionQueueProvider } from "@/lib/actions/ActionQueueProvider";
 import { ActionTiles } from "@/components/actions/ActionTiles";
+import { SupportStrip } from "@/components/shell/SupportStrip";
 
 /**
  * Employee shell: warm surface, top bar, bottom navigation on a phone and a
@@ -80,8 +81,11 @@ export default async function EmployeeLayout({
         </a>
         <Sidebar {...nav} label="Your FlowHRMS" />
         <OfflineProvider>
-          <ActionQueueProvider enabled={session.source === "supabase"}>
+          <ActionQueueProvider enabled={session.source !== "dev-fixture"}>
             <div className="flex min-w-0 flex-1 flex-col">
+              {session.support && (
+                <SupportStrip companyName={session.tenant.name} platformUserName={session.support.platformUserName} />
+              )}
               <EmployeeTopBar
                 title={session.tenant.name}
                 logoUrl={branding.logoUrl}

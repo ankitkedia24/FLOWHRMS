@@ -87,6 +87,8 @@ const LABELS: Record<string, string> = {
   "performance.scoring_published": "Performance scoring updated",
   "platform.lockout_code_sent": "Code emailed to Flowacord to confirm a lockout",
   "platform.lockout_code_wrong": "Wrong lockout code entered",
+  "platform.support_session_ended": "Support session closed",
+  "platform.support_session_started": "Support session opened",
   "platform.trial_settings_changed": "Trial settings changed",
   "policy.attendance_changed": "Attendance rules changed",
   "policy.default_shift_changed": "Default shift changed",

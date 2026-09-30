@@ -41,6 +41,11 @@ model User {
   status         UserStatus @default(ACTIVE)
   /// Platform Super Admin (operates the SaaS across tenants; USER-ROLES.md).
   isPlatformAdmin Boolean   @default(false)
+  /// Set on a "Flowacord support" identity: the platform admin it acts for
+  /// (lib/auth/support.ts). Changes made in a support session are recorded
+  /// under this identity, never under one of the company's own people. It
+  /// has no sign-in of its own.
+  supportOfUserId String?   @unique @db.Uuid
   /// When the mobile number was proven by a one-time code (self sign-up).
   phoneVerifiedAt DateTime?
   createdAt      DateTime   @default(now())
@@ -207,6 +212,10 @@ enum MembershipStatus {
   INVITED
   SUSPENDED
   DEACTIVATED
+  /// Flowacord support inside the company (lib/auth/support.ts). Never
+  /// listed, counted, billed, paid or notified; reads leave it out unless a
+  /// query names this status (lib/db.ts).
+  SUPPORT
 }
 
 /// How someone is engaged. Recorded for the employee record and reports;
@@ -269,6 +278,7 @@ model TenantMembership {
   tenant Tenant  @relation(fields: [tenantId], references: [id])
   user   User    @relation(fields: [userId], references: [id])
   role   Role    @relation(fields: [roleId], references: [id])
+  supportSessions SupportSession[]
   designationRef Designation? @relation(fields: [designationId], references: [id])
   branch Branch? @relation(fields: [branchId], references: [id])
   shift  Shift?  @relation(fields: [shiftId], references: [id])
@@ -2212,6 +2222,27 @@ model PlatformBackup {
   rehearsalNote String?
 
   @@map("platform_backups")
+}
+
+/// A Flowacord person working inside a company as support
+/// (lib/platform/support-actions.ts). Open until they press Exit or sign
+/// out — no time limit. Flowacord's record, on /platform/system; the
+/// company sees the changes made, as "Flowacord support", not this list.
+model SupportSession {
+  id                  String    @id @default(uuid()) @db.Uuid
+  /// The platform admin (the real person).
+  platformUserId      String    @db.Uuid
+  tenantId            String    @db.Uuid
+  /// The hidden SUPPORT member they act as inside the company.
+  supportMembershipId String    @db.Uuid
+  startedAt           DateTime  @default(now())
+  endedAt             DateTime?
+
+  membership TenantMembership @relation(fields: [supportMembershipId], references: [id])
+
+  @@index([platformUserId, endedAt])
+  @@index([tenantId, startedAt])
+  @@map("support_sessions")
 }
 
 /// The evidence behind a travel allowance claim made from field visits
