@@ -129,6 +129,11 @@ describe("seeing and deciding within scope", () => {
   });
 
   it("asks a manager's tiles about their team only for the kinds whose action checks scope", () => {
-    expect([...TEAM_SCOPED_KINDS].sort()).toEqual(["ATTENDANCE_EXCEPTION", "LEAVE_REQUEST", "TASK_PROOF"]);
+    expect([...TEAM_SCOPED_KINDS].sort()).toEqual([
+      "ATTENDANCE_EXCEPTION",
+      "EXPENSE_CLAIM",
+      "LEAVE_REQUEST",
+      "TASK_PROOF",
+    ]);
   });
 });

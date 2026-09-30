@@ -14,9 +14,9 @@ import type { ActionKind } from "./kinds";
  *
  * Two people are excluded: whoever raised the request, and whoever it is
  * about. Nobody approves their own leave, even if they run the department
- * (Product Constitution §5). The one exception is an Owner's own leave or
- * attendance: nobody sits above them, and the action lets them decide it
- * (lib/authz/approvals.ts), so the tile reaches them too.
+ * (Product Constitution §5). The one exception is an Owner's own leave,
+ * attendance or expense claim: nobody sits above them, and the action lets
+ * them decide it (lib/authz/approvals.ts), so the tile reaches them too.
  *
  * Pure. The database query that produces `candidates` lives in service.ts.
  */
@@ -54,11 +54,13 @@ export interface AudienceInput {
 
 /**
  * The kinds whose deciding action lets an Owner decide their own request
- * (lib/authz/approvals.ts). Everywhere else they are excluded like anyone.
+ * (lib/authz/approvals.ts; for expense claims, lib/expenses/state.ts).
+ * Everywhere else they are excluded like anyone.
  */
 export const OWNER_DECIDES_OWN: ReadonlySet<ActionKind> = new Set<ActionKind>([
   "LEAVE_REQUEST",
   "ATTENDANCE_EXCEPTION",
+  "EXPENSE_CLAIM",
 ]);
 
 /**
@@ -70,6 +72,7 @@ export const TEAM_SCOPED_KINDS: ReadonlySet<ActionKind> = new Set<ActionKind>([
   "LEAVE_REQUEST",
   "ATTENDANCE_EXCEPTION",
   "TASK_PROOF",
+  "EXPENSE_CLAIM",
 ]);
 
 export function resolveAudience(input: AudienceInput): Recipient[] {

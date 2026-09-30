@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
+import { loadRecordScope } from "@/lib/authz/record-scope";
+import { canSee, OUTSIDE_TEAM } from "@/lib/authz/scope";
 import { getDb } from "@/lib/db";
 import { notify } from "@/lib/notifications";
 import { raiseActionRequest, resolveActionRequest } from "@/lib/actions/service";
@@ -564,7 +566,8 @@ export type ReceiptUrlResult =
 
 /**
  * Signed access to a receipt (§10): the claimant, or anyone who may see
- * other people’s claims. Minted for two minutes; every mint is audited.
+ * other people’s claims — within their record scope (a Manager: their
+ * team’s claims). Minted for two minutes; every mint is audited.
  */
 export async function getReceiptUrlAction(receiptId: string): Promise<ReceiptUrlResult> {
   const { session, decision } = await checkAccess({ module: "EXPENSES" });
@@ -584,6 +587,9 @@ export async function getReceiptUrlAction(receiptId: string): Promise<ReceiptUrl
   const isOwn = receipt.claim.membershipId === session.membership.id;
   if (!isOwn && !canViewOthersClaims(session)) {
     return { ok: false, error: "You don’t have access to this file." };
+  }
+  if (!isOwn && !canSee(await loadRecordScope(session), session.membership.id, receipt.claim.membershipId)) {
+    return { ok: false, error: OUTSIDE_TEAM };
   }
 
   // Defence in depth: never sign a stored path outside the claimant's
