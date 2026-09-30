@@ -379,7 +379,7 @@ describe.skipIf(!HAS_DB || !HAS_STORAGE)("opening private files (database + stor
     expect(await getDb().taskProof.count({ where: { taskId: ownTask } })).toBe(1); // only the fixture's
   });
 
-  it("opens proof for the assignee and for a task manager, audited", async () => {
+  it("opens proof for the assignee and for a task manager who can see them, audited", async () => {
     signIn("owner", "EMPLOYEE");
     await opens(await proofUrl(ids.goodProof), bytes.proof);
     expect(audit.events).toContainEqual({ action: "task.proof_file_viewed", entityId: ids.goodProof });
@@ -387,8 +387,15 @@ describe.skipIf(!HAS_DB || !HAS_STORAGE)("opening private files (database + stor
     signIn("colleague", "EMPLOYEE");
     expect((await proofUrl(ids.goodProof)).ok).toBe(false);
 
-    signIn("colleague", "MANAGER", ["tasks.manage"]);
+    // A company-wide task manager may open it…
+    signIn("colleague", "ADMIN", ["tasks.manage"]);
     await opens(await proofUrl(ids.goodProof), bytes.proof);
+
+    // …but a Manager only for people in their team (Hardening batch 6):
+    // the assignee doesn't report to this one.
+    signIn("colleague", "MANAGER", ["tasks.manage"]);
+    const outside = await proofUrl(ids.goodProof);
+    expect(!outside.ok && outside.error).toMatch(/isn't in your team/);
   });
 
   it("never signs a stored proof path outside its task's folder", async () => {
