@@ -8,7 +8,7 @@ import { getDb } from "@/lib/db";
 import { notify } from "@/lib/notifications";
 import { raiseActionRequest, resolveActionRequest } from "@/lib/actions/service";
 import { receiptPathOk } from "@/lib/storage/paths";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { signPrivateFile } from "@/lib/storage/sign";
 import { RECEIPT_BUCKET, RECEIPT_MAX_BYTES, RECEIPT_MAX_FILES, RECEIPT_MIME } from "./bucket";
 import { canViewOthersClaims, loadExpensesPolicy, todayIn } from "./access";
 import { formatAmount, toIsoDate } from "./format";
@@ -586,15 +586,22 @@ export async function getReceiptUrlAction(receiptId: string): Promise<ReceiptUrl
     return { ok: false, error: "You don’t have access to this file." };
   }
 
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) {
-    return { ok: false, error: "File storage isn’t configured yet. Ask your admin." };
+  // Defence in depth: never sign a stored path outside the claimant's
+  // folder, however it got into the row.
+  if (!receiptPathOk(receipt.path, session.tenant.id, receipt.claim.membershipId)) {
+    return { ok: false, error: "That file can’t be opened. Ask for it to be uploaded again." };
   }
-  const { data, error } = await supabase.storage
-    .from(RECEIPT_BUCKET)
-    .createSignedUrl(receipt.path, SIGNED_URL_TTL_SECONDS);
-  if (error || !data) {
-    return { ok: false, error: "We couldn’t open that file. Try again." };
+
+  // Signed with the service role only now, after every check above.
+  const signed = await signPrivateFile(RECEIPT_BUCKET, receipt.path, SIGNED_URL_TTL_SECONDS);
+  if (!signed.ok) {
+    return {
+      ok: false,
+      error:
+        signed.reason === "unconfigured"
+          ? "File storage isn’t configured yet. Ask your admin."
+          : "We couldn’t open that file. Try again.",
+    };
   }
 
   await recordAuditEvent(session, {
@@ -609,5 +616,5 @@ export async function getReceiptUrlAction(receiptId: string): Promise<ReceiptUrl
     },
   });
 
-  return { ok: true, url: data.signedUrl };
+  return { ok: true, url: signed.url };
 }

@@ -3,7 +3,8 @@
 import { getDb } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { proofPathOk } from "@/lib/storage/paths";
+import { signPrivateFile } from "@/lib/storage/sign";
 import { PROOF_BUCKET } from "./bucket";
 
 /**
@@ -48,17 +49,22 @@ export async function getProofFileUrl(fileId: string): Promise<ProofUrlResult> {
     return { ok: false, error: "You don't have access to this file." };
   }
 
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) {
-    return { ok: false, error: "File storage isn't configured yet. Ask your admin." };
+  // Defence in depth: never sign a stored path outside this task's
+  // folder, however it got into the row.
+  if (!proofPathOk(file.path, session.tenant.id, file.proof.taskId)) {
+    return { ok: false, error: "That file can't be opened. Ask for it to be uploaded again." };
   }
 
-  const { data, error } = await supabase.storage
-    .from(PROOF_BUCKET)
-    .createSignedUrl(file.path, SIGNED_URL_TTL_SECONDS);
-
-  if (error || !data) {
-    return { ok: false, error: "We couldn't open that file. Try again." };
+  // Signed with the service role only now, after every check above.
+  const signed = await signPrivateFile(PROOF_BUCKET, file.path, SIGNED_URL_TTL_SECONDS);
+  if (!signed.ok) {
+    return {
+      ok: false,
+      error:
+        signed.reason === "unconfigured"
+          ? "File storage isn't configured yet. Ask your admin."
+          : "We couldn't open that file. Try again.",
+    };
   }
 
   await recordAuditEvent(session, {
@@ -68,5 +74,5 @@ export async function getProofFileUrl(fileId: string): Promise<ProofUrlResult> {
     metadata: { name: file.name, taskId: file.proof.taskId },
   });
 
-  return { ok: true, url: data.signedUrl };
+  return { ok: true, url: signed.url };
 }

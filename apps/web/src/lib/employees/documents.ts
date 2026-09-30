@@ -7,7 +7,7 @@ import { awardForOnboarding } from "@/lib/performance/award";
 import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
 import { documentPathOk } from "@/lib/storage/paths";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { signPrivateFile } from "@/lib/storage/sign";
 import { DOCUMENT_BUCKET } from "./bucket";
 
 /**
@@ -221,17 +221,22 @@ export async function getDocumentUrl(
     };
   }
 
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) {
-    return { ok: false, error: "File storage isn't configured yet. Ask your admin." };
+  // Defence in depth: never sign a stored path outside this person's
+  // folder, however it got into the row.
+  if (!documentPathOk(document.path, session.tenant.id, document.membershipId)) {
+    return { ok: false, error: "That file can't be opened. Ask for it to be uploaded again." };
   }
 
-  const { data, error } = await supabase.storage
-    .from(DOCUMENT_BUCKET)
-    .createSignedUrl(document.path, SIGNED_URL_TTL_SECONDS);
-
-  if (error || !data) {
-    return { ok: false, error: "We couldn't open that file. Try again." };
+  // Signed with the service role only now, after every check above.
+  const signed = await signPrivateFile(DOCUMENT_BUCKET, document.path, SIGNED_URL_TTL_SECONDS);
+  if (!signed.ok) {
+    return {
+      ok: false,
+      error:
+        signed.reason === "unconfigured"
+          ? "File storage isn't configured yet. Ask your admin."
+          : "We couldn't open that file. Try again.",
+    };
   }
 
   await recordAuditEvent(session, {
@@ -245,5 +250,5 @@ export async function getDocumentUrl(
     },
   });
 
-  return { ok: true, url: data.signedUrl };
+  return { ok: true, url: signed.url };
 }
