@@ -2136,6 +2136,39 @@ model SignupVerification {
   @@map("signup_verifications")
 }
 
+/// What a code emailed to Flowacord unlocks: the platform actions that lock
+/// a whole company out (lib/platform/lockout-code.ts).
+enum PlatformLockoutAction {
+  SUSPEND
+  END_TRIAL
+}
+
+/// A one-time code emailed to Flowacord's own inbox before a company is
+/// locked out. No platform admin can suspend a company or end its trial
+/// without it. Hashed with the row id; one use; ten minutes; five tries;
+/// bound to the company, the action and the admin who asked. The reason is
+/// fixed when the code is sent, so the email shows exactly what will be
+/// recorded. No foreign keys: the record outlives the people and companies
+/// it names (purge.ts clears a deleted company's rows).
+model PlatformActionCode {
+  id            String                @id @default(uuid()) @db.Uuid
+  action        PlatformLockoutAction
+  tenantId      String                @db.Uuid
+  requestedById String                @db.Uuid
+  codeHash      String
+  /// Where it was emailed — always PLATFORM_APPROVAL_EMAIL at the time.
+  sentTo        String
+  reason        String
+  attempts      Int                   @default(0)
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdAt     DateTime              @default(now())
+
+  @@index([requestedById, createdAt])
+  @@index([tenantId, createdAt])
+  @@map("platform_action_codes")
+}
+
 /// The evidence behind a travel allowance claim made from field visits
 /// (FIELD-VISITS-MODULE.md §7). The expense claim is the claim — approved,
 /// settled and paid like any other; this records, at submission, what it

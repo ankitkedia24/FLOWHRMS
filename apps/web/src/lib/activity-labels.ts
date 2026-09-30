@@ -85,6 +85,8 @@ const LABELS: Record<string, string> = {
   "performance.boost_deleted": "Performance boost removed",
   "performance.kudos_sent": "Kudos sent",
   "performance.scoring_published": "Performance scoring updated",
+  "platform.lockout_code_sent": "Code emailed to Flowacord to confirm a lockout",
+  "platform.lockout_code_wrong": "Wrong lockout code entered",
   "platform.trial_settings_changed": "Trial settings changed",
   "policy.attendance_changed": "Attendance rules changed",
   "policy.default_shift_changed": "Default shift changed",

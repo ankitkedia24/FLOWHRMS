@@ -316,3 +316,32 @@ export function accessState(
 export function isPaused(state: AccessState): boolean {
   return state.kind === "trial_ended" || state.kind === "lapsed";
 }
+
+type PlanDates = { plan: string; trialEndsAt: Date | null; paidUntil: Date | null };
+
+/**
+ * When the company pauses if nothing changes: the end of its trial, or a
+ * week after its paid period ends. Null: never (internal, or no end date).
+ */
+export function pauseMoment(tenant: PlanDates): Date | null {
+  if (tenant.plan === "TRIAL") return tenant.trialEndsAt;
+  if (tenant.plan === "PAID") {
+    return tenant.paidUntil ? new Date(tenant.paidUntil.getTime() + GRACE_DAYS * DAY) : null;
+  }
+  return null;
+}
+
+/**
+ * Would this change pause a running company sooner than it pauses now?
+ * The screens that set dates (extend a trial, set a paid plan) must never
+ * do that: cutting a company's access short is Suspend or End trial, and
+ * both need the code emailed to Flowacord (lib/platform/lockout-code.ts).
+ * A company that is already paused can't be paused sooner.
+ */
+export function pausesSooner(before: PlanDates, after: PlanDates, now: Date): boolean {
+  const was = pauseMoment(before);
+  if (was && was <= now) return false;
+  const will = pauseMoment(after);
+  if (!will) return false;
+  return was === null || will < was;
+}
