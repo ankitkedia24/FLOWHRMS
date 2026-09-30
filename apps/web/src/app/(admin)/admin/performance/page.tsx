@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { checkAccess } from "@/lib/authz/guard";
+import { canSee } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
 import { devFixtureOffline } from "@/lib/auth/fixture";
 import { getDb } from "@/lib/db";
 import { workDateInTimezone } from "@/lib/attendance/policy";
@@ -59,6 +61,20 @@ export default async function AdminPerformancePage() {
   const nameById = new Map(
     members.map((m) => [m.id, { name: m.user.displayName, dept: m.department?.name ?? null }]),
   );
+
+  // The kudos picker offers exactly who sendKudosAction accepts: someone
+  // else, within the sender's record scope (a Manager: their team). Without
+  // tasks.manage, which the action requires, there is no picker at all.
+  const me = session.membership.id;
+  const kudosScope = session.permissions.has("tasks.manage")
+    ? await loadRecordScope(session)
+    : null;
+  const kudosRecipients = kudosScope
+    ? members
+        .filter((m) => m.id !== me && canSee(kudosScope, me, m.id))
+        .map((m) => ({ id: m.id, name: m.user.displayName }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    : [];
 
   const bounds = seasonBounds(today);
   const prev = previousSeasonBounds(today);
@@ -226,20 +242,16 @@ export default async function AdminPerformancePage() {
         </Card>
       </div>
 
-      <section aria-labelledby="kudos">
-        <h2 id="kudos" className="mb-3 font-heading text-h2 text-text-primary">
-          Kudos
-        </h2>
-        <Card>
-          <SendKudos
-            members={members
-              .filter((m) => m.id !== session.membership.id)
-              .map((m) => ({ id: m.id, name: m.user.displayName }))
-              .sort((a, b) => a.name.localeCompare(b.name))}
-            sentThisWeek={kudosSentThisWeek}
-          />
-        </Card>
-      </section>
+      {kudosScope && (
+        <section aria-labelledby="kudos">
+          <h2 id="kudos" className="mb-3 font-heading text-h2 text-text-primary">
+            Kudos
+          </h2>
+          <Card>
+            <SendKudos members={kudosRecipients} sentThisWeek={kudosSentThisWeek} />
+          </Card>
+        </section>
+      )}
 
       <section aria-labelledby="boosts">
         <h2 id="boosts" className="mb-3 font-heading text-h2 text-text-primary">
