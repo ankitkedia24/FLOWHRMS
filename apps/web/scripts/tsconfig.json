@@ -5,12 +5,16 @@
   // so that onboarding a company is not implemented twice. Those modules
   // start with `import "server-only"`, a guard that stops server code being
   // pulled into a client bundle. Next resolves that import to an empty
-  // module at build time and never needs the npm package — which is why the
-  // package is not installed, and why plain `npx tsx` on such a script fails
-  // with "Cannot find module 'server-only'".
+  // module at build time and never needs the npm package. Plain `npx tsx`
+  // does not: the real package (installed at the repo root because the
+  // mobile app's expo-router depends on it) throws "This module cannot be
+  // imported from a Client Component module", and without it the error is
+  // "Cannot find module 'server-only'".
   //
   // Mapping it to Next's own empty shim gives scripts the same no-op Next
-  // gives the server build. This is deliberately kept OUT of the root
+  // gives the server build. The path climbs to the REPO root's node_modules:
+  // in the npm-workspaces monorepo `next` is hoisted there, not installed
+  // under apps/web. This is deliberately kept OUT of the root
   // tsconfig: making the guard resolve to nothing app-wide would quietly
   // weaken the very thing it protects.
   //
@@ -22,7 +26,7 @@
     // restated here, relative to this file.
     "paths": {
       "@/*": ["../src/*"],
-      "server-only": ["../node_modules/next/dist/compiled/server-only/empty.js"]
+      "server-only": ["../../../node_modules/next/dist/compiled/server-only/empty.js"]
     }
   }
 }
