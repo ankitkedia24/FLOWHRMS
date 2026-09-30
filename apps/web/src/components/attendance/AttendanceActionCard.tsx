@@ -492,15 +492,16 @@ export function AttendanceActionCard({ context, firstName, fieldOut }: Props) {
         ) : unrecordedCheckOut ? (
           /* The visit was never closed and is now too old to close as one
              stretch of work. Offering "Check Out" here would be a button
-             the server refuses — say what happened and who fixes it. */
+             the server refuses — say what happened. Nothing can fill in
+             the time afterwards (the correction flow was removed in
+             Hardening batch 5), so don't promise a manager can. */
           <Alert
             variant="warning"
             title="Your check-out wasn't recorded for that day."
           >
             You checked in more than {MAX_OPEN_VISIT_HOURS} hours ago and
-            never checked out, so those hours aren&apos;t counted. Ask your
-            manager to correct that day — they can set the time you actually
-            left.
+            never checked out, so those hours aren&apos;t counted. Tell your
+            manager — the time you left can&apos;t be filled in afterwards.
           </Alert>
         ) : !checkedOut ? (
           <div className="flex flex-col gap-2">

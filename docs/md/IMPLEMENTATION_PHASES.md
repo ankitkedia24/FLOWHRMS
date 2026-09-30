@@ -1,6 +1,6 @@
 # FlowHRMS — Implementation Phases
 
-Version: 1.0 | Date: 29 September 2026 | Status: Phase 0 complete; Phase 1A (pricing model) done; nothing else started. Every later phase starts only when the owner says so, with a plan shown first.
+Version: 1.1 | Date: 30 September 2026 | Status: Phase 0, Phase 1A (pricing model) and Phase H (hardening, batches 1–7) done; nothing else started. Every later phase starts only when the owner says so, with a plan shown first.
 
 Companions: `MODULE_GAP_AUDIT.md`, `PLAN_ENTITLEMENT_MATRIX.md`, `PRICING_MIGRATION_PLAN.md`.
 
@@ -9,8 +9,8 @@ Order follows the brief (§15) with one addition: a hardening phase before new m
 | Phase | Name | Status | Risk |
 |---|---|---|---|
 | 0 | Audit | **Done** (29 Sept 2026) | — |
-| 1A | Pricing model: CORE / PRO / BUSINESS | **Done** — step 2 migration after deploy | Low |
-| H | Hardening: security and correctness defects | Not started | Medium (payroll) |
+| 1A | Pricing model: CORE / PRO / BUSINESS | **Done** (29 Sept 2026; both migrations applied) | Low |
+| H | Hardening: security and correctness defects | **Done** (batches 1–7, 29–30 Sept 2026) | Medium (payroll) |
 | 1B | Billing engine and entitlements | Not started | Medium |
 | 2 | CORE / PRO parity | Not started | Medium–High |
 | 3 | Field workforce (native, trail, FieldTrack) | Not started | High (privacy, native) |
@@ -26,11 +26,23 @@ Delivered the four documents. Findings in one line each: core HR, attendance, le
 
 ## Phase 1A — Pricing model (done)
 
-CORE/PRO/BUSINESS with base + included + extra employees, annual = 10 months, prices editable in `/platform/plans`; paying never removes modules; new trials and all plans unlock the Starter set until tiered. Details: `PRICING_MIGRATION_PLAN.md`. Remaining step: apply `20260929230000_offer_core_pro_business` once the new build is live.
+CORE/PRO/BUSINESS with base + included + extra employees, annual = 10 months, prices editable in `/platform/plans`; paying never removes modules; new trials and all plans unlock the Starter set until tiered. Details: `PRICING_MIGRATION_PLAN.md`. Both migrations applied; live since 29 Sept 2026.
 
-## Phase H — Hardening (recommended next)
+## Phase H — Hardening (done)
 
-Fix what the audit flagged before building on it. Each item is small and testable.
+Done in seven batches, each on its own branch, combined and tested before reaching main (29–30 Sept 2026). What each fixed is in `MODULE_GAP_AUDIT.md` → "Security and correctness findings" (status table).
+
+| Batch | Scope |
+|---|---|
+| 1 | Who may change whom: status, deactivation, access levels, reporting loops, employee codes |
+| 2 | Approvals: no self-approval except the Owner, one decision per request, "ask for details" answerable |
+| 3 | Files: signed server-side, owner-folder paths, employees open their own documents |
+| 4 | Payroll: decided attendance only, locked Calculate/Approve, approve what payslips show, no adjustments on approved runs, statutory flag kept, negative net refused server-side |
+| 5 | Dead ends: unreachable correction removed, unbuilt switches/permissions/modules hidden and refused, proof link, today's tasks, honest website, activity card needs `audit.view` |
+| 6 | Managers, Team Leaders and Viewers see and act only on their team |
+| 7 | Task proof viewable and decided once, own proof only by the Owner, old task links forwarded, kudos and expense claims team-scoped, no settling your own claim, notification channels shown honestly, last false claims removed, upload policies limited to your own company's folders |
+
+The original plan items:
 
 1. Rank, self and last-owner checks in `saveEmployeeAction` and `deactivateEmployeeAction`.
 2. Block role self-escalation in `saveRolePermissionsAction`.

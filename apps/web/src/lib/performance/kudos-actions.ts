@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
+import { canSee, OUTSIDE_TEAM } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
 import { getDb } from "@/lib/db";
 import { notify } from "@/lib/notifications";
 import { canSendKudos, KUDOS_MAX_LENGTH } from "./kudos";
@@ -19,9 +21,10 @@ const sendSchema = z.object({
 
 /**
  * Send a kudo (PERFORMANCE-MODULE.md §F). Requires tasks.manage — the
- * permission that already marks who directs work — and enforces the
- * weekly caps in the pure rules. Words only; the ledger never hears
- * about this.
+ * permission that already marks who directs work — and so reaches only
+ * the sender's record scope: a Manager's team, or everyone for
+ * company-wide roles. Enforces the weekly caps in the pure rules. Words
+ * only; the ledger never hears about this.
  */
 export async function sendKudosAction(
   input: z.input<typeof sendSchema>,
@@ -48,6 +51,12 @@ export async function sendKudosAction(
     include: { user: true },
   });
   if (!recipient) return { ok: false, error: "That person is no longer here." };
+  // A Manager thanks the people whose work they direct — their team — not
+  // the whole company; company-wide roles reach everyone (lib/authz/scope.ts).
+  // Yourself passes here and is refused by the caps' own rule below.
+  if (!canSee(await loadRecordScope(session), from, to)) {
+    return { ok: false, error: OUTSIDE_TEAM };
+  }
 
   // This week, Monday-start, matching every other weekly rule.
   const now = new Date();

@@ -22,13 +22,17 @@ export function DecisionCard({
   claimedAmount,
   personName,
   isOwn,
-  allowSelfApproval,
+  ownRefusal,
 }: {
   claimId: string;
   claimedAmount: number;
   personName: string;
   isOwn: boolean;
-  allowSelfApproval: boolean;
+  /**
+   * Why they may not decide their own claim (state.ts `ownClaimRefusal`),
+   * or null — the Owner, or a company that allows self-approval.
+   */
+  ownRefusal: string | null;
 }) {
   const router = useRouter();
   const { show } = useToast();
@@ -37,7 +41,7 @@ export function DecisionCard({
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
 
-  const selfBlocked = isOwn && !allowSelfApproval;
+  const selfBlocked = isOwn && ownRefusal !== null;
   const parsedAmount = Number(amount);
   const amountOk =
     amount.trim() !== "" && Number.isFinite(parsedAmount) && parsedAmount > 0 && parsedAmount <= claimedAmount;
@@ -62,9 +66,9 @@ export function DecisionCard({
         title={`Approving records ${formatAmount(claimedAmount)} as owed to ${personName}. Nothing is paid until you settle it.`}
       >
         {selfBlocked
-          ? "This is your own claim. Company rules do not allow self-approval — ask another approver."
+          ? `This is your own claim. ${ownRefusal}`
           : isOwn
-            ? "This is your own claim. Company rules allow self-approval; it will be recorded as such."
+            ? "This is your own claim. You may decide it; it will be recorded as self-approved."
             : "The employee reads any reason you give word for word."}
       </Alert>
 

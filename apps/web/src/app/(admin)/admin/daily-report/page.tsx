@@ -10,7 +10,7 @@ import { devFixtureOffline } from "@/lib/auth/fixture";
 import { Alert } from "@/components/ui/Alert";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { StatusChip } from "@/components/ui/StatusChip";
-import { STATUS } from "@/lib/status";
+import { notificationChannelStates } from "@/lib/notifications/channels";
 import { workDateInTimezone } from "@/lib/attendance/policy";
 import { dayBoundsInTimezone } from "@/lib/reports/day";
 
@@ -19,7 +19,11 @@ export const metadata: Metadata = { title: "Daily report" };
 /**
  * Daily report (screen A10). The summary is composed only from ENABLED
  * modules (user-flows.md §6); payroll figures are excluded by design.
- * Channels that are not configured show as Off — never silently failed.
+ * Delivery channels show what they really do (lib/notifications/channels.ts):
+ * nothing sends on any of them yet, so each reads "Not available yet"
+ * rather than an Enabled that delivers nothing. Scheduled delivery isn't
+ * built either — when a channel is, this card needs that too before it
+ * can say more.
  */
 export default async function AdminDailyReportPage() {
   const { session, decision } = await checkAccess({
@@ -102,21 +106,17 @@ export default async function AdminDailyReportPage() {
   const late = records.filter((r) => r.lateMinutes > 0).length;
   const exceptions = records.filter((r) => r.reviewStatus === "PENDING").length;
 
-  const channels = [
-    { name: "Email", on: channel("email") },
-    { name: "Push", on: channel("push") },
-    { name: "WhatsApp", on: channel("whatsapp") },
-    { name: "SMS", on: channel("sms") },
-  ];
+  // In-app is not a way to send this report: the report is this page.
+  const channels = notificationChannelStates(channel).filter((c) => !c.alwaysOn);
 
   return (
     <div className="flex flex-col gap-5">
       <h1 className="font-heading text-h1 text-text-primary">Daily report</h1>
 
-      <Alert variant="info" title="Scheduled delivery is not switched on yet.">
-        The summary below is live. Automatic delivery on a schedule arrives
-        with the notification providers — a channel that is not configured is
-        shown as Off and is never silently failed.
+      <Alert variant="info" title="Scheduled delivery isn't available yet.">
+        The summary below is live — open this page whenever you want
+        today&apos;s picture. Sending it on a schedule, by email, push, SMS or
+        WhatsApp, isn&apos;t available yet.
       </Alert>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -159,20 +159,17 @@ export default async function AdminDailyReportPage() {
           <ul className="flex flex-col gap-3">
             {channels.map((item) => (
               <li
-                key={item.name}
+                key={item.key}
                 className="flex items-center justify-between gap-3"
               >
-                <span className="text-body text-text-primary">{item.name}</span>
-                <StatusChip
-                  status={item.on ? STATUS.enabled : STATUS.disabled}
-                  size="sm"
-                />
+                <span className="text-body text-text-primary">{item.label}</span>
+                <StatusChip status={item.status} size="sm" />
               </li>
             ))}
           </ul>
           <p className="mt-3 border-t border-border-subtle pt-3 text-caption text-text-secondary">
-            SMS and WhatsApp need a provider in Company settings before they
-            can be switched on.
+            None of these can be switched on yet. Requests and decisions still
+            reach people in the app&apos;s notifications.
           </p>
         </Card>
       </div>

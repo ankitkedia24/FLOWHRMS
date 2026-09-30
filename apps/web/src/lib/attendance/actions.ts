@@ -595,19 +595,20 @@ export async function checkOutAction(
     return {
       ok: false,
       error:
-        "You haven't checked in, so there's nothing to check out of. Check in first, or ask your manager to record it.",
+        "You haven't checked in, so there's nothing to check out of. Check in first — if you forgot earlier, tell your manager.",
     };
   }
 
   // Open far too long to be a shift. Recording it as one would put a day
-  // of overtime on a payslip that nobody worked, so it goes to the
-  // correction flow instead — which asks for a time and a reason, and
-  // shows the manager the hours before they approve.
+  // of overtime on a payslip that nobody worked, so it is refused and the
+  // day counts no hours. Nothing fills in a check-out afterwards: the
+  // unfinished correction flow was removed (Hardening batch 5), so the
+  // message says so instead of promising a manager can set the time.
   if (isVisitStale(openPunch.checkInAt, effectiveAt)) {
     const since = formatClockTime(openPunch.checkInAt, session.tenant.timezone);
     return {
       ok: false,
-      error: `Your last check-in was at ${since}, more than ${MAX_OPEN_VISIT_HOURS} hours ago, so this can't be recorded as one stretch of work. Ask your manager to correct that day — they can set the time you actually left.`,
+      error: `Your last check-in was at ${since}, more than ${MAX_OPEN_VISIT_HOURS} hours ago, so this can't be recorded as one stretch of work and those hours aren't counted. Tell your manager — the time you left can't be filled in afterwards.`,
     };
   }
 

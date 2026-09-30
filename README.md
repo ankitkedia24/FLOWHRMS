@@ -74,7 +74,7 @@ dev preview session — is in `SETUP.md`.
 | `npx tsx scripts/provision-user.ts <email> [ROLE]` | Give a login a role in the demo tenant (dev) |
 | `npx tsx scripts/demo-data.ts [--clear]` | Create/remove placeholder activity for review (dev) |
 | `npx tsx scripts/demo-payroll.ts [--clear]` | Placeholder salary components, structures and attendance (dev) |
-| `npx tsx scripts/setup-storage.ts` | Create the private `task-proof` bucket and its policies |
+| `npm run setup-storage [-- --status\|--rollback]` (in `apps/web`) | The four private storage buckets and who may upload where (DEPLOY.md §7f) |
 | `npx tsx scripts/smoke-phase2.ts` | Exercise the daily loop against the database (dev) |
 | `npx tsx scripts/smoke-phase3.ts` | Exercise the payroll cycle against the database (dev) |
 

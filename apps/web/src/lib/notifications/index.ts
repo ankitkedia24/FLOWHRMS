@@ -9,10 +9,13 @@ import { proofReviewHref } from "@/lib/tasks/links";
 /**
  * In-app notifications (MODULES.md: Notifications is a CORE module).
  *
- * Phase 2 delivers the in-app channel only. Push, email, WhatsApp and SMS
- * are provider-backed and stay behind their feature flags until providers
- * are configured — a channel that is off is shown as "Off" in settings and
- * is never silently failed (user-flows.md §6).
+ * The in-app channel is the only one built: every notice below is written
+ * here and nowhere else. Push, email, WhatsApp and SMS have no provider;
+ * their catalog flags are `built: false`, and settings show them as "Not
+ * available yet" rather than as switches (./channels.ts). The event ×
+ * channel matrix saved at /admin/settings/notifications is not read here —
+ * with in-app the only channel, and always on, there is nothing to choose.
+ * Account emails (invitations, receipts) are separate: lib/email.
  *
  * Titles are ≤60 characters and never guilt-framed: state the fact and the
  * next action (voice-and-microcopy.md §10).

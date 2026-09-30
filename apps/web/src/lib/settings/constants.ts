@@ -32,7 +32,10 @@ export const NOTIFICATION_EVENTS = [
   { key: "task_assigned", label: "Task assigned" },
   { key: "proof_submitted", label: "Proof submitted for review" },
   { key: "proof_decision", label: "Proof reviewed" },
-  { key: "payslip_ready", label: "Payslip ready" },
+  // Not listed: "payslip_ready". Nothing tells anyone a payslip is ready —
+  // there is no notify() call for it — so an always-on in-app tick against
+  // it claimed a notice nobody gets. The key stays reserved for when there
+  // is one; saved policies may hold it.
 ] as const;
 
 export const NOTIFICATION_CHANNELS = [

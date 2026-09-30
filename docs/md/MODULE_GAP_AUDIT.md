@@ -257,6 +257,25 @@ Detail and the change made on 29 Sept 2026 are in `PRICING_MIGRATION_PLAN.md`. B
 
 Ranked most severe first. None was changed in Phase 0.
 
+**Status, 30 Sept 2026: every finding below is fixed** by the hardening phase (batches 1–7, merged to main 29–30 Sept 2026; see `IMPLEMENTATION_PHASES.md` Phase H):
+
+| # | Finding | Fixed in | How |
+|---|---|---|---|
+| 1 | Owners suspendable by lower roles | Batch 1 | Status changes and Deactivate share one rule: not yourself, nobody above you, never the last owner (`lib/employees/guard.ts`, `leaving.ts`) |
+| 2 | Role self-escalation | Batch 1 | Only levels below yours, only permissions you hold (`lib/roles/policy.ts`) |
+| 3 | Self-approval; company-wide approval scope | Batches 2, 6, 7 | Nobody decides their own leave, attendance, task proof or expense claim except the Owner (`lib/authz/approvals.ts`); one decision per request; Managers/Team Leaders/Viewers act only on their team (`lib/authz/scope.ts`) — expenses and kudos included in batch 7 |
+| 4 | Document paths; files couldn't open | Batches 3, 7 | Owner-folder paths checked on save and on signing (`lib/storage/paths.ts`), links signed with the service key (`lib/storage/sign.ts`); upload policies limited to your own company's folders (`scripts/storage-policy.ts`, DEPLOY.md §7f) |
+| 5 | Payslips vs approved totals; non-atomic Calculate | Batch 4 | Calculate and Approve under the run's lock; Approve only when the stored lines match |
+| 6 | Rejected attendance paid | Batch 4 | Rejected counts absent; undecided attendance blocks the run |
+| 7 | Adjustments on approved runs | Batch 4 | Refused under the run's lock, including the expense seam |
+| 8 | Missed-punch correction | Batch 5 | Removed (it could never apply the time); the copy no longer promises a fix |
+| 9 | `isStatutory` wiped | Batch 4 | Kept when a save omits it |
+| 10 | No record scope | Batches 6, 7 | Employees, attendance, leave, tasks, ID cards, dashboard, reports, expenses, kudos |
+| 11 | Dead switches; false marketing | Batches 5, 7 | 21 switches, 4 permissions and 4 placeholder modules marked not built, hidden and refused; notification channels shown as "Not available yet"; website copy rewritten and guarded by `marketing-claims.test.ts` |
+| 12 | Smaller items | Batches 1, 5 | Reporting loops and taken codes refused (1); "Recent activity" needs `audit.view` (5); notification matrix now honest (7). `reviewedById` vs `uploadedById` naming is unchanged (cosmetic) |
+
+The capability tables above describe the product **as audited on 29 Sept 2026**; they were not rewritten.
+
 1. **Owners can be suspended by lower roles.** `saveEmployeeAction` (`src/lib/employees/actions.ts`) lets anyone with `employees.manage` (HR, Admin) set an Owner or Super Admin to SUSPENDED/DEACTIVATED — no rank, self or last-owner check. `deactivateEmployeeAction` also has no rank check.
 2. **Role self-escalation.** `saveRolePermissionsAction` protects only the OWNER role; a Super Admin can add `payroll.approve` or `bank.*` to their own role.
 3. **Self-approval** of attendance exceptions and leave (`reviewAttendanceAction`, `decideLeaveAction`), and approval scope is company-wide rather than the reporting line.

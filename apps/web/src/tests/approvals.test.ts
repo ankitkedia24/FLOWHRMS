@@ -101,7 +101,7 @@ describe("an Owner's own request reaches the Owner's tiles", () => {
     expect(recipients.map((r) => r.userId)).toEqual(["owner"]);
   });
 
-  it("applies only where the deciding action allows it: leave and attendance", () => {
-    expect([...OWNER_DECIDES_OWN].sort()).toEqual(["ATTENDANCE_EXCEPTION", "LEAVE_REQUEST"]);
+  it("applies only where the deciding action allows it: leave, attendance, task proof and expense claims", () => {
+    expect([...OWNER_DECIDES_OWN].sort()).toEqual(["ATTENDANCE_EXCEPTION", "EXPENSE_CLAIM", "LEAVE_REQUEST", "TASK_PROOF"]);
   });
 });

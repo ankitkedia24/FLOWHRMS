@@ -203,10 +203,15 @@ export const FEATURES: ReadonlyArray<{
   { module: "TASKS", key: "proof_video", name: "Video proof", defaultEnabled: false, built: false },
   { module: "TASKS", key: "gps_proof", name: "GPS proof", defaultEnabled: false, built: false },
   { module: "TASKS", key: "daily_report", name: "Task daily report", defaultEnabled: true, built: false },
-  { module: "NOTIFICATIONS", key: "push", name: "Push notifications", defaultEnabled: true },
-  { module: "NOTIFICATIONS", key: "email", name: "Email notifications", defaultEnabled: true },
-  { module: "NOTIFICATIONS", key: "whatsapp", name: "WhatsApp notifications", defaultEnabled: false },
-  { module: "NOTIFICATIONS", key: "sms", name: "SMS notifications", defaultEnabled: false },
+  // notify() writes the in-app notice and nothing else: no push, email, SMS
+  // or WhatsApp provider sends a notification. Two of these defaulted on,
+  // so settings showed them "Enabled" while nobody was ever told that way
+  // (hardening batch 7). Account emails — invitations, confirmations,
+  // receipts — go out through SMTP and are not governed by these.
+  { module: "NOTIFICATIONS", key: "push", name: "Push notifications", defaultEnabled: true, built: false },
+  { module: "NOTIFICATIONS", key: "email", name: "Email notifications", defaultEnabled: true, built: false },
+  { module: "NOTIFICATIONS", key: "whatsapp", name: "WhatsApp notifications", defaultEnabled: false, built: false },
+  { module: "NOTIFICATIONS", key: "sms", name: "SMS notifications", defaultEnabled: false, built: false },
   { module: "PERFORMANCE", key: "leaderboard", name: "Leaderboard", defaultEnabled: false },
   { module: "PERFORMANCE", key: "rewards", name: "Rewards store", defaultEnabled: false },
 ];
@@ -464,20 +469,24 @@ export function privilegeRank(roleKey: string): number {
   return PRIVILEGE_RANK[roleKey] ?? 0;
 }
 
-/** Stated under the role picker so the grant is never silent. */
+/**
+ * Stated under the role picker so the grant is never silent. Team-scoped
+ * roles say so: they see and act on their own team only, never the whole
+ * company (record scope, USER-ROLES.md Amendments 3 and 4).
+ */
 export const ROLE_CONSEQUENCE: Record<string, string> = {
   EMPLOYEE:
     "Sees only their own attendance, leave, tasks and payslips. No admin area.",
   TEAM_LEADER:
-    "Assigns and reviews work in their team. No admin area, no approvals.",
+    "Assigns and reviews work for their own team — the people who report to them. No admin area, no approvals.",
   MANAGER:
-    "Opens the admin area. Approves leave and attendance, manages tasks. No salary or bank details.",
+    "Opens the admin area for their own team — the people who report to them and any department they head. Approves that team's leave and attendance, sees its expense claims, manages its tasks. No salary or bank details.",
   HR: "Opens the admin area. Manages people, documents and leave, and can view salary amounts.",
   ADMIN:
     "Opens the admin area and runs people operations for the whole company.",
   SUPER_ADMIN:
     "Opens the admin area with near-full control, including roles and company settings.",
-  VIEWER: "Read-only. Sees employees and reports, changes nothing.",
+  VIEWER: "Read-only. Sees their own team's employees and reports, changes nothing.",
   OWNER:
     "Full control of the company, including payroll approval. Give this sparingly.",
 };

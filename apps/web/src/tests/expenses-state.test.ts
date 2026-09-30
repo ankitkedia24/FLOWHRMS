@@ -36,8 +36,11 @@ const PERMITTED: ReadonlyArray<readonly [ClaimStatus, ClaimStatus]> = [
 const isPermitted = (from: ClaimStatus, to: ClaimStatus) =>
   PERMITTED.some(([f, t]) => f === from && t === to);
 
-/** An actor who could do anything a person can do — claimant AND approver. */
-const OMNIPOTENT = { isClaimant: true, canApprove: true };
+/**
+ * An actor who could do anything a person can do — claimant AND approver,
+ * and the Owner, the one person who may also settle their own claim.
+ */
+const OMNIPOTENT = { isClaimant: true, canApprove: true, mayDecideOwn: true };
 
 const ALL_PAIRS: Array<[ClaimStatus, ClaimStatus]> = [];
 for (const from of CLAIM_STATUSES) {

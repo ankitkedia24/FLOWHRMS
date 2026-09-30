@@ -39,6 +39,12 @@ const UNBUILT_FEATURES = [
   "TASKS.proof_video",
   "TASKS.gps_proof",
   "TASKS.daily_report",
+  // Hardening batch 7: read only to paint a status, never to send. notify()
+  // writes in-app notices and nothing else (lib/notifications/index.ts).
+  "NOTIFICATIONS.push",
+  "NOTIFICATIONS.email",
+  "NOTIFICATIONS.whatsapp",
+  "NOTIFICATIONS.sms",
 ];
 
 const UNBUILT_PERMISSIONS = [
@@ -62,8 +68,8 @@ describe("feature switches nothing reads", () => {
   });
 
   it("are never offered as a switch", () => {
-    const offered = (["ATTENDANCE", "PAYROLL", "TASKS"] as const).flatMap((m) =>
-      switchableFeatures(m).map((f) => `${f.module}.${f.key}`),
+    const offered = (["ATTENDANCE", "PAYROLL", "TASKS", "NOTIFICATIONS"] as const).flatMap(
+      (m) => switchableFeatures(m).map((f) => `${f.module}.${f.key}`),
     );
     for (const key of UNBUILT_FEATURES) expect(offered).not.toContain(key);
     // The ones something does read are still there.
@@ -77,6 +83,13 @@ describe("feature switches nothing reads", () => {
       ]),
     );
     expect(switchableFeatures("PAYROLL")).toEqual([]);
+    // Notifications keeps no switches: in-app is always on, and nothing
+    // else sends. Performance's switches are read, and stay.
+    expect(switchableFeatures("NOTIFICATIONS")).toEqual([]);
+    expect(switchableFeatures("PERFORMANCE").map((f) => f.key)).toEqual([
+      "leaderboard",
+      "rewards",
+    ]);
   });
 
   it("an unknown key is not built either", () => {
