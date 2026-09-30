@@ -60,9 +60,9 @@ export interface WorkedPunch {
  *
  * Long enough for any real shift including night work, so someone who
  * started at 22:00 can still check out at 06:00 the next morning — the case
- * that was broken. Short enough that a forgotten check-out becomes a
- * missed punch needing a correction, rather than a 26-hour day recorded as
- * fact.
+ * that was broken. Short enough that a forgotten check-out is shown as a
+ * check-out that wasn't recorded, counting no hours, rather than a 26-hour
+ * day recorded as fact.
  */
 export const MAX_OPEN_VISIT_HOURS = 18;
 
@@ -91,8 +91,11 @@ export function hasUnrecordedCheckOut(
  * climbing for ever. Someone who forgot to check out on Tuesday did not
  * work forty hours on Tuesday, and edge-cases.md forbids the alternative
  * of quietly inventing an end time: "No automatic check-out time is
- * invented." Zero and a visible "not recorded" is the honest answer; the
- * correction flow is how a real number gets there.
+ * invented." Zero, and the person's own day saying their check-out wasn't
+ * recorded, is the honest answer. Nothing fills in the real time later:
+ * the missed-punch correction flow was taken out in hardening batch 5
+ * (ATTENDANCE.missed_punch_correction is `built: false`), so those hours
+ * stay uncounted.
  */
 export function workedMinutes(punches: readonly WorkedPunch[], now: Date): number {
   let total = 0;
