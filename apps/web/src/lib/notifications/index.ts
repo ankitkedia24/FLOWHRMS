@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { devFixtureOffline } from "@/lib/auth/fixture";
 import type { AppSession } from "@/lib/auth/types";
 import { approversInScope } from "@/lib/authz/record-scope";
+import { proofReviewHref } from "@/lib/tasks/links";
 
 /**
  * In-app notifications (MODULES.md: Notifications is a CORE module).
@@ -172,7 +173,7 @@ async function proofSubmitted(
     userId,
     title: "Proof submitted for review",
     body: taskTitle,
-    href: `/admin/tasks/${taskId}`,
+    href: proofReviewHref(taskId),
   });
 }
 

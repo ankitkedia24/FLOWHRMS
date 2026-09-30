@@ -6,7 +6,7 @@ import { getDb } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
 import { loadEntitlements } from "@/lib/authz/entitlements";
-import { MODULES, type ModuleKey } from "@/lib/catalog";
+import { isFeatureBuilt, isModuleBuilt, MODULES, type ModuleKey } from "@/lib/catalog";
 import { disableImpact, missingRequirements, type EnabledMap } from "./impact";
 
 /**
@@ -58,6 +58,13 @@ export async function setModuleEnabledAction(
     return {
       ok: false,
       error: `${moduleDef.name} is a core capability and is always on.`,
+    };
+  }
+  // Nothing behind it, so never on. Switching it off still goes through.
+  if (parsed.data.enabled && !isModuleBuilt(moduleKey)) {
+    return {
+      ok: false,
+      error: `${moduleDef.name} isn't built yet, so there is nothing to switch on.`,
     };
   }
   if (moduleDef.category === "OPTIONAL" && parsed.data.enabled) {
@@ -189,6 +196,15 @@ export async function setFeatureEnabledAction(
   });
   if (!decision.allowed) {
     return { ok: false, error: decision.message ?? "You don't have access to this." };
+  }
+
+  // A switch no code reads is not offered on the page; refused here too,
+  // so a saved "on" can never claim something the product doesn't do.
+  if (!isFeatureBuilt(parsed.data.moduleKey, parsed.data.featureKey)) {
+    return {
+      ok: false,
+      error: "That feature isn't built yet, so there is nothing to switch.",
+    };
   }
 
   const db = getDb();

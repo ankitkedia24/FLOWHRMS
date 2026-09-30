@@ -5,9 +5,10 @@ import { loadEntitlements } from "@/lib/authz/entitlements";
 import { getDb } from "@/lib/db";
 import { devFixtureOffline } from "@/lib/auth/fixture";
 import {
-  FEATURES,
+  isModuleBuilt,
   MODULES,
   MODULE_DEPENDENCIES,
+  switchableFeatures,
   type ModuleKey,
 } from "@/lib/catalog";
 import { disableImpact, missingRequirements, type EnabledMap } from "@/lib/modules/impact";
@@ -117,7 +118,13 @@ export default async function ModuleManagementPage() {
               const notInPlan = !enabled && notAllowed.has(moduleDef.key);
               const optionalUnavailable =
                 notInPlan || (moduleDef.category === "OPTIONAL" && !enabled);
-              const features = FEATURES.filter((f) => f.module === moduleDef.key);
+              // Nothing behind it: never offered on, but a company that
+              // has one on (switched on before this was caught) can still
+              // switch it off.
+              const built = isModuleBuilt(moduleDef.key);
+              const showSwitch = built ? !optionalUnavailable : enabled;
+              // Only switches something reads; the rest would do nothing.
+              const features = switchableFeatures(moduleDef.key);
               const deps = dependencyLine(moduleDef.key);
               const missing = missingRequirements(enabledMap, moduleDef.key);
               const impact = disableImpact(enabledMap, moduleDef.key, {
@@ -138,11 +145,13 @@ export default async function ModuleManagementPage() {
                     </div>
                     <StatusChip
                       status={
-                        optionalUnavailable
-                          ? STATUS.notAvailable
-                          : enabled
-                            ? STATUS.enabled
-                            : STATUS.disabled
+                        !built
+                          ? STATUS.notBuilt
+                          : optionalUnavailable
+                            ? STATUS.notAvailable
+                            : enabled
+                              ? STATUS.enabled
+                              : STATUS.disabled
                       }
                       size="sm"
                     />
@@ -152,13 +161,22 @@ export default async function ModuleManagementPage() {
                     <p className="text-caption text-text-secondary">{deps}</p>
                   )}
 
-                  {optionalUnavailable ? (
+                  {!built ? (
                     <p className="text-secondary text-text-secondary">
-                      {notInPlan
-                        ? "Not included in your plan. Write to help@flowacord.com or call +91 89088 88880 to add it."
-                        : "Ask your Flowacord contact to enable this after its rules are approved."}
+                      {enabled
+                        ? "Not built yet. It has no screens, so being on changes nothing — you can switch it off."
+                        : "Not built yet, so there is nothing to switch on."}
                     </p>
                   ) : (
+                    optionalUnavailable && (
+                      <p className="text-secondary text-text-secondary">
+                        {notInPlan
+                          ? "Not included in your plan. Write to help@flowacord.com or call +91 89088 88880 to add it."
+                          : "Ask your Flowacord contact to enable this after its rules are approved."}
+                      </p>
+                    )
+                  )}
+                  {showSwitch && (
                     <ModuleSwitch
                       moduleKey={moduleDef.key}
                       moduleName={moduleDef.name}

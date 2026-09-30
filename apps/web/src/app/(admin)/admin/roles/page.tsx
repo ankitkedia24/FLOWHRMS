@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { checkAccess } from "@/lib/authz/guard";
 import { getDb } from "@/lib/db";
 import { devFixtureOffline } from "@/lib/auth/fixture";
-import { PERMISSIONS, ROLE_TEMPLATES } from "@/lib/catalog";
+import { GRANTABLE_PERMISSIONS, isPermissionBuilt, ROLE_TEMPLATES } from "@/lib/catalog";
 import { Alert } from "@/components/ui/Alert";
 import { Card } from "@/components/ui/Card";
 import { roleEditRefusal } from "@/lib/roles/policy";
@@ -83,14 +83,18 @@ export default async function RolesPage() {
               roleName={role.name}
               description={role.description}
               memberCount={role._count.memberships}
-              granted={role.permissions.map((rp) => rp.permission.key)}
+              // Permissions nothing checks yet are left off the matrix and
+              // its count; a save keeps them as they are (matrixRequest).
+              granted={role.permissions
+                .map((rp) => rp.permission.key)
+                .filter((key) => isPermissionBuilt(key))}
               refusal={roleEditRefusal({
                 actorRoleKey: session.membership.roleKey,
                 actorRoleId: myRoleId,
                 role: { id: role.id, key: role.key, name: role.name },
               })}
               mine={mine}
-              permissions={PERMISSIONS.map((p) => ({
+              permissions={GRANTABLE_PERMISSIONS.map((p) => ({
                 key: p.key,
                 name: p.name,
                 isSensitive: p.isSensitive,

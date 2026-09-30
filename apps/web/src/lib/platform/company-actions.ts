@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/authz/guard";
-import { MODULES, type ModuleKey } from "@/lib/catalog";
+import { isModuleBuilt, MODULES, type ModuleKey } from "@/lib/catalog";
 import { dependentModules, missingRequirements, type EnabledMap } from "@/lib/modules/impact";
 import { sendHeldInvitations, type HeldResult } from "@/lib/invites/held";
 import { saveTrialSettings } from "./settings";
@@ -175,6 +175,11 @@ export async function setCompanyModuleAction(input: z.input<typeof moduleSchema>
   const key = parsed.data.moduleKey as ModuleKey;
   const def = MODULES[key];
   if (def.category === "CORE") return { ok: false, error: `${def.name} is always on.` };
+  // Nothing behind it, so it can't be sold or switched on. Removing one a
+  // company already has still works.
+  if (parsed.data.enabled && !isModuleBuilt(key)) {
+    return { ok: false, error: `${def.name} isn't built yet, so it can't be switched on.` };
+  }
 
   const db = getDb();
   const settings = await db.tenantModuleSetting.findMany({

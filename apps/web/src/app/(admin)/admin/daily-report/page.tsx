@@ -12,6 +12,7 @@ import { Card, CardHeader } from "@/components/ui/Card";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { STATUS } from "@/lib/status";
 import { workDateInTimezone } from "@/lib/attendance/policy";
+import { dayBoundsInTimezone } from "@/lib/reports/day";
 
 export const metadata: Metadata = { title: "Daily report" };
 
@@ -32,7 +33,9 @@ export default async function AdminDailyReportPage() {
     session.user.id,
   );
   const tz = session.tenant.timezone;
-  const workDate = workDateInTimezone(new Date(), tz);
+  const now = new Date();
+  const workDate = workDateInTimezone(now, tz);
+  const today = dayBoundsInTimezone(now, tz);
 
   const on = (module: "ATTENDANCE" | "LEAVE" | "TASKS") =>
     evaluateAccess({ session, entitlements, module }).allowed;
@@ -71,9 +74,16 @@ export default async function AdminDailyReportPage() {
               where: { tenantId: session.tenant.id, status: "PENDING", ...inView },
             })
           : 0,
+        // Completed today — the same company-timezone day the attendance
+        // rows above use — not every completion since the company began.
         on("TASKS")
           ? db.task.count({
-              where: { tenantId: session.tenant.id, status: "COMPLETED", ...tasksInView },
+              where: {
+                tenantId: session.tenant.id,
+                status: "COMPLETED",
+                completedAt: { gte: today.start, lt: today.end },
+                ...tasksInView,
+              },
             })
           : 0,
         on("TASKS")
@@ -119,7 +129,7 @@ export default async function AdminDailyReportPage() {
               month: "long",
               year: "numeric",
               timeZone: tz,
-            }).format(new Date())}
+            }).format(now)}
           />
           <dl className="flex flex-col gap-2">
             {on("ATTENDANCE") && (

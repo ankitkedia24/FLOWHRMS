@@ -15,7 +15,7 @@ export function TrialSettingsForm({
 }: {
   days: number;
   selected: string[];
-  modules: Array<{ key: string; name: string; optional: boolean }>;
+  modules: Array<{ key: string; name: string; optional: boolean; built: boolean }>;
 }) {
   const router = useRouter();
   const { show } = useToast();
@@ -42,12 +42,15 @@ export function TrialSettingsForm({
           module&apos;s requirements must be included too.
         </p>
         <div className="mt-1">
+          {/* A module with nothing behind it can't be in a trial; saving
+              drops it anyway (normaliseTrialSettings). */}
           {modules.map((m) => (
             <Checkbox
               key={m.key}
               label={m.name}
-              helper={m.optional ? "Optional module" : undefined}
-              checked={chosen.includes(m.key)}
+              helper={!m.built ? "Not built yet" : m.optional ? "Optional module" : undefined}
+              disabled={!m.built}
+              checked={m.built && chosen.includes(m.key)}
               onChange={(e) =>
                 setChosen((c) => (e.target.checked ? [...c, m.key] : c.filter((k) => k !== m.key)))
               }

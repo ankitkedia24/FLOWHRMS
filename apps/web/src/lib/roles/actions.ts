@@ -6,7 +6,7 @@ import { getDb } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
 import { ALL_PERMISSION_KEYS } from "@/lib/catalog";
-import { mergePermissions, roleEditRefusal } from "./policy";
+import { matrixRequest, mergePermissions, roleEditRefusal } from "./policy";
 
 /**
  * Role permission changes (user-flows.md §9).
@@ -65,11 +65,13 @@ export async function saveRolePermissionsAction(
   if (refusal) return { ok: false, error: refusal };
 
   const before = role.permissions.map((rp) => rp.permission.key).sort();
-  // Only permissions that exist in the platform catalog, and only ones you
-  // hold yourself, can be added or removed; the rest stay as they were.
-  const requested = parsed.data.permissions.filter((key) =>
-    (ALL_PERMISSION_KEYS as string[]).includes(key),
-  );
+  // Only permissions that exist in the platform catalog and are on the
+  // matrix, and only ones you hold yourself, can be added or removed; the
+  // rest stay as they were.
+  const requested = matrixRequest({
+    current: before,
+    requested: parsed.data.permissions,
+  });
   const merged = mergePermissions({
     current: before,
     requested,

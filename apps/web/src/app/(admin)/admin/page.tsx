@@ -45,6 +45,15 @@ export default async function AdminDashboardPage() {
   const payrollOn =
     evaluateAccess({ session, entitlements, module: "PAYROLL" }).allowed &&
     session.permissions.has("payroll.view");
+  // "Recent activity" is a window onto the activity log, which needs the
+  // sensitive audit.view permission — the same decision as /admin/activity,
+  // so the card and its query exist only for people who could open the log.
+  const activityOn = evaluateAccess({
+    session,
+    entitlements,
+    module: "EMPLOYEES",
+    permission: "audit.view",
+  }).allowed;
 
   const currentMonth = currentPeriod(tz);
   const currentPeriodLabel = periodLabel(currentMonth, tz);
@@ -138,17 +147,19 @@ export default async function AdminDashboardPage() {
                 },
               })
             : 0,
-          db.auditEvent.findMany({
-            where: {
-              tenantId: session.tenant.id,
-              ...(visible
-                ? { actor: { memberships: { some: { id: { in: visible } } } } }
-                : {}),
-            },
-            orderBy: { createdAt: "desc" },
-            take: 6,
-            include: { actor: true },
-          }),
+          activityOn
+            ? db.auditEvent.findMany({
+                where: {
+                  tenantId: session.tenant.id,
+                  ...(visible
+                    ? { actor: { memberships: { some: { id: { in: visible } } } } }
+                    : {}),
+                },
+                orderBy: { createdAt: "desc" },
+                take: 6,
+                include: { actor: true },
+              })
+            : [],
         ])
       : [0, [], 0, 0, 0, 0, []];
 
@@ -327,41 +338,43 @@ export default async function AdminDashboardPage() {
             </Card>
           )}
 
-          <Card flush>
-            <div className="p-5 pb-0">
-              <CardHeader title="Recent activity" />
-            </div>
-            {activity.length === 0 ? (
-              <EmptyState
-                title="No activity yet."
-                body="Configuration and approval events will appear here."
-              />
-            ) : (
-              <ul className="flex flex-col p-5 pt-0">
-                {activity.map((event) => (
-                  <li
-                    key={event.id}
-                    className="border-b border-border-subtle py-2.5 last:border-0"
-                  >
-                    <p className="text-secondary text-text-primary">
-                      {describeAction(event.action)}
-                    </p>
-                    <p className="font-mono text-mono text-text-tertiary uppercase">
-                      {event.actor?.displayName ?? "System"} ·{" "}
-                      {new Intl.DateTimeFormat("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                        hour: "numeric",
-                        minute: "2-digit",
-                        hour12: true,
-                        timeZone: tz,
-                      }).format(event.createdAt)}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
+          {activityOn && (
+            <Card flush>
+              <div className="p-5 pb-0">
+                <CardHeader title="Recent activity" />
+              </div>
+              {activity.length === 0 ? (
+                <EmptyState
+                  title="No activity yet."
+                  body="Configuration and approval events will appear here."
+                />
+              ) : (
+                <ul className="flex flex-col p-5 pt-0">
+                  {activity.map((event) => (
+                    <li
+                      key={event.id}
+                      className="border-b border-border-subtle py-2.5 last:border-0"
+                    >
+                      <p className="text-secondary text-text-primary">
+                        {describeAction(event.action)}
+                      </p>
+                      <p className="font-mono text-mono text-text-tertiary uppercase">
+                        {event.actor?.displayName ?? "System"} ·{" "}
+                        {new Intl.DateTimeFormat("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                          hour: "numeric",
+                          minute: "2-digit",
+                          hour12: true,
+                          timeZone: tz,
+                        }).format(event.createdAt)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          )}
         </div>
       </div>
     </div>
