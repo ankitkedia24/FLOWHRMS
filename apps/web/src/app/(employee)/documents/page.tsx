@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { STATUS, type Status } from "@/lib/status";
 import { MyDocuments } from "./MyDocuments";
+import { ViewDocument } from "./ViewDocument";
 
 export const metadata: Metadata = { title: "My documents" };
 
@@ -92,6 +93,9 @@ export default async function MyDocumentsPage() {
                     HR asked for a better copy: {document.reviewReason}
                   </p>
                 )}
+                <div className="mt-3">
+                  <ViewDocument documentId={document.id} name={document.name} />
+                </div>
               </Card>
             </li>
           ))}
