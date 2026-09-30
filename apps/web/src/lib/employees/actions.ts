@@ -5,6 +5,8 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
+import { canSee, OUTSIDE_TEAM } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
 import { privilegeRank } from "@/lib/catalog";
 import { isSimpleStructure } from "@/lib/payroll/simple";
 import { describeWeekdays, normaliseWeekdays } from "@/lib/attendance/calendar";
@@ -368,6 +370,10 @@ export async function revealSensitiveAction(
   });
   if (!membership) {
     return { ok: false, error: "That employee is no longer available." };
+  }
+  // Record scope comes before the permission (lib/authz/scope.ts).
+  if (!canSee(await loadRecordScope(session), session.membership.id, membership.id)) {
+    return { ok: false, error: OUTSIDE_TEAM };
   }
 
   // Logged BEFORE the value is returned, so an access is recorded even if

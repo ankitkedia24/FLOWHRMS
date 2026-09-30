@@ -89,3 +89,24 @@ an owner can fix it rather than wonder why nothing arrives.
   see who decided."
 - Ask for details needs the question. The employee sees it ("Your approver
   asked: …") and the request stays in the queue, still decidable.
+
+---
+
+# Amendment 3 — Record scope
+*Approved by the owner, 30 September 2026 (Hardening batch 6). Appended, not rewritten.*
+
+- **Owner, Super Admin, Admin and HR** see the whole company.
+- **Everyone else** (Manager, Team Leader, Viewer, and any role a company
+  adds) sees their team: whoever reports to them, directly or through
+  others, plus the members of any department they head. They always see
+  themselves in lists, but are never in their own team for a decision.
+- Applied on the server before any permission: the employee list and
+  profile (outside the team: not found), attendance and leave queues and
+  decisions, tasks (list, assigning, proof review and proof files), ID
+  cards, the dashboard, the daily report and report exports, and who an
+  approval tile or bell reaches. Refusals say "That person isn't in your
+  team."
+- A Manager with nobody reporting to them and no department sees only
+  themselves. Set reporting lines and department heads to give them a team.
+- Field visits keep their own reach (FIELD-VISITS-MODULE.md §5). Expense
+  claims are not yet narrowed by this rule.

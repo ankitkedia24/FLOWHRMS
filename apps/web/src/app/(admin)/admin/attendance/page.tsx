@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { checkAccess } from "@/lib/authz/guard";
-import { DECIDABLE_STATUSES, withoutOwn } from "@/lib/authz/approvals";
+import { DECIDABLE_STATUSES } from "@/lib/authz/approvals";
+import { canSee, decidableWhere, visibleIds } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
 import { getDb } from "@/lib/db";
 import { devFixtureOffline } from "@/lib/auth/fixture";
 import { Alert } from "@/components/ui/Alert";
@@ -58,8 +60,14 @@ export default async function AdminAttendancePage({
   const selectedBranchName = branchName(branchFilter, branchOptions);
 
   // Records are filtered by where the check-in was judged; the headcount
-  // by where people work, so "of N employees" stays truthful.
-  const recordWhere = branchFilter ? { branchId: branchFilter } : {};
+  // by where people work, so "of N employees" stays truthful. A Manager
+  // sees only their team (and themselves) in both (lib/authz/scope.ts).
+  const scope = await loadRecordScope(session);
+  const visible = visibleIds(scope, session.membership.id);
+  const recordWhere = {
+    ...(branchFilter ? { branchId: branchFilter } : {}),
+    ...(visible ? { membershipId: { in: visible } } : {}),
+  };
   const peopleWhere = branchFilter ? { branchId: branchFilter } : {};
 
   const [records, exceptions, headcount] = devFixtureOffline()
@@ -74,17 +82,17 @@ export default async function AdminAttendancePage({
           orderBy: { checkInAt: "asc" },
         }),
         // Waiting ones, including those waiting on an answer to a question.
-        // Your own are left out unless you are an Owner: you could not
-        // decide them (lib/authz/approvals.ts).
+        // Your team's only, and your own are left out unless you are an
+        // Owner: you could not decide them (lib/authz/approvals.ts).
         getDb().attendanceRecord.findMany({
           where: {
             tenantId: session.tenant.id,
             reviewStatus: { in: [...DECIDABLE_STATUSES] },
-            ...recordWhere,
-            ...withoutOwn({
-              membershipId: session.membership.id,
-              roleKey: session.membership.roleKey,
-            }),
+            ...(branchFilter ? { branchId: branchFilter } : {}),
+            ...decidableWhere(
+              { membershipId: session.membership.id, roleKey: session.membership.roleKey },
+              scope,
+            ),
           },
           include: { membership: { include: { user: true } }, branch: true },
           orderBy: { checkInAt: "asc" },
@@ -95,6 +103,7 @@ export default async function AdminAttendancePage({
             tenantId: session.tenant.id,
             status: "ACTIVE",
             ...peopleWhere,
+            ...(visible ? { id: { in: visible } } : {}),
           },
         }),
       ]);
@@ -109,7 +118,9 @@ export default async function AdminAttendancePage({
   const offToday = devFixtureOffline()
     ? new Set<string>()
     : await membersOffOn(session.tenant.id, workDate, peopleWhere);
-  const offAndAbsent = [...offToday].filter((id) => !presentIds.has(id)).length;
+  const offAndAbsent = [...offToday].filter(
+    (id) => !presentIds.has(id) && canSee(scope, session.membership.id, id),
+  ).length;
   const notRecorded = Math.max(0, headcount - present - offAndAbsent);
 
   const metrics = [

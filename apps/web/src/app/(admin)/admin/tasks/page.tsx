@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { checkAccess } from "@/lib/authz/guard";
+import { visibleIds } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
 import { getDb } from "@/lib/db";
 import { devFixtureOffline } from "@/lib/auth/fixture";
 import { Card } from "@/components/ui/Card";
@@ -77,11 +79,28 @@ export default async function AdminTasksPage({
     feature: "proof_file",
   }).allowed;
 
+  // A Manager or Team Leader sees their team's tasks and the ones they
+  // set, assigns within their team (or to themselves), and reviews their
+  // team's proof — never their own (lib/authz/scope.ts).
+  const scope = await loadRecordScope(session);
+  const visible = visibleIds(scope, session.membership.id);
+
   const [tasks, assignees, awaitingReview] = devFixtureOffline()
     ? [[], [], []]
     : await Promise.all([
         getDb().task.findMany({
-          where: { tenantId: session.tenant.id, ...assigneeWhere },
+          where: {
+            tenantId: session.tenant.id,
+            ...assigneeWhere,
+            ...(visible
+              ? {
+                  OR: [
+                    { assigneeId: { in: visible } },
+                    { createdById: session.membership.id },
+                  ],
+                }
+              : {}),
+          },
           include: { assignee: { include: { user: true } } },
           orderBy: [{ status: "asc" }, { createdAt: "desc" }],
           take: 50,
@@ -91,6 +110,7 @@ export default async function AdminTasksPage({
             tenantId: session.tenant.id,
             status: "ACTIVE",
             ...(branchFilter ? { branchId: branchFilter } : {}),
+            ...(visible ? { id: { in: visible } } : {}),
           },
           include: { user: true },
           orderBy: { createdAt: "asc" },
@@ -100,6 +120,7 @@ export default async function AdminTasksPage({
             tenantId: session.tenant.id,
             status: "SUBMITTED_FOR_REVIEW",
             ...assigneeWhere,
+            ...(scope === "all" ? {} : { assigneeId: { in: [...scope] } }),
           },
           include: {
             assignee: { include: { user: true } },

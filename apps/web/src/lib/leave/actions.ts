@@ -15,6 +15,8 @@ import {
   isDecidable,
   selfDecisionRefusal,
 } from "@/lib/authz/approvals";
+import { decisionScopeRefusal } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
 import {
   formatDateRange,
   leaveDays,
@@ -218,6 +220,13 @@ export async function decideLeaveAction(
     kind: "leave",
   });
   if (own) return { ok: false, error: own };
+  // A Manager decides only for their own team (lib/authz/scope.ts).
+  const outside = decisionScopeRefusal(
+    await loadRecordScope(session),
+    session.membership.id,
+    request.membershipId,
+  );
+  if (outside) return { ok: false, error: outside };
   if (!isDecidable(request.status)) {
     return { ok: false, error: ALREADY_DECIDED };
   }

@@ -7,6 +7,8 @@ import { recordAuditEvent } from "@/lib/audit";
 import { notify } from "@/lib/notifications";
 import { clearActionRequest, raiseTaskProof, SUBJECT } from "@/lib/actions/raise";
 import { checkAccess } from "@/lib/authz/guard";
+import { canSee, decisionScopeRefusal, OUTSIDE_TEAM } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
 import { awardForTaskCompletion } from "@/lib/performance/award";
 
 /**
@@ -81,6 +83,10 @@ export async function createTaskAction(
   });
   if (!assignee) {
     return { ok: false, error: "That employee is no longer available." };
+  }
+  // A Manager assigns within their team, or to themselves (lib/authz/scope.ts).
+  if (!canSee(await loadRecordScope(session), session.membership.id, assignee.id)) {
+    return { ok: false, error: OUTSIDE_TEAM };
   }
 
   const task = await db.task.create({
@@ -361,6 +367,13 @@ export async function reviewProofAction(
     },
   });
   if (!task) return { ok: false, error: "That task is no longer available." };
+  // A Manager reviews their team's proof, never their own (lib/authz/scope.ts).
+  const outside = decisionScopeRefusal(
+    await loadRecordScope(session),
+    session.membership.id,
+    task.assigneeId,
+  );
+  if (outside) return { ok: false, error: outside };
 
   const proof = task.proofs[0];
   if (!proof) return { ok: false, error: "There is no proof to review yet." };

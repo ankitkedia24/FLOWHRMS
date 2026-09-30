@@ -5,6 +5,8 @@ import { toCsv } from "@/lib/csv";
 import { getDb } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
+import { visibleIds } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
 import { formatClockTime, workedMinutes } from "@/lib/attendance/policy";
 
 /**
@@ -71,6 +73,10 @@ export async function exportReportAction(
       })
     : null;
   const branchId = branch?.id ?? null;
+  // An export holds no more than its maker can see: a Manager's covers
+  // their team and themselves (lib/authz/scope.ts).
+  const visible = visibleIds(await loadRecordScope(session), session.membership.id);
+  const inView = visible ? { membershipId: { in: visible } } : {};
 
   let headers: string[] = [];
   let rows: unknown[][] = [];
@@ -81,6 +87,7 @@ export async function exportReportAction(
         tenantId: session.tenant.id,
         workDate: { gte: from, lte: to },
         ...(branchId ? { branchId } : {}),
+        ...inView,
       },
       include: {
         membership: { include: { user: true } },
@@ -141,6 +148,7 @@ export async function exportReportAction(
         startDate: { lte: to },
         endDate: { gte: from },
         ...(branchId ? { membership: { branchId } } : {}),
+        ...inView,
       },
       include: { membership: { include: { user: true } } },
       orderBy: [{ startDate: "asc" }],
@@ -173,6 +181,9 @@ export async function exportReportAction(
         tenantId: session.tenant.id,
         createdAt: { gte: from, lte: new Date(to.getTime() + 86_399_000) },
         ...(branchId ? { assignee: { branchId } } : {}),
+        ...(visible
+          ? { OR: [{ assigneeId: { in: visible } }, { createdById: session.membership.id }] }
+          : {}),
       },
       include: {
         assignee: { include: { user: true } },

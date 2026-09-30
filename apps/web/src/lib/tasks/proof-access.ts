@@ -3,6 +3,8 @@
 import { getDb } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
+import { canSee, OUTSIDE_TEAM } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { PROOF_BUCKET } from "./bucket";
 
@@ -39,13 +41,17 @@ export async function getProofFileUrl(fileId: string): Promise<ProofUrlResult> {
     return { ok: false, error: "That file is no longer available." };
   }
 
-  // The assignee, the task's creator, or anyone who can manage tasks.
+  // The assignee, the task's creator, or anyone who can manage tasks —
+  // within their record scope (a Manager: their team's tasks).
   const task = file.proof.task;
   const isOwnRecord =
     task.assigneeId === session.membership.id ||
     task.createdById === session.membership.id;
   if (!isOwnRecord && !session.permissions.has("tasks.manage")) {
     return { ok: false, error: "You don't have access to this file." };
+  }
+  if (!isOwnRecord && !canSee(await loadRecordScope(session), session.membership.id, task.assigneeId)) {
+    return { ok: false, error: OUTSIDE_TEAM };
   }
 
   const supabase = await createSupabaseServerClient();

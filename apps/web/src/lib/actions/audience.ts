@@ -61,6 +61,17 @@ export const OWNER_DECIDES_OWN: ReadonlySet<ActionKind> = new Set<ActionKind>([
   "ATTENDANCE_EXCEPTION",
 ]);
 
+/**
+ * The kinds whose deciding action applies record scope (lib/authz/scope.ts):
+ * a Manager is asked only about people in their team. Other kinds keep
+ * their own audience rules.
+ */
+export const TEAM_SCOPED_KINDS: ReadonlySet<ActionKind> = new Set<ActionKind>([
+  "LEAVE_REQUEST",
+  "ATTENDANCE_EXCEPTION",
+  "TASK_PROOF",
+]);
+
 export function resolveAudience(input: AudienceInput): Recipient[] {
   const self = input.aboutMayDecideOwn ? input.aboutUserId : null;
   const excluded = new Set(

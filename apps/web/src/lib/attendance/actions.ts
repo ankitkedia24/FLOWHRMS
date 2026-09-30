@@ -18,6 +18,8 @@ import {
   isDecidable,
   selfDecisionRefusal,
 } from "@/lib/authz/approvals";
+import { decisionScopeRefusal } from "@/lib/authz/scope";
+import { loadRecordScope } from "@/lib/authz/record-scope";
 import { loadEntitlements } from "@/lib/authz/entitlements";
 import { evaluateAccess } from "@/lib/authz/flags";
 import { getPolicyVersion } from "@/lib/policies";
@@ -818,6 +820,13 @@ export async function reviewAttendanceAction(
     kind: "attendance",
   });
   if (own) return { ok: false, error: own };
+  // A Manager reviews only their own team (lib/authz/scope.ts).
+  const outside = decisionScopeRefusal(
+    await loadRecordScope(session),
+    session.membership.id,
+    record.membershipId,
+  );
+  if (outside) return { ok: false, error: outside };
 
   // Stale decision: another admin already decided (edge-cases.md). A
   // question asked earlier leaves it open, so it can still be decided.

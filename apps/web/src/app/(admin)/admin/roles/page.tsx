@@ -67,8 +67,11 @@ export default async function RolesPage() {
 
       <Alert variant="info" title="Record scope is applied before every permission">
         A permission only ever applies within the records a person can
-        already see. Changes take effect on each person&apos;s next request
-        and are recorded in the activity log.
+        already see. Owner, Super Admin, Admin and HR see the whole company;
+        everyone else sees their team — the people who report to them,
+        directly or through others, and the departments they head. Changes
+        take effect on each person&apos;s next request and are recorded in
+        the activity log.
       </Alert>
 
       <div className="flex flex-col gap-4">
