@@ -1,11 +1,16 @@
 import "server-only";
 
 import { getDb } from "@/lib/db";
+import type { PrismaClient } from "@/generated/prisma/client";
 import type { AppSession } from "@/lib/auth/types";
 import { getPolicy } from "@/lib/policies";
 import { personWeeklyOff } from "@/lib/attendance/calendar";
 import { loadWorkCalendar } from "@/lib/attendance/work-calendar";
-import { summariseAttendance } from "./summary";
+import {
+  attendanceTreatment,
+  summariseAttendance,
+  undecidedAttendanceBlocker,
+} from "./summary";
 import {
   DEFAULT_LATE_POLICY,
   calculatePayrollLine,
@@ -43,8 +48,16 @@ export interface PayrollPreview {
     holidaysInPeriod: Array<{ date: string; name: string }>;
   };
   lines: PayrollLineDraft[];
-  /** Attendance exceptions still unreviewed in the period. */
+  /**
+   * Attendance records still waiting for a decision (PENDING or
+   * DETAILS_REQUESTED) for the people this run calculates.
+   */
   unreviewedExceptions: number;
+  /**
+   * Set while any of those records is undecided — Calculate and Approve
+   * refuse until someone decides them (src/lib/payroll/summary.ts).
+   */
+  attendanceBlocker: string | null;
   grossTotal: number;
   deductionTotal: number;
   netTotal: number;
@@ -83,16 +96,29 @@ export async function loadLatePolicy(tenantId: string): Promise<LatePolicy> {
   return { ...DEFAULT_LATE_POLICY, ...(stored ?? {}) };
 }
 
+/** The client or a transaction client — whichever the caller holds. */
+export type PreviewReader = Pick<
+  PrismaClient,
+  | "tenantMembership"
+  | "salaryComponent"
+  | "salaryStructure"
+  | "attendanceRecord"
+  | "leaveRequest"
+  | "payrollRun"
+>;
+
 /**
  * Build a preview for a period from live data. This is what the payroll
- * dashboard shows before anything is written, and what the approval
- * action re-computes server-side so the figures cannot be tampered with.
+ * dashboard shows before anything is written, and what Calculate and
+ * Approve re-compute server-side so the figures cannot be tampered with.
+ * They pass their transaction so the preview is read while they hold the
+ * run's row lock.
  */
 export async function buildPayrollPreview(
   session: AppSession,
   periodMonth: Date,
+  db: PreviewReader = getDb(),
 ): Promise<PayrollPreview> {
-  const db = getDb();
   const tenantId = session.tenant.id;
   const calendarDays = daysInPeriod(periodMonth);
   const periodEnd = new Date(
@@ -107,7 +133,7 @@ export async function buildPayrollPreview(
     loadWorkCalendar(tenantId),
   ]);
 
-  const [members, components, structures, attendance, leave, unreviewed, existingRun] =
+  const [members, components, structures, attendance, leave, existingRun] =
     await Promise.all([
       db.tenantMembership.findMany({
         where: { tenantId, status: "ACTIVE" },
@@ -153,13 +179,6 @@ export async function buildPayrollPreview(
           unpaidDays: true,
         },
       }),
-      db.attendanceRecord.count({
-        where: {
-          tenantId,
-          workDate: { gte: periodMonth, lte: periodEnd },
-          reviewStatus: "PENDING",
-        },
-      }),
       db.payrollRun.findUnique({
         where: { tenantId_periodMonth: { tenantId, periodMonth } },
         include: { lines: { include: { adjustments: true } } },
@@ -177,6 +196,10 @@ export async function buildPayrollPreview(
   }
 
   const lines: PayrollLineDraft[] = [];
+  // Undecided attendance of the people this run calculates. Someone left
+  // out (no salary structure, or no longer active) is not paid from their
+  // attendance, so their undecided records do not hold the run up.
+  const undecided: Array<{ name: string; reviewStatus: string }> = [];
 
   for (const member of members) {
     const structure = structureByMembership.get(member.id);
@@ -192,14 +215,22 @@ export async function buildPayrollPreview(
       continue;
     }
 
+    const records = attendance.filter((r) => r.membershipId === member.id);
+    for (const record of records) {
+      if (attendanceTreatment(record.reviewStatus) === "UNDECIDED") {
+        undecided.push({ name: member.user.displayName, reviewStatus: record.reviewStatus });
+      }
+    }
+
     // Weekly offs and holidays are paid and never absent — only working
-    // days can be (src/lib/payroll/summary.ts).
+    // days can be; rejected records are not present days
+    // (src/lib/payroll/summary.ts).
     const summary: AttendanceSummary = summariseAttendance({
       periodStart: periodMonth,
       periodEnd,
       calendar: workCalendar,
       weeklyOffDays: personWeeklyOff(workCalendar, member),
-      records: attendance.filter((r) => r.membershipId === member.id),
+      records,
       leave: leave.filter((l) => l.membershipId === member.id),
     });
 
@@ -282,7 +313,8 @@ export async function buildPayrollPreview(
       ),
     },
     lines,
-    unreviewedExceptions: unreviewed,
+    unreviewedExceptions: undecided.length,
+    attendanceBlocker: undecidedAttendanceBlocker(undecided),
     adjustmentsOnExcludedLines,
     grossTotal: payable.reduce((sum, l) => sum + (l.result?.gross ?? 0), 0),
     deductionTotal: payable.reduce(
