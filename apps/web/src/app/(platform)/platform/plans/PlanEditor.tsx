@@ -46,7 +46,7 @@ export function PlanEditor({
 }: {
   plan: PlanDraft | null;
   companies: number;
-  modules: Array<{ key: string; name: string; optional: boolean }>;
+  modules: Array<{ key: string; name: string; optional: boolean; built: boolean }>;
   nextSortOrder?: number;
 }) {
   const router = useRouter();
@@ -209,11 +209,22 @@ export function PlanEditor({
             your plan”. A module&apos;s requirements must be included too.
           </p>
           <div className="mt-1">
+            {/* A module with nothing behind it can't be sold. One already
+                ticked stays untickable, so an old plan can be tidied. */}
             {modules.map((m) => (
               <Checkbox
                 key={m.key}
                 label={m.name}
-                helper={m.optional ? "Optional module" : undefined}
+                helper={
+                  !m.built
+                    ? draft.modules.includes(m.key)
+                      ? "Not built yet — untick it to save this plan"
+                      : "Not built yet"
+                    : m.optional
+                      ? "Optional module"
+                      : undefined
+                }
+                disabled={!m.built && !draft.modules.includes(m.key)}
                 checked={draft.modules.includes(m.key)}
                 onChange={(e) =>
                   set(

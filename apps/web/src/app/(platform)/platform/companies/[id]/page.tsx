@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePlatformAdmin } from "@/lib/authz/guard";
 import { getDb } from "@/lib/db";
-import { MODULES, type ModuleKey } from "@/lib/catalog";
+import { isModuleBuilt, MODULES, type ModuleKey } from "@/lib/catalog";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { accessState, formatPaise } from "@/lib/billing/pricing";
@@ -96,6 +96,7 @@ export default async function PlatformCompanyPage({
         category: MODULES[k].category,
         enabled: s?.enabled ?? false,
         allowed: s?.allowedByPlatform ?? true,
+        built: isModuleBuilt(k),
       };
     });
 

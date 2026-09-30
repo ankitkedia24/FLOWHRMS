@@ -4,11 +4,17 @@ import {
   FEATURES,
   GRANTABLE_PERMISSIONS,
   isFeatureBuilt,
+  isModuleBuilt,
   isPermissionBuilt,
+  MODULES,
   ROLE_TEMPLATES,
   switchableFeatures,
+  type ModuleKey,
 } from "@/lib/catalog";
+import { applyPlanModules, planModuleProblems } from "@/lib/billing/plan-modules";
+import { normaliseTrialSettings } from "@/lib/platform/trial-defaults";
 import { matrixRequest, mergePermissions } from "@/lib/roles/policy";
+import { STATUS } from "@/lib/status";
 
 /**
  * Switches that do nothing and permissions nothing checks (hardening
@@ -113,5 +119,60 @@ describe("permissions nothing checks", () => {
 
   it("drops keys the catalog doesn't know", () => {
     expect(matrixRequest({ current: ["made.up"], requested: ["also.made.up"] })).toEqual([]);
+  });
+});
+
+describe("modules with nothing behind them", () => {
+  const UNBUILT = ["ANNOUNCEMENTS", "APPROVALS", "ASSETS", "GPS_TRACKING"];
+
+  it("are exactly the four placeholders; Field visits and Expenses are built", () => {
+    const unbuilt = (Object.keys(MODULES) as ModuleKey[]).filter((k) => !isModuleBuilt(k));
+    expect(unbuilt.sort()).toEqual(UNBUILT);
+    expect(isModuleBuilt("FIELD_VISITS")).toBe(true);
+    expect(isModuleBuilt("EXPENSES")).toBe(true);
+  });
+
+  it("an unknown key is not built, including inherited names", () => {
+    expect(isModuleBuilt("WIDGETS")).toBe(false);
+    expect(isModuleBuilt("toString")).toBe(false);
+  });
+
+  it("read as Not built yet", () => {
+    expect(STATUS.notBuilt.label).toBe("Not built yet");
+  });
+
+  it("can't be put in a plan", () => {
+    expect(planModuleProblems(["EMPLOYEES", "ASSETS"])).toEqual(["Assets isn't built yet"]);
+    expect(planModuleProblems(["APPROVALS", "GPS_TRACKING"])).toEqual([
+      "Approvals, GPS Tracking aren't built yet",
+    ]);
+    expect(planModuleProblems(["EMPLOYEES", "EXPENSES", "FIELD_VISITS", "ATTENDANCE"])).toEqual([]);
+  });
+
+  const settings = (on: string[], allowed: string[] = on) =>
+    (Object.keys(MODULES) as ModuleKey[]).map((key) => ({
+      key,
+      enabled: on.includes(key),
+      allowedByPlatform: allowed.includes(key),
+    }));
+
+  it("are never switched on by a plan that still lists them", () => {
+    const changes = applyPlanModules(settings(["EMPLOYEES"]), ["EMPLOYEES", "ASSETS", "ANNOUNCEMENTS"]);
+    expect(changes.find((c) => c.key === "ASSETS")).toBeUndefined();
+    expect(changes.find((c) => c.key === "ANNOUNCEMENTS")).toBeUndefined();
+  });
+
+  it("stay as they are when a company already has one on (Group G)", () => {
+    const current = settings(["EMPLOYEES", "ASSETS", "APPROVALS"]);
+    const changes = applyPlanModules(current, ["EMPLOYEES", "ASSETS"]);
+    expect(changes.find((c) => c.key === "ASSETS")).toBeUndefined();
+    expect(changes.find((c) => c.key === "APPROVALS")).toBeUndefined();
+  });
+
+  it("are dropped from the free-trial package", () => {
+    const s = normaliseTrialSettings({ days: 30, modules: ["ATTENDANCE", "GPS_TRACKING", "ASSETS"] });
+    expect(s.modules).toContain("ATTENDANCE");
+    expect(s.modules).not.toContain("GPS_TRACKING");
+    expect(s.modules).not.toContain("ASSETS");
   });
 });

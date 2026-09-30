@@ -6,7 +6,7 @@ import { getDb } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { checkAccess } from "@/lib/authz/guard";
 import { loadEntitlements } from "@/lib/authz/entitlements";
-import { isFeatureBuilt, MODULES, type ModuleKey } from "@/lib/catalog";
+import { isFeatureBuilt, isModuleBuilt, MODULES, type ModuleKey } from "@/lib/catalog";
 import { disableImpact, missingRequirements, type EnabledMap } from "./impact";
 
 /**
@@ -58,6 +58,13 @@ export async function setModuleEnabledAction(
     return {
       ok: false,
       error: `${moduleDef.name} is a core capability and is always on.`,
+    };
+  }
+  // Nothing behind it, so never on. Switching it off still goes through.
+  if (parsed.data.enabled && !isModuleBuilt(moduleKey)) {
+    return {
+      ok: false,
+      error: `${moduleDef.name} isn't built yet, so there is nothing to switch on.`,
     };
   }
   if (moduleDef.category === "OPTIONAL" && parsed.data.enabled) {

@@ -12,6 +12,14 @@
 
 export type ModuleCategory = "CORE" | "STANDARD" | "OPTIONAL";
 
+/**
+ * `built: false` marks a module with nothing behind it — no screens, no
+ * rules. It stays in the catalog (the key and any company's saved setting
+ * remain valid) but nobody can switch it on or sell it in a plan: the
+ * screens say "Not built yet" and the actions refuse. Switching one off
+ * always works. Leaving `built` out means built. Read it through
+ * isModuleBuilt().
+ */
 export const MODULES = {
   EMPLOYEES: {
     key: "EMPLOYEES",
@@ -88,30 +96,34 @@ export const MODULES = {
   ASSETS: {
     key: "ASSETS",
     name: "Assets",
-    description: "Optional module — enabled only after its rules are approved.",
+    description: "Planned — not built yet.",
     category: "OPTIONAL" as ModuleCategory,
+    built: false,
     sortOrder: 120,
   },
   ANNOUNCEMENTS: {
     key: "ANNOUNCEMENTS",
     name: "Announcements",
-    description: "Optional module — enabled only after its rules are approved.",
+    description: "Planned — not built yet.",
     category: "OPTIONAL" as ModuleCategory,
+    built: false,
     sortOrder: 130,
   },
   APPROVALS: {
     key: "APPROVALS",
     name: "Approvals",
-    description: "Optional module — enabled only after its rules are approved.",
+    description: "Planned — not built yet.",
     category: "OPTIONAL" as ModuleCategory,
+    built: false,
     sortOrder: 140,
   },
   GPS_TRACKING: {
     key: "GPS_TRACKING",
     name: "GPS Tracking",
     description:
-      "Event-based attendance and task proof — not continuous tracking. Optional; rules must be approved first.",
+      "Planned: event-based attendance and task proof, never continuous tracking. Not built yet.",
     category: "OPTIONAL" as ModuleCategory,
+    built: false,
     sortOrder: 150,
   },
   FIELD_VISITS: {
@@ -125,6 +137,13 @@ export const MODULES = {
 } as const;
 
 export type ModuleKey = keyof typeof MODULES;
+
+/** Has this module been built? Unknown keys: no. */
+export function isModuleBuilt(key: string): boolean {
+  if (!Object.prototype.hasOwnProperty.call(MODULES, key)) return false;
+  const def: { key: string; built?: boolean } = MODULES[key as ModuleKey];
+  return def.built !== false;
+}
 
 /**
  * Dependency rules (MODULES.md). Entries sharing a non-null `anyOfGroup`
