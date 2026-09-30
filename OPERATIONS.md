@@ -178,13 +178,15 @@ D-PL-01).
 
 ## Support access
 
-There is **no impersonation feature**, deliberately. If support needs to
-see a tenant's data, it is a database query by someone with the password,
-and it is not currently logged as an audit event. Before the pilot, either
-build the support-session flow the design specifies (persistent
-non-dismissible warning band, time-bound, every action attributed to the
-real operator) or agree in writing that support does not access customer
-data.
+`/platform` → the company → **Support** → **Open as support** puts you
+inside the company with the Owner's access until you press **Exit support**
+(docs/md/SUPPORT-ACCESS.md). The company sees no banner; changes you make
+show in its Activity log as "Flowacord support". Sessions are listed on
+/platform/system.
+
+**Until the updated Terms are reviewed and published, only the placeholder
+and sample companies can be opened.** A database query by someone with the
+password is still possible and still unrecorded — don't use it for support.
 
 ## Monitoring
 
@@ -212,5 +214,5 @@ Everything below is on **/platform/system** (platform admins only).
 - A restore into a new Supabase project, sign-ins included, hasn't been
   rehearsed; the weekly rehearsal restores company data into a local
   throwaway database.
-- No support-session flow — or, instead, a written rule that support never opens customer data (see *Support access*).
+- Support access to real companies waits on the lawyer-reviewed Terms (docs/md/SUPPORT-ACCESS.md).
 - Scheduled daily summaries need a notification provider.

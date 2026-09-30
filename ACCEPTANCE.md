@@ -75,7 +75,7 @@ Legend: **Met** · **Partly met** · **Not met** · **N/A**
 | Disabling a module removes nav, denies APIs, creates an audit event | **Met** — jobs N/A. |
 | Re-enabling restores navigation with data intact | **Met** |
 | Tenant-scoped queries, files and notifications | **Met** — plus RLS now enabled on all 25 tenant tables. |
-| Support/impersonation session shows a warning band | **N/A** — **no impersonation feature exists**. Must be built or explicitly ruled out before support touches customer data (OPERATIONS.md). |
+| Support/impersonation session shows a warning band | **Met for the support person** — a persistent strip with Exit; every change attributed to "Flowacord support". By owner decision (D-PL-03) there is no time limit and no band shown to the company. Real companies open only after their owner accepts the updated Terms (docs/md/SUPPORT-ACCESS.md). |
 
 ## F. Payroll
 
@@ -174,8 +174,9 @@ Legend: **Met** · **Partly met** · **Not met** · **N/A**
    colour-blindness, forced-colors, 200% zoom. Built to spec, untested.
 2. **Retention and data rights** — windows agreed, export and deletion
    workflows built (Constitution §7).
-3. **Support access** — build the audited support session, or agree in
-   writing that nobody at FlowHRMS opens customer data.
+3. **Support access** — built (docs/md/SUPPORT-ACCESS.md); have the
+   drafted Terms and Privacy wording reviewed and published before it is
+   used on real companies.
 4. **Backup restore rehearsal** (OPERATIONS.md).
 5. **Payroll rules reviewed** by a qualified local professional.
 

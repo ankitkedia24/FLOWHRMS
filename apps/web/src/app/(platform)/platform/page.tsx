@@ -73,7 +73,8 @@ export default async function PlatformCompaniesPage() {
   const tenants = await db.tenant.findMany({
     orderBy: { createdAt: "desc" },
     include: {
-      _count: { select: { memberships: true } },
+      // Not the hidden Flowacord support member (lib/auth/support.ts).
+      _count: { select: { memberships: { where: { status: { not: "SUPPORT" } } } } },
       // The truest sign of life for a workforce product: a company nobody
       // checks into is one about to leave, and that is worth seeing before
       // the renewal conversation rather than after it.
@@ -83,7 +84,7 @@ export default async function PlatformCompaniesPage() {
         select: { workDate: true },
       },
       memberships: {
-        where: { role: { key: "OWNER" } },
+        where: { role: { key: "OWNER" }, status: { not: "SUPPORT" } },
         orderBy: { createdAt: "asc" },
         take: 1,
         select: { status: true },

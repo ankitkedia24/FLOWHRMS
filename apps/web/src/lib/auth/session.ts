@@ -1,10 +1,12 @@
 import "server-only";
 
 import { cache } from "react";
+import { cookies } from "next/headers";
 import { getDb } from "@/lib/db";
 import type { PermissionKey } from "@/lib/catalog";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { devFixtureRole, fixtureSession } from "./fixture";
+import { SUPPORT_COOKIE, supportSessionFor } from "./support";
 import type { AppSession } from "./types";
 
 /**
@@ -35,7 +37,21 @@ export const hasSupabaseUser = cache(async (): Promise<boolean> => {
   return Boolean(user);
 });
 
-export const getAppSession = cache(async (): Promise<AppSession | null> => {
+/**
+ * The session the app runs as. For a platform admin with an open support
+ * session (lib/auth/support.ts), that is the company they opened, as
+ * Flowacord support.
+ */
+export const getAppSession = cache(async (): Promise<AppSession | null> => resolveSession(true));
+
+/**
+ * The signed-in person's own session, ignoring any support session. The
+ * platform area uses this (requirePlatformAdmin), so a Flowacord person
+ * inside a company can still reach /platform and press Exit.
+ */
+export const getOwnSession = cache(async (): Promise<AppSession | null> => resolveSession(false));
+
+async function resolveSession(allowSupport: boolean): Promise<AppSession | null> {
   const fixtureRole = devFixtureRole();
   if (fixtureRole) return await fixtureSession(fixtureRole);
 
@@ -64,6 +80,11 @@ export const getAppSession = cache(async (): Promise<AppSession | null> => {
     }
   }
   if (!user || user.status !== "ACTIVE") return null;
+
+  if (allowSupport && user.isPlatformAdmin) {
+    const support = await supportSessionFor(user, (await cookies()).get(SUPPORT_COOKIE)?.value);
+    if (support) return support;
+  }
 
   const membership = await db.tenantMembership.findFirst({
     where: { userId: user.id, status: "ACTIVE", tenant: { status: "ACTIVE" } },
@@ -108,4 +129,4 @@ export const getAppSession = cache(async (): Promise<AppSession | null> => {
     permissions,
     source: "supabase",
   };
-});
+}

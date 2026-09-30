@@ -112,6 +112,8 @@ export async function openTrip(client: Client, tenantId: string, membershipId: s
  * v3, optional). Without it their taps are recorded without location.
  */
 export async function visitLocationAllowed(session: AppSession): Promise<boolean> {
+  // Flowacord support never records its own location.
+  if (session.source === "support") return false;
   if (session.source !== "supabase") return true;
   const [standing] = await consentStandings(session.user.id, ["employee"]);
   return (

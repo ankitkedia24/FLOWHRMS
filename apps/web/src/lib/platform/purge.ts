@@ -92,6 +92,8 @@ export async function purgeTenant(
         data: { departmentId: null, reportingToId: null, branchId: null, shiftId: null },
       });
       await tx.department.deleteMany({ where: t });
+      // Support sessions point at the company's SUPPORT member.
+      await tx.supportSession.deleteMany({ where: t });
       await tx.tenantMembership.deleteMany({ where: t });
       await tx.designation.deleteMany({ where: t });
       await tx.branch.deleteMany({ where: t });

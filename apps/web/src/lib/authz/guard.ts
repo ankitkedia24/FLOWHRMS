@@ -2,7 +2,7 @@ import "server-only";
 
 import { redirect } from "next/navigation";
 import type { ModuleKey, PermissionKey } from "@/lib/catalog";
-import { getAppSession } from "@/lib/auth/session";
+import { getAppSession, getOwnSession } from "@/lib/auth/session";
 import type { AppSession } from "@/lib/auth/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { outstandingNotices } from "@/lib/consent/record";
@@ -26,8 +26,10 @@ import { evaluateAccess, type AccessDecision } from "./flags";
 export async function requireSession(options?: {
   /** For the few pages a paused company still needs: paying, mainly. */
   allowPaused?: boolean;
+  /** The signed-in person's own session, never a support session (the platform area). */
+  own?: boolean;
 }): Promise<AppSession> {
-  const session = await getAppSession();
+  const session = options?.own ? await getOwnSession() : await getAppSession();
   if (!session) {
     const supabase = await createSupabaseServerClient();
     const authUser = supabase
@@ -39,7 +41,9 @@ export async function requireSession(options?: {
   // to this person, at its current version. Everything in the app passes
   // through here, so this is the one place it is enforced. /consent itself
   // does not call requireSession.
-  if ((await outstandingNotices(session)).length > 0) redirect("/consent");
+  // Flowacord support is not a person the company's notices address; the
+  // support identity has no sign-in and consents to nothing.
+  if (!session.support && (await outstandingNotices(session)).length > 0) redirect("/consent");
   // A trial that has run out, or a paid period a week past its end, pauses
   // the company: data is kept, nothing can be done until it pays or
   // Flowacord extends it. /trial-ended does not call requireSession, and
@@ -59,14 +63,14 @@ export async function requireSession(options?: {
  * role that can grant it. A tenant Owner cannot reach it however many
  * permissions they collect.
  *
- * It does NOT confer the right to act inside a company. There is no
- * impersonation here — that needs a time bound, a reason, and the visible
- * "Support session" band (SECURITY-NOTES.md), and none of those exist yet.
- * What this allows is the operator's own work: listing companies, creating
- * one, suspending one, reading enquiries.
+ * It does NOT by itself confer the right to act inside a company. That is
+ * a support session (lib/auth/support.ts, docs/md/SUPPORT-ACCESS.md),
+ * opened deliberately from /platform, recorded, and shown to the company as
+ * "Flowacord support". This guard always reads the admin's OWN session, so
+ * the platform area stays reachable while a support session is open.
  */
 export async function requirePlatformAdmin(): Promise<AppSession> {
-  const session = await requireSession();
+  const session = await requireSession({ own: true });
   if (!session.user.isPlatformAdmin) redirect("/unauthorized");
   return session;
 }
