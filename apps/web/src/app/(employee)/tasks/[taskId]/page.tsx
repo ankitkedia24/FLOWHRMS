@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { devFixtureOffline } from "@/lib/auth/fixture";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { ViewProofFile } from "@/components/tasks/ViewProofFile";
 import { PRIORITY, STATUS } from "@/lib/status";
 import { TaskActions } from "./TaskActions";
 
@@ -146,12 +147,17 @@ export default async function TaskDetailPage({
                 )}
                 {proof.files.length > 0 && (
                   <ul className="mt-1 flex flex-col gap-1">
+                    {/* Your own proof opens the way a reviewer's does
+                        (lib/tasks/proof-access.ts): a short-lived link. */}
                     {proof.files.map((file) => (
                       <li
                         key={file.id}
-                        className="text-caption text-text-secondary"
+                        className="flex items-center justify-between gap-3 text-caption text-text-secondary"
                       >
-                        {file.name} · {(file.sizeBytes / 1024).toFixed(0)} KB
+                        <span className="min-w-0 truncate">
+                          {file.name} · {(file.sizeBytes / 1024).toFixed(0)} KB
+                        </span>
+                        <ViewProofFile fileId={file.id} name={file.name} />
                       </li>
                     ))}
                   </ul>

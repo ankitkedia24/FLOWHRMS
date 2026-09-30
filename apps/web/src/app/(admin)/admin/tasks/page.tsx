@@ -169,7 +169,8 @@ export default async function AdminTasksPage({
               title: task.title,
               assignee: task.assignee.user.displayName,
               note: task.proofs[0]?.note ?? null,
-              fileNames: task.proofs[0]?.files.map((f) => f.name) ?? [],
+              files:
+                task.proofs[0]?.files.map((f) => ({ id: f.id, name: f.name })) ?? [],
               submittedAt: task.proofs[0]
                 ? new Intl.DateTimeFormat("en-GB", {
                     day: "numeric",
