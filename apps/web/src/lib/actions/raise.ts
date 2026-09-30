@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { AppSession } from "@/lib/auth/types";
+import { proofReviewHref } from "@/lib/tasks/links";
 import { raiseActionRequest, resolveActionRequest } from "./service";
 
 /**
@@ -77,7 +78,7 @@ export async function raiseTaskProof(
     aboutMembershipId: assigneeMembershipId,
     title: `${employeeName} — proof to review`,
     body: taskTitle,
-    href: `/admin/tasks/${taskId}`,
+    href: proofReviewHref(taskId),
     actorUserId: session.user.id,
   });
 }

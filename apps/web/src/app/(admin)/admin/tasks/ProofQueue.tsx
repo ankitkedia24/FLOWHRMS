@@ -3,6 +3,7 @@
 import { ApprovalCard } from "@/components/approvals/ApprovalCard";
 import { STATUS } from "@/lib/status";
 import { reviewProofAction } from "@/lib/tasks/actions";
+import { proofAnchorId } from "@/lib/tasks/links";
 
 /**
  * Task proof review (screen A9). The impact line names what approving
@@ -22,7 +23,13 @@ export function ProofQueue({ items }: { items: ProofQueueItem[] }) {
   return (
     <ul className="flex flex-col gap-4">
       {items.map((item) => (
-        <li key={item.taskId}>
+        // The bell and the dashboard tile link here (proofReviewHref);
+        // the card they point at is outlined.
+        <li
+          key={item.taskId}
+          id={proofAnchorId(item.taskId)}
+          className="scroll-mt-20 rounded-surface-card target:ring-2 target:ring-brand-primary"
+        >
           <ApprovalCard
             requesterName={item.assignee}
             requesterMeta={`Submitted ${item.submittedAt}`}
