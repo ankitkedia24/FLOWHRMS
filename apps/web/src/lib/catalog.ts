@@ -145,35 +145,45 @@ export const MODULE_DEPENDENCIES: ReadonlyArray<{
   { module: "PERFORMANCE", requires: "TASKS", anyOfGroup: "perf-source" },
 ];
 
-/** Initial feature flags (FEATURE-FLAGS.md). */
+/**
+ * Initial feature flags (FEATURE-FLAGS.md).
+ *
+ * `built: false` marks a switch that no code reads yet. Flipping it would
+ * change nothing, and a switch that does nothing tells the owner something
+ * false about their company. It keeps its key — reserved for when it is
+ * built, and tenant settings already saved against it stay valid — but it
+ * is never offered as a control and saving it is refused
+ * (src/lib/modules/actions.ts). Leaving `built` out means built.
+ */
 export const FEATURES: ReadonlyArray<{
   module: ModuleKey;
   key: string;
   name: string;
   defaultEnabled: boolean;
+  built?: boolean;
 }> = [
-  { module: "ATTENDANCE", key: "gps_capture", name: "GPS capture", defaultEnabled: true },
+  { module: "ATTENDANCE", key: "gps_capture", name: "GPS capture", defaultEnabled: true, built: false },
   { module: "ATTENDANCE", key: "geofence", name: "Permitted-area check", defaultEnabled: true },
   { module: "ATTENDANCE", key: "any_branch_check_in", name: "Check in at any company location", defaultEnabled: false },
-  { module: "ATTENDANCE", key: "outside_area_approval", name: "Outside-area approval", defaultEnabled: true },
+  { module: "ATTENDANCE", key: "outside_area_approval", name: "Outside-area approval", defaultEnabled: true, built: false },
   { module: "ATTENDANCE", key: "multiple_punch", name: "Multiple punches per day", defaultEnabled: false },
-  { module: "ATTENDANCE", key: "offline_capture", name: "Offline capture", defaultEnabled: true },
-  { module: "ATTENDANCE", key: "missed_punch_correction", name: "Missed-punch correction", defaultEnabled: true },
-  { module: "ATTENDANCE", key: "late_penalty", name: "Late penalty", defaultEnabled: true },
-  { module: "ATTENDANCE", key: "late_exemption", name: "Late exemption", defaultEnabled: true },
-  { module: "PAYROLL", key: "overtime", name: "Overtime", defaultEnabled: false },
-  { module: "PAYROLL", key: "advances", name: "Advances", defaultEnabled: false },
-  { module: "PAYROLL", key: "loans", name: "Loans", defaultEnabled: false },
-  { module: "PAYROLL", key: "incentives", name: "Incentives", defaultEnabled: false },
-  { module: "PAYROLL", key: "bonus", name: "Bonus", defaultEnabled: false },
-  { module: "PAYROLL", key: "payslip_delivery", name: "Payslip delivery", defaultEnabled: true },
-  { module: "TASKS", key: "multiple_assignees", name: "Multiple assignees", defaultEnabled: false },
-  { module: "TASKS", key: "recurring_tasks", name: "Recurring tasks", defaultEnabled: false },
+  { module: "ATTENDANCE", key: "offline_capture", name: "Offline capture", defaultEnabled: true, built: false },
+  { module: "ATTENDANCE", key: "missed_punch_correction", name: "Missed-punch correction", defaultEnabled: true, built: false },
+  { module: "ATTENDANCE", key: "late_penalty", name: "Late penalty", defaultEnabled: true, built: false },
+  { module: "ATTENDANCE", key: "late_exemption", name: "Late exemption", defaultEnabled: true, built: false },
+  { module: "PAYROLL", key: "overtime", name: "Overtime", defaultEnabled: false, built: false },
+  { module: "PAYROLL", key: "advances", name: "Advances", defaultEnabled: false, built: false },
+  { module: "PAYROLL", key: "loans", name: "Loans", defaultEnabled: false, built: false },
+  { module: "PAYROLL", key: "incentives", name: "Incentives", defaultEnabled: false, built: false },
+  { module: "PAYROLL", key: "bonus", name: "Bonus", defaultEnabled: false, built: false },
+  { module: "PAYROLL", key: "payslip_delivery", name: "Payslip delivery", defaultEnabled: true, built: false },
+  { module: "TASKS", key: "multiple_assignees", name: "Multiple assignees", defaultEnabled: false, built: false },
+  { module: "TASKS", key: "recurring_tasks", name: "Recurring tasks", defaultEnabled: false, built: false },
   { module: "TASKS", key: "proof_photo", name: "Photo proof", defaultEnabled: true },
   { module: "TASKS", key: "proof_file", name: "File proof", defaultEnabled: true },
-  { module: "TASKS", key: "proof_video", name: "Video proof", defaultEnabled: false },
-  { module: "TASKS", key: "gps_proof", name: "GPS proof", defaultEnabled: false },
-  { module: "TASKS", key: "daily_report", name: "Task daily report", defaultEnabled: true },
+  { module: "TASKS", key: "proof_video", name: "Video proof", defaultEnabled: false, built: false },
+  { module: "TASKS", key: "gps_proof", name: "GPS proof", defaultEnabled: false, built: false },
+  { module: "TASKS", key: "daily_report", name: "Task daily report", defaultEnabled: true, built: false },
   { module: "NOTIFICATIONS", key: "push", name: "Push notifications", defaultEnabled: true },
   { module: "NOTIFICATIONS", key: "email", name: "Email notifications", defaultEnabled: true },
   { module: "NOTIFICATIONS", key: "whatsapp", name: "WhatsApp notifications", defaultEnabled: false },
@@ -185,6 +195,11 @@ export const FEATURES: ReadonlyArray<{
 /**
  * Permission catalog. `sensitive` marks the separately-permissioned set
  * from USER-ROLES.md §"Minimum sensitive permissions".
+ *
+ * `built: false` marks a permission no code checks yet: granting it gives
+ * nobody anything, so the access-level matrix does not offer it. It stays
+ * in the catalog and on every role that already holds it, ready for the
+ * day something checks it.
  */
 export const PERMISSIONS = [
   { key: "admin.access", name: "Access the admin area", isSensitive: false },
@@ -192,20 +207,20 @@ export const PERMISSIONS = [
   { key: "employees.manage", name: "Add and edit employees", isSensitive: false },
   { key: "attendance.view", name: "View attendance", isSensitive: false },
   { key: "attendance.review", name: "Review attendance exceptions", isSensitive: false },
-  { key: "attendance.override", name: "Override attendance records", isSensitive: true },
+  { key: "attendance.override", name: "Override attendance records", isSensitive: true, built: false },
   { key: "leave.view", name: "View leave requests", isSensitive: false },
   { key: "leave.approve", name: "Approve leave", isSensitive: false },
   { key: "payroll.view", name: "Salary amounts — view", isSensitive: true },
   { key: "payroll.edit", name: "Salary amounts — edit", isSensitive: true },
   { key: "payroll.approve", name: "Payroll — approve and lock", isSensitive: true },
   { key: "bank.view", name: "Bank details — view", isSensitive: true },
-  { key: "bank.edit", name: "Bank details — edit", isSensitive: true },
+  { key: "bank.edit", name: "Bank details — edit", isSensitive: true, built: false },
   { key: "documents.view", name: "View employee documents", isSensitive: false },
   { key: "documents.download", name: "Download employee documents", isSensitive: true },
-  { key: "location.view", name: "View attendance locations", isSensitive: true },
+  { key: "location.view", name: "View attendance locations", isSensitive: true, built: false },
   { key: "tasks.view", name: "View tasks", isSensitive: false },
   { key: "tasks.manage", name: "Create and manage tasks", isSensitive: false },
-  { key: "tasks.reassign", name: "Reassign tasks", isSensitive: false },
+  { key: "tasks.reassign", name: "Reassign tasks", isSensitive: false, built: false },
   { key: "reports.view", name: "View reports", isSensitive: false },
   { key: "reports.export", name: "Export reports", isSensitive: true },
   { key: "audit.view", name: "View the activity log", isSensitive: true },
@@ -227,6 +242,33 @@ export type PermissionKey = (typeof PERMISSIONS)[number]["key"];
 
 export const ALL_PERMISSION_KEYS: PermissionKey[] = PERMISSIONS.map(
   (p) => p.key,
+);
+
+/**
+ * Is this a feature switch something actually reads? Unknown keys are not
+ * built either — there is nothing to switch.
+ */
+export function isFeatureBuilt(moduleKey: string, featureKey: string): boolean {
+  const def = FEATURES.find((f) => f.module === moduleKey && f.key === featureKey);
+  return def !== undefined && def.built !== false;
+}
+
+/** The feature switches a company is offered for one module. */
+export function switchableFeatures(moduleKey: ModuleKey): typeof FEATURES {
+  return FEATURES.filter((f) => f.module === moduleKey && f.built !== false);
+}
+
+/** Does some code check this permission? Unknown keys: no. */
+export function isPermissionBuilt(key: string): boolean {
+  const def: { key: string; built?: boolean } | undefined = PERMISSIONS.find(
+    (p) => p.key === key,
+  );
+  return def !== undefined && def.built !== false;
+}
+
+/** The permissions the access-level matrix offers. */
+export const GRANTABLE_PERMISSIONS = PERMISSIONS.filter((p) =>
+  isPermissionBuilt(p.key),
 );
 
 /**

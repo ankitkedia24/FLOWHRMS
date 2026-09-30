@@ -5,9 +5,9 @@ import { loadEntitlements } from "@/lib/authz/entitlements";
 import { getDb } from "@/lib/db";
 import { devFixtureOffline } from "@/lib/auth/fixture";
 import {
-  FEATURES,
   MODULES,
   MODULE_DEPENDENCIES,
+  switchableFeatures,
   type ModuleKey,
 } from "@/lib/catalog";
 import { disableImpact, missingRequirements, type EnabledMap } from "@/lib/modules/impact";
@@ -117,7 +117,8 @@ export default async function ModuleManagementPage() {
               const notInPlan = !enabled && notAllowed.has(moduleDef.key);
               const optionalUnavailable =
                 notInPlan || (moduleDef.category === "OPTIONAL" && !enabled);
-              const features = FEATURES.filter((f) => f.module === moduleDef.key);
+              // Only switches something reads; the rest would do nothing.
+              const features = switchableFeatures(moduleDef.key);
               const deps = dependencyLine(moduleDef.key);
               const missing = missingRequirements(enabledMap, moduleDef.key);
               const impact = disableImpact(enabledMap, moduleDef.key, {
