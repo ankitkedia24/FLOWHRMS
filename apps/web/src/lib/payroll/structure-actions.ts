@@ -185,7 +185,12 @@ const componentSchema = z.object({
   name: z.string().trim().min(1, "Name the pay item.").max(120),
   kind: z.enum(["EARNING", "DEDUCTION"]),
   calculation: z.enum(["FIXED", "PERCENT_OF_BASE", "PER_DAY"]),
-  isStatutory: z.boolean().default(false),
+  /**
+   * No default on purpose: the pay-item form no longer sends this, and a
+   * default of false cleared the stored flag on every save. Omitted means
+   * "keep what is stored"; a new item starts as not statutory.
+   */
+  isStatutory: z.boolean().optional(),
   prorated: z.boolean().default(true),
 });
 
@@ -221,6 +226,7 @@ export async function saveSalaryComponentAction(
       name: parsed.data.name,
       kind: parsed.data.kind,
       calculation: parsed.data.calculation,
+      // undefined leaves the stored value untouched.
       isStatutory: parsed.data.isStatutory,
       prorated: parsed.data.prorated,
     },
@@ -230,7 +236,7 @@ export async function saveSalaryComponentAction(
       name: parsed.data.name,
       kind: parsed.data.kind,
       calculation: parsed.data.calculation,
-      isStatutory: parsed.data.isStatutory,
+      isStatutory: parsed.data.isStatutory ?? false,
       prorated: parsed.data.prorated,
       sortOrder: (count + 1) * 10,
     },
