@@ -411,6 +411,12 @@ describe("the role picker defaults to the least it can", () => {
     }
     expect(ROLE_CONSEQUENCE.EMPLOYEE.toLowerCase()).toContain("no admin area");
   });
+
+  it("says team-scoped roles see and act on their own team, not the whole company", () => {
+    for (const key of ["TEAM_LEADER", "MANAGER", "VIEWER"]) {
+      expect(ROLE_CONSEQUENCE[key].toLowerCase()).toContain("their own team");
+    }
+  });
 });
 
 describe("nobody may grant more authority than they hold", () => {
