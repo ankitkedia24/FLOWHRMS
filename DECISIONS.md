@@ -608,3 +608,17 @@ code guards the product.
 
 *Reopens if:* a second approver or a different inbox is wanted, or billing
 needs to shorten a paid period (today only suspending cuts access short).
+
+**D-PL-02 · 2026-09-30 · Flowacord watches the live site and keeps its own
+encrypted backups** — server crashes are recorded and the first of each
+kind in an hour is emailed to info@flowacord.com; `/api/health` is there
+for an outside uptime monitor. A weekly backup (database with sign-ins,
+plus every stored file) is encrypted with a passphrase only the owner
+holds and saved to Google Drive, and a weekly rehearsal restores it into a
+throwaway database and checks every table. All of it shows on
+/platform/system, for platform admins only — never in a company's settings,
+since a crash can concern any company.
+
+*Reopens if:* backups move off the office computer (a server-side
+schedule), or a restore of sign-ins into a new Supabase project is
+rehearsed.

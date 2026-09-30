@@ -318,3 +318,42 @@ export function lockoutCodeEmail(input: LockoutCodeEmailInput): {
 </div>`;
   return { subject, text, html };
 }
+
+/**
+ * A server error on the live site (lib/platform/errors.ts), to Flowacord's
+ * inbox. The message was scrubbed of email addresses and long numbers
+ * before it got here; the rest of each kind are counted, not emailed.
+ */
+export function errorAlertEmail(input: {
+  message: string;
+  route: string;
+  kind: string;
+  method: string;
+  count: number;
+  firstSeenAt: Date;
+  link: string;
+}): { subject: string; text: string; html: string } {
+  const subject = `FlowHRMS error: ${input.route}`;
+  const seen =
+    input.count === 1
+      ? `First seen ${istTime(input.firstSeenAt)}.`
+      : `Seen ${input.count} times since ${istTime(input.firstSeenAt)}.`;
+  const lines = [
+    "The live site hit an error.",
+    "",
+    `Where: ${input.method} ${input.route} (${input.kind})`,
+    `What: ${input.message}`,
+    seen,
+    "",
+    `Details and the full list: ${input.link}`,
+    "",
+    "You get at most one email an hour for each kind of error; the rest are counted there.",
+  ];
+  const html = `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;line-height:1.6;color:#1A1A1A;max-width:560px">
+<p>The live site hit an error.</p>
+<p>Where: ${escapeHtml(`${input.method} ${input.route} (${input.kind})`)}<br>What: ${escapeHtml(input.message)}<br>${escapeHtml(seen)}</p>
+<p><a href="${escapeHtml(input.link)}">Details and the full list</a></p>
+<p style="font-size:14px;color:#5A5A5A">You get at most one email an hour for each kind of error; the rest are counted there.</p>
+</div>`;
+  return { subject, text: lines.join("\n"), html };
+}
