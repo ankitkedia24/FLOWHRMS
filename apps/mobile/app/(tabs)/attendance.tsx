@@ -1,256 +1,529 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import { MapPin, Navigation, CheckCircle2, AlertTriangle, History, ArrowDownLeft, ArrowUpRight } from 'lucide-react-native';
-import Colors from '@/constants/Colors';
+import {
+  StyleSheet,
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
+} from 'lucide-react-native';
+import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
-import { getAccuratePosition, AccuratePosition } from '@/lib/location';
+import { TrialBanner } from '@/components/ui/TrialBanner';
+import { EmptyExceptionsCard } from '@/components/ui/EmptyExceptionsCard';
+import { EmployeeCard, EmployeeData } from '@/components/ui/EmployeeCard';
 
+const ATTENDANCE_EMPLOYEES: EmployeeData[] = [
+  {
+    id: '1',
+    name: 'Rishabh',
+    code: 'EMP-0001',
+    role: 'Owner',
+    email: 'rishabh17704@gmail.com',
+    status: 'active',
+    attendanceStatus: 'not_recorded',
+    location: 'Works across locations',
+    initials: 'R',
+  },
+  {
+    id: '2',
+    name: 'Manas Mody',
+    role: 'Field Ops',
+    phone: '+917829910939',
+    status: 'active',
+    attendanceStatus: 'not_recorded',
+    location: 'Jaipur Central Warehouse',
+    initials: 'M',
+  },
+];
+
+/**
+ * Mobile Attendance Screen
+ * Faithful implementation of Stitch "FlowHRMS - Mobile Attendance Screen".
+ * Features date navigator, 2x2 summary metrics, exceptions card, filter pills, and live employee roster.
+ */
 export default function AttendanceScreen() {
-  const colorScheme = useColorScheme() ?? 'dark';
-  const theme = Colors[colorScheme];
+  const colorScheme = useColorScheme();
+  const t = getTheme(colorScheme);
 
-  const [loadingLocation, setLoadingLocation] = useState(false);
-  const [position, setPosition] = useState<AccuratePosition | null>(null);
-  const [locationError, setLocationError] = useState<string | null>(null);
-  const [punchState, setPunchState] = useState<'IDLE' | 'CHECKED_IN'>('IDLE');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'not_recorded' | 'present' | 'late'>('all');
+  const [employees, setEmployees] = useState<EmployeeData[]>(ATTENDANCE_EMPLOYEES);
 
-  const handleFetchLocation = async () => {
-    setLoadingLocation(true);
-    setLocationError(null);
-    const { position: pos, error } = await getAccuratePosition();
-    setLoadingLocation(false);
+  const presentCount = employees.filter((e) => e.attendanceStatus === 'present').length;
+  const lateCount = employees.filter((e) => e.attendanceStatus === 'late').length;
+  const notRecordedCount = employees.filter((e) => e.attendanceStatus === 'not_recorded').length;
+  const needsReviewCount = employees.filter((e) => e.attendanceStatus === 'needs_review').length;
 
-    if (error || !pos) {
-      setLocationError(error || 'Could not resolve accurate location');
-      return;
-    }
-    setPosition(pos);
+  const handleCheckInEmployee = (id: string) => {
+    setEmployees((prev) =>
+      prev.map((e) =>
+        e.id === id ? { ...e, attendanceStatus: 'present' } : e
+      )
+    );
+    Alert.alert('Checked In', 'Employee check-in logged with geofence stamp.');
   };
 
-  const handlePunch = async () => {
-    if (!position) {
-      await handleFetchLocation();
-    }
-
-    if (position && position.accuracy && position.accuracy > 200) {
-      Alert.alert(
-        'GPS Accuracy Too Low',
-        `Current accuracy is ${Math.round(position.accuracy)}m. FlowHRMS policy requires accuracy better than 200m.`
-      );
-      return;
-    }
-
-    if (punchState === 'IDLE') {
-      setPunchState('CHECKED_IN');
-      Alert.alert('Success', 'Punch In recorded successfully at Main Office Branch!');
-    } else {
-      setPunchState('IDLE');
-      Alert.alert('Success', 'Punch Out recorded successfully. Have a great evening!');
-    }
+  const handleRemindEmployee = (name: string) => {
+    Alert.alert('Reminder Sent', `Notification ping dispatched to ${name}.`);
   };
+
+  const filteredEmployees = employees.filter((e) => {
+    if (activeFilter === 'not_recorded') return e.attendanceStatus === 'not_recorded';
+    if (activeFilter === 'present') return e.attendanceStatus === 'present';
+    if (activeFilter === 'late') return e.attendanceStatus === 'late';
+    return true;
+  });
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={styles.content}>
-      {/* Geofence & Location Status Card */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <View style={styles.cardHeader}>
-          <View style={[styles.iconCircle, { backgroundColor: '#0FA57E15' }]}>
-            <MapPin size={22} color="#0FA57E" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.branchName, { color: theme.text }]}>Headquarters - Branch A</Text>
-            <Text style={[styles.geofenceText, { color: '#0FA57E' }]}>Within 300m designated perimeter</Text>
-          </View>
-        </View>
+    <View style={[styles.screen, { backgroundColor: t.colors.surfaceCanvasWarm }]}>
+      {/* Free Trial Banner */}
+      <TrialBanner daysLeft={26} endDateStr="27 Oct" />
 
-        {position ? (
-          <View style={styles.locationDetails}>
-            <View style={styles.locRow}>
-              <Navigation size={14} color={theme.tabIconDefault} />
-              <Text style={[styles.locCoords, { color: theme.tabIconDefault }]}>
-                {position.latitude.toFixed(5)}, {position.longitude.toFixed(5)}
-              </Text>
-            </View>
-            <View style={[styles.accuracyBadge, { backgroundColor: '#0FA57E15' }]}>
-              <Text style={[styles.accuracyText, { color: '#0FA57E' }]}>
-                Accuracy: ±{Math.round(position.accuracy ?? 10)}m
-              </Text>
-            </View>
-          </View>
-        ) : (
-          <TouchableOpacity
-            style={[styles.resolveLocButton, { borderColor: theme.border }]}
-            onPress={handleFetchLocation}
-            disabled={loadingLocation}
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Screen Header & Date Navigator */}
+        <View style={styles.headerRow}>
+          <Text style={[styles.heading, { color: t.colors.brandNavy }]}>
+            Attendance
+          </Text>
+
+          {/* Quick Date Pill */}
+          <View
+            style={[
+              styles.datePill,
+              {
+                backgroundColor: t.colors.surfaceDefault,
+                borderColor: t.colors.borderDefault,
+              },
+            ]}
           >
-            {loadingLocation ? (
-              <ActivityIndicator size="small" color={theme.tint} />
-            ) : (
-              <>
-                <Navigation size={14} color={theme.tint} />
-                <Text style={[styles.resolveText, { color: theme.tint }]}>Verify GPS Location</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
+            <TouchableOpacity style={styles.navChevron} activeOpacity={0.7}>
+              <ChevronLeft size={14} color={t.colors.textSecondary} />
+            </TouchableOpacity>
 
-        {locationError && (
-          <View style={styles.errorBanner}>
-            <AlertTriangle size={14} color="#E05252" />
-            <Text style={styles.errorText}>{locationError}</Text>
+            <View style={styles.dateLabelRow}>
+              <Calendar size={12} color={t.colors.brandPrimary} />
+              <Text style={[styles.dateText, { color: t.colors.textPrimary }]}>
+                Today, 14 Oct
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.navChevron}
+              activeOpacity={0.7}
+              disabled
+            >
+              <ChevronRight size={14} color={t.colors.textDisabled} />
+            </TouchableOpacity>
           </View>
-        )}
-      </View>
-
-      {/* Main Punch Action */}
-      <View style={styles.punchSection}>
-        <TouchableOpacity
-          style={[
-            styles.punchButton,
-            { backgroundColor: punchState === 'CHECKED_IN' ? '#E05252' : '#7166F3' }
-          ]}
-          activeOpacity={0.85}
-          onPress={handlePunch}
-        >
-          <Text style={styles.punchActionText}>
-            {punchState === 'CHECKED_IN' ? 'TAP TO PUNCH OUT' : 'TAP TO PUNCH IN'}
-          </Text>
-          <Text style={styles.punchSubText}>
-            {punchState === 'CHECKED_IN' ? 'End shift & record departure' : 'Starts work timer with GPS verification'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Recent Punch Activity */}
-      <View style={styles.historyHeader}>
-        <History size={18} color={theme.text} />
-        <Text style={[styles.historyTitle, { color: theme.text }]}>Today's Log</Text>
-      </View>
-
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border, padding: 0 }]}>
-        <View style={[styles.logRow, { borderBottomColor: theme.border }]}>
-          <View style={[styles.logIcon, { backgroundColor: '#0FA57E15' }]}>
-            <ArrowDownLeft size={16} color="#0FA57E" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.logTitle, { color: theme.text }]}>Check-In Recorded</Text>
-            <Text style={[styles.logSub, { color: theme.tabIconDefault }]}>Verified at Branch A Geofence</Text>
-          </View>
-          <Text style={[styles.logTime, { color: theme.text }]}>09:05 AM</Text>
         </View>
 
-        <View style={styles.logRow}>
-          <View style={[styles.logIcon, { backgroundColor: '#7166F315' }]}>
-            <ArrowUpRight size={16} color="#7166F3" />
+        {/* 2x2 Metric Summary Cards Grid */}
+        <View style={styles.metricsGrid}>
+          {/* 1. Present */}
+          <View
+            style={[
+              styles.metricCard,
+              {
+                backgroundColor: t.colors.surfaceDefault,
+                borderColor: t.colors.borderDefault,
+              },
+            ]}
+          >
+            <View style={styles.metricHeader}>
+              <View
+                style={[
+                  styles.metricDot,
+                  { backgroundColor: t.colors.accentPositive },
+                ]}
+              />
+              <Text style={[styles.metricLabel, { color: t.colors.textSecondary }]}>
+                Present
+              </Text>
+            </View>
+            <View>
+              <Text style={[styles.metricNumber, { color: t.colors.textPrimary }]}>
+                {presentCount}
+              </Text>
+              <Text style={[styles.metricSub, { color: t.colors.textTertiary }]}>
+                of {employees.length} employees
+              </Text>
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.logTitle, { color: theme.text }]}>Expected Check-Out</Text>
-            <Text style={[styles.logSub, { color: theme.tabIconDefault }]}>Standard 9-hour shift</Text>
+
+          {/* 2. Late */}
+          <View
+            style={[
+              styles.metricCard,
+              {
+                backgroundColor: t.colors.surfaceDefault,
+                borderColor: t.colors.borderDefault,
+              },
+            ]}
+          >
+            <View style={styles.metricHeader}>
+              <View
+                style={[
+                  styles.metricDot,
+                  { backgroundColor: '#F59E0B' },
+                ]}
+              />
+              <Text style={[styles.metricLabel, { color: t.colors.textSecondary }]}>
+                Late
+              </Text>
+            </View>
+            <View>
+              <Text style={[styles.metricNumber, { color: t.colors.textPrimary }]}>
+                {lateCount}
+              </Text>
+              <Text style={[styles.metricSub, { color: t.colors.textTertiary }]}>
+                of {employees.length} employees
+              </Text>
+            </View>
           </View>
-          <Text style={[styles.logTime, { color: theme.tabIconDefault }]}>06:00 PM</Text>
+
+          {/* 3. Not Recorded (Prominent) */}
+          <View
+            style={[
+              styles.metricCard,
+              styles.highlightCard,
+              {
+                backgroundColor: t.colors.surfaceDefault,
+                borderColor: t.colors.brandPrimarySubtleHover,
+              },
+            ]}
+          >
+            <View style={styles.metricHeader}>
+              <View
+                style={[
+                  styles.metricDot,
+                  { backgroundColor: t.colors.brandPrimary },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.metricLabel,
+                  { color: t.colors.brandNavy, fontWeight: '700' },
+                ]}
+              >
+                Not recorded
+              </Text>
+            </View>
+            <View>
+              <Text style={[styles.metricNumber, { color: t.colors.brandNavy }]}>
+                {notRecordedCount}
+              </Text>
+              <Text style={[styles.metricSub, { color: t.colors.brandPrimary }]}>
+                of {employees.length} employees
+              </Text>
+            </View>
+          </View>
+
+          {/* 4. Needs Review */}
+          <View
+            style={[
+              styles.metricCard,
+              {
+                backgroundColor: t.colors.surfaceDefault,
+                borderColor: t.colors.borderDefault,
+              },
+            ]}
+          >
+            <View style={styles.metricHeader}>
+              <View
+                style={[
+                  styles.metricDot,
+                  { backgroundColor: '#B45309' },
+                ]}
+              />
+              <Text style={[styles.metricLabel, { color: t.colors.textSecondary }]}>
+                Needs review
+              </Text>
+            </View>
+            <View>
+              <Text style={[styles.metricNumber, { color: t.colors.textPrimary }]}>
+                {needsReviewCount}
+              </Text>
+              <Text style={[styles.metricSub, { color: t.colors.textTertiary }]}>
+                of {employees.length} employees
+              </Text>
+            </View>
+          </View>
         </View>
-      </View>
-    </ScrollView>
+
+        {/* Review Exceptions Section */}
+        <View style={styles.sectionBlock}>
+          <Text style={[styles.sectionTitle, { color: t.colors.brandNavy }]}>
+            Review exceptions (0)
+          </Text>
+          <EmptyExceptionsCard />
+        </View>
+
+        {/* Today's Attendance List Section */}
+        <View style={styles.sectionBlock}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: t.colors.brandNavy }]}>
+              Today
+            </Text>
+            <Text style={[styles.totalCountText, { color: t.colors.textTertiary }]}>
+              Total: {employees.length} members
+            </Text>
+          </View>
+
+          {/* Filter Pills */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterScroll}
+          >
+            {(
+              [
+                { id: 'all', label: `All (${employees.length})` },
+                { id: 'not_recorded', label: `Not recorded (${notRecordedCount})` },
+                { id: 'present', label: `Present (${presentCount})` },
+                { id: 'late', label: `Late (${lateCount})` },
+              ] as const
+            ).map((filter) => {
+              const isActive = activeFilter === filter.id;
+              return (
+                <TouchableOpacity
+                  key={filter.id}
+                  style={[
+                    styles.filterPill,
+                    isActive
+                      ? { backgroundColor: t.colors.brandNavy }
+                      : {
+                          backgroundColor: t.colors.surfaceDefault,
+                          borderColor: t.colors.borderDefault,
+                        },
+                  ]}
+                  onPress={() => setActiveFilter(filter.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.filterPillText,
+                      isActive
+                        ? { color: '#FFFFFF' }
+                        : { color: t.colors.textSecondary },
+                    ]}
+                  >
+                    {filter.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          {/* Employee Roster Cards */}
+          <View style={styles.rosterList}>
+            {filteredEmployees.map((emp) => (
+              <EmployeeCard
+                key={emp.id}
+                employee={emp}
+                quickActionLabel={
+                  emp.attendanceStatus === 'present' ? undefined : 'Check in'
+                }
+                onQuickAction={() => handleCheckInEmployee(emp.id)}
+              />
+            ))}
+          </View>
+
+          {/* Verified Helper Banner */}
+          <View
+            style={[
+              styles.helperBox,
+              {
+                backgroundColor: t.colors.surfaceDefault,
+                borderColor: t.colors.borderSubtle,
+              },
+            ]}
+          >
+            <Text style={[styles.helperText, { color: t.colors.textTertiary }]}>
+              Records update instantly when staff check in via app or GPS geo-fence.
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Floating Action Button: Manual Entry */}
+      <TouchableOpacity
+        style={[
+          styles.fab,
+          { backgroundColor: t.colors.brandPrimary },
+        ]}
+        activeOpacity={0.85}
+        onPress={() =>
+          Alert.alert('Manual Entry', 'Manual attendance entry modal opened.')
+        }
+      >
+        <Plus size={16} color="#FFFFFF" strokeWidth={2.5} />
+        <Text style={styles.fabText}>Manual Entry</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { padding: 20, paddingBottom: 40 },
-  card: {
-    padding: 18,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 20,
+  screen: {
+    flex: 1,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  container: {
+    flex: 1,
   },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
+  content: {
+    padding: 16,
+    paddingBottom: 80,
+    gap: 16,
   },
-  branchName: { fontSize: 16, fontWeight: '700' },
-  geofenceText: { fontSize: 12, fontWeight: '600', marginTop: 2 },
-  locationDetails: {
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#FFFFFF10',
   },
-  locRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  locCoords: { fontSize: 12, fontFamily: 'monospace' },
-  accuracyBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  accuracyText: { fontSize: 11, fontWeight: '700' },
-  resolveLocButton: {
+  heading: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+  },
+  datePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 999,
     borderWidth: 1,
-    gap: 8,
-    marginTop: 14,
   },
-  resolveText: { fontSize: 13, fontWeight: '600' },
-  errorBanner: {
+  navChevron: {
+    padding: 2,
+  },
+  dateLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 6,
+  },
+  dateText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  metricCard: {
+    width: '48.8%',
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
+    minHeight: 88,
+    justifyContent: 'space-between',
+  },
+  highlightCard: {
+    borderWidth: 1.5,
+  },
+  metricHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 12,
-    padding: 8,
-    borderRadius: 6,
-    backgroundColor: '#E0525215',
   },
-  errorText: { color: '#E05252', fontSize: 12 },
-  punchSection: {
-    alignItems: 'center',
-    marginVertical: 20,
+  metricDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
-  punchButton: {
-    width: '100%',
-    paddingVertical: 24,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
+  metricLabel: {
+    fontSize: 12,
+    fontWeight: '500',
   },
-  punchActionText: { color: '#FFFFFF', fontSize: 20, fontWeight: '800', letterSpacing: 0.5 },
-  punchSubText: { color: '#FFFFFFCC', fontSize: 12, marginTop: 4 },
-  historyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  metricNumber: {
+    fontSize: 24,
+    fontWeight: '800',
+    lineHeight: 28,
+  },
+  metricSub: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  sectionBlock: {
     gap: 8,
-    marginBottom: 12,
-    marginTop: 8,
   },
-  historyTitle: { fontSize: 16, fontWeight: '700' },
-  logRow: {
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  totalCountText: {
+    fontSize: 12,
+  },
+  filterScroll: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 4,
+  },
+  filterPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  filterPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  rosterList: {
+    gap: 8,
+    marginTop: 4,
+  },
+  helperBox: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  helperText: {
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    gap: 12,
-    borderBottomWidth: 1,
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    shadowColor: 'rgba(99, 102, 241, 0.4)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 5,
   },
-  logIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
+  fabText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
-  logTitle: { fontSize: 14, fontWeight: '600' },
-  logSub: { fontSize: 11, marginTop: 2 },
-  logTime: { fontSize: 13, fontWeight: '700' },
 });

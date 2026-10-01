@@ -1,26 +1,33 @@
-const brandPrimary = '#7166F3';
-const brandNavyDeep = '#010123';
+/**
+ * Colors constant — legacy compatibility shim.
+ * New code should import from Theme.ts directly using getTheme().
+ * This file maps the old Colors.light / Colors.dark shape to the
+ * canonical FlowHRMS token values.
+ */
+import { FlowTheme, FlowThemeDark } from './Theme';
+
+const light = FlowTheme.colors;
+const dark = FlowThemeDark.colors;
 
 export default {
   light: {
-    text: '#1E1E2F',
-    background: '#F7F8FC',
-    card: '#FFFFFF',
-    tint: brandPrimary,
-    tabIconDefault: '#8F95B2',
-    tabIconSelected: brandPrimary,
-    border: '#E2E5F1',
-    success: '#0FA57E',
+    text: light.textPrimary,
+    background: light.surfaceCanvasWarm,
+    card: light.surfaceDefault,
+    tint: light.brandPrimary,
+    tabIconDefault: light.textTertiary,
+    tabIconSelected: light.brandPrimary,
+    border: light.borderDefault,
+    success: light.status.success.fg,
   },
   dark: {
-    text: '#F1F3FB',
-    background: brandNavyDeep,
-    card: '#0D0D36',
-    tint: brandPrimary,
-    tabIconDefault: '#5F648A',
-    tabIconSelected: brandPrimary,
-    border: '#1C1C4E',
-    success: '#0FA57E',
+    text: dark.textPrimary,
+    background: dark.surfaceCanvas,
+    card: dark.surfaceDefault,
+    tint: dark.brandPrimary,
+    tabIconDefault: dark.textTertiary,
+    tabIconSelected: dark.brandPrimary,
+    border: dark.borderDefault,
+    success: dark.status.success.fg,
   },
 };
-

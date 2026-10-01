@@ -1,149 +1,339 @@
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { User, Building2, Clock, Mail, Shield, LogOut, ChevronRight, Bell } from 'lucide-react-native';
-import Colors from '@/constants/Colors';
+import React, { useState } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  Switch,
+  Alert as RNAlert,
+} from 'react-native';
+import {
+  User,
+  Mail,
+  Shield,
+  FileText,
+  CreditCard,
+  ChevronRight,
+  LogOut,
+  MapPin,
+  Moon,
+  CloudCheck,
+} from 'lucide-react-native';
+import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
-import { supabase } from '@/lib/supabase';
+import { Card, CardHeader } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { StatusChip } from '@/components/ui/StatusChip';
 
+/**
+ * Profile Screen
+ * 1:1 Mirror of Web Employee Profile Shell (Screen E16).
+ */
 export default function ProfileScreen() {
-  const colorScheme = useColorScheme() ?? 'dark';
-  const theme = Colors[colorScheme];
+  const colorScheme = useColorScheme();
+  const t = getTheme(colorScheme);
 
-  const handleSignOut = async () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out of FlowHRMS?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          await supabase.auth.signOut();
-          Alert.alert('Signed Out', 'You have been signed out.');
-        },
-      },
-    ]);
+  const [darkMode, setDarkMode] = useState(false);
+  const [offlineSync, setOfflineSync] = useState(true);
+
+  const handleSignOut = () => {
+    RNAlert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out of FlowHRMS on this device?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign Out', style: 'destructive', onPress: () => {} },
+      ]
+    );
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={styles.content}>
-      {/* Profile Header */}
-      <View style={[styles.profileHeaderCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>JD</Text>
-        </View>
-        <Text style={[styles.name, { color: theme.text }]}>John Doe</Text>
-        <Text style={[styles.designation, { color: theme.tint }]}>Senior Field Associate</Text>
+    <ScrollView
+      style={[styles.container, { backgroundColor: t.colors.surfaceCanvasWarm }]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={[t.typography.h1, { color: t.colors.textPrimary, marginBottom: 14 }]}>
+        Profile
+      </Text>
 
-        <View style={styles.metaRow}>
-          <View style={styles.metaItem}>
-            <Building2 size={14} color={theme.tabIconDefault} />
-            <Text style={[styles.metaText, { color: theme.tabIconDefault }]}>Branch A (HQ)</Text>
+      {/* ========================================================
+          MEMBER IDENTITY CARD
+         ======================================================== */}
+      <Card>
+        <View style={styles.profileRow}>
+          {/* Avatar with initials */}
+          <View
+            style={[
+              styles.avatar,
+              { backgroundColor: t.colors.brandPrimarySubtle },
+            ]}
+          >
+            <Text
+              style={[
+                t.typography.h2,
+                { color: t.colors.brandPrimary, fontWeight: '700' },
+              ]}
+            >
+              RK
+            </Text>
           </View>
-          <View style={styles.metaItem}>
-            <Clock size={14} color={theme.tabIconDefault} />
-            <Text style={[styles.metaText, { color: theme.tabIconDefault }]}>09:00 - 18:00</Text>
+
+          <View style={styles.profileDetails}>
+            <Text
+              style={[
+                t.typography.bodyLg,
+                { color: t.colors.textPrimary, fontWeight: '700' },
+              ]}
+            >
+              Ramesh Kumar
+            </Text>
+            <Text
+              style={[
+                t.typography.secondary,
+                { color: t.colors.textSecondary, marginTop: 2 },
+              ]}
+            >
+              Field Specialist · Jaipur Cluster
+            </Text>
+            <Text
+              style={[
+                t.typography.mono,
+                { color: t.colors.textTertiary, marginTop: 2 },
+              ]}
+            >
+              EMP-0428
+            </Text>
           </View>
         </View>
-      </View>
+      </Card>
 
-      {/* Account Info Section */}
-      <Text style={[styles.sectionTitle, { color: theme.text }]}>Employment Information</Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border, padding: 0 }]}>
-        <View style={[styles.row, { borderBottomColor: theme.border }]}>
-          <Mail size={18} color={theme.tabIconDefault} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.rowLabel, { color: theme.tabIconDefault }]}>Work Email</Text>
-            <Text style={[styles.rowVal, { color: theme.text }]}>john.doe@company.com</Text>
+      {/* ========================================================
+          ACCOUNT DETAILS
+         ======================================================== */}
+      <Card>
+        <CardHeader title="Account" />
+        <View style={styles.fieldList}>
+          <View style={styles.fieldRow}>
+            <Text style={[t.typography.secondary, { color: t.colors.textSecondary }]}>
+              Email
+            </Text>
+            <Text
+              style={[
+                t.typography.bodyMedium,
+                { color: t.colors.textPrimary },
+              ]}
+            >
+              ramesh.kumar@flowacord.com
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.divider,
+              { backgroundColor: t.colors.borderSubtle },
+            ]}
+          />
+
+          <View style={styles.fieldRow}>
+            <Text style={[t.typography.secondary, { color: t.colors.textSecondary }]}>
+              Account Status
+            </Text>
+            <StatusChip
+              status={{ key: 'active', label: 'Active', tone: 'success' }}
+              size="sm"
+            />
+          </View>
+
+          <View
+            style={[
+              styles.divider,
+              { backgroundColor: t.colors.borderSubtle },
+            ]}
+          />
+
+          <View style={styles.fieldRow}>
+            <Text style={[t.typography.secondary, { color: t.colors.textSecondary }]}>
+              Assigned Branch
+            </Text>
+            <Text
+              style={[
+                t.typography.bodyMedium,
+                { color: t.colors.textPrimary },
+              ]}
+            >
+              Jaipur Central Warehouse
+            </Text>
           </View>
         </View>
+      </Card>
 
-        <View style={[styles.row, { borderBottomColor: theme.border }]}>
-          <Shield size={18} color={theme.tabIconDefault} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.rowLabel, { color: theme.tabIconDefault }]}>Employee Code</Text>
-            <Text style={[styles.rowVal, { color: theme.text }]}>EMP-2026-042</Text>
+      {/* ========================================================
+          YOUR RECORDS (Screen E16)
+         ======================================================== */}
+      <Card>
+        <CardHeader title="Your Records" />
+        <TouchableOpacity
+          style={styles.recordLink}
+          onPress={() => RNAlert.alert('ID Card', 'Digital ID verification card.')}
+        >
+          <View style={styles.recordLeft}>
+            <CreditCard size={18} color={t.colors.brandPrimary} />
+            <Text
+              style={[
+                t.typography.bodyMedium,
+                { color: t.colors.textPrimary, marginLeft: 10 },
+              ]}
+            >
+              Digital ID Card
+            </Text>
           </View>
-        </View>
-
-        <View style={styles.row}>
-          <Building2 size={18} color={theme.tabIconDefault} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.rowLabel, { color: theme.tabIconDefault }]}>Department</Text>
-            <Text style={[styles.rowVal, { color: theme.text }]}>Operations & Delivery</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Preferences */}
-      <Text style={[styles.sectionTitle, { color: theme.text }]}>Preferences</Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border, padding: 0 }]}>
-        <TouchableOpacity style={[styles.row, { borderBottomColor: theme.border }]}>
-          <Bell size={18} color={theme.tabIconDefault} />
-          <Text style={[styles.rowVal, { flex: 1, color: theme.text }]}>Push Notifications</Text>
-          <ChevronRight size={18} color={theme.tabIconDefault} />
+          <ChevronRight size={18} color={t.colors.textTertiary} />
         </TouchableOpacity>
-      </View>
 
-      {/* Sign Out Button */}
-      <TouchableOpacity style={styles.signOutButton} activeOpacity={0.8} onPress={handleSignOut}>
-        <LogOut size={18} color="#E05252" />
-        <Text style={styles.signOutText}>Sign Out</Text>
-      </TouchableOpacity>
+        <View
+          style={[
+            styles.divider,
+            { backgroundColor: t.colors.borderSubtle },
+          ]}
+        />
+
+        <TouchableOpacity
+          style={styles.recordLink}
+          onPress={() => RNAlert.alert('Payslips', 'September 2026 payslip generated.')}
+        >
+          <View style={styles.recordLeft}>
+            <FileText size={18} color={t.colors.brandPrimary} />
+            <Text
+              style={[
+                t.typography.bodyMedium,
+                { color: t.colors.textPrimary, marginLeft: 10 },
+              ]}
+            >
+              Payslips & Tax Slips
+            </Text>
+          </View>
+          <ChevronRight size={18} color={t.colors.textTertiary} />
+        </TouchableOpacity>
+      </Card>
+
+      {/* ========================================================
+          DEVICE PREFERENCES
+         ======================================================== */}
+      <Card>
+        <CardHeader title="Preferences" />
+        <View style={styles.prefRow}>
+          <View style={styles.prefLeft}>
+            <Moon size={18} color={t.colors.textSecondary} />
+            <Text
+              style={[
+                t.typography.bodyMedium,
+                { color: t.colors.textPrimary, marginLeft: 10 },
+              ]}
+            >
+              Dark Theme
+            </Text>
+          </View>
+          <Switch
+            value={darkMode}
+            onValueChange={setDarkMode}
+            trackColor={{ false: t.colors.borderDefault, true: t.colors.brandPrimary }}
+          />
+        </View>
+
+        <View
+          style={[
+            styles.divider,
+            { backgroundColor: t.colors.borderSubtle },
+          ]}
+        />
+
+        <View style={styles.prefRow}>
+          <View style={styles.prefLeft}>
+            <MapPin size={18} color={t.colors.status.success.fg} />
+            <Text
+              style={[
+                t.typography.bodyMedium,
+                { color: t.colors.textPrimary, marginLeft: 10 },
+              ]}
+            >
+              GPS Verification
+            </Text>
+          </View>
+          <StatusChip
+            status={{ key: 'authorized', label: 'Authorized', tone: 'success' }}
+            size="sm"
+            dot={false}
+          />
+        </View>
+      </Card>
+
+      {/* ========================================================
+          SIGN OUT BUTTON (dangerSubtle variant)
+         ======================================================== */}
+      <View style={{ marginTop: 8, marginBottom: 24 }}>
+        <Button
+          variant="dangerSubtle"
+          size="lg"
+          leadingIcon={<LogOut size={18} color={t.colors.status.error.fg} />}
+          onPress={handleSignOut}
+        >
+          Sign Out of FlowHRMS
+        </Button>
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 20, paddingBottom: 40 },
-  profileHeaderCard: {
-    padding: 24,
-    borderRadius: 20,
-    borderWidth: 1,
+  content: { padding: 18, paddingBottom: 40 },
+  profileRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    gap: 16,
   },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#7166F3',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
   },
-  avatarText: { color: '#FFFFFF', fontSize: 24, fontWeight: '800' },
-  name: { fontSize: 20, fontWeight: '700' },
-  designation: { fontSize: 13, fontWeight: '600', marginTop: 2 },
-  metaRow: {
+  profileDetails: {
+    flex: 1,
+  },
+  fieldList: {
+    gap: 12,
+  },
+  fieldRow: {
     flexDirection: 'row',
-    gap: 16,
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#FFFFFF10',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  metaText: { fontSize: 12 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: 10, marginTop: 4 },
-  card: { borderRadius: 14, borderWidth: 1, marginBottom: 20 },
-  row: {
+  divider: {
+    height: 1,
+    marginVertical: 4,
+  },
+  recordLink: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  recordLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    gap: 14,
-    borderBottomWidth: 1,
   },
-  rowLabel: { fontSize: 11, marginBottom: 2 },
-  rowVal: { fontSize: 14, fontWeight: '600' },
-  signOutButton: {
+  prefRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  prefLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#E0525215',
-    gap: 8,
-    marginTop: 8,
   },
-  signOutText: { color: '#E05252', fontSize: 15, fontWeight: '700' },
 });

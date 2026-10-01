@@ -1,6 +1,9 @@
-import { useColorScheme as useColorSchemeCore } from 'react-native';
+export type ColorScheme = 'light' | 'dark';
 
-export const useColorScheme = () => {
-  const coreScheme = useColorSchemeCore();
-  return coreScheme === 'unspecified' ? 'light' : coreScheme;
+/**
+ * FlowHRMS Color Scheme Hook
+ * Defaults to 'light' (warm employee surface) to match the web employee portal.
+ */
+export const useColorScheme = (): ColorScheme => {
+  return 'light';
 };

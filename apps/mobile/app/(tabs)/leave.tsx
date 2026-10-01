@@ -1,253 +1,428 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Modal, Alert } from 'react-native';
-import { Plus, Calendar, CheckSquare, Clock, X, Check } from 'lucide-react-native';
-import Colors from '@/constants/Colors';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  Alert as RNAlert,
+} from 'react-native';
+import { Plus, X, Calendar, AlertCircle, CheckCircle } from 'lucide-react-native';
+import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
-import { applyLeaveSchema } from '@flowhrms/validation';
+import { Card, CardHeader } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { StatusChip } from '@/components/ui/StatusChip';
+import { Input, TextArea } from '@/components/ui/Input';
+import { Sheet } from '@/components/ui/Sheet';
 
+interface LeaveRequestItem {
+  id: string;
+  type: 'Full Day' | 'Half Day' | 'Emergency';
+  dateRange: string;
+  days: number;
+  reason: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  note: string;
+}
+
+/**
+ * Leave Screen
+ * 1:1 Mirror of Web Employee Leave Page (E10 & E11).
+ */
 export default function LeaveScreen() {
-  const colorScheme = useColorScheme() ?? 'dark';
-  const theme = Colors[colorScheme];
+  const colorScheme = useColorScheme();
+  const t = getTheme(colorScheme);
 
-  const [modalVisible, setModalVisible] = useState(false);
-  const [leaveType, setLeaveType] = useState('PAID');
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [leaveType, setLeaveType] = useState<'FULL_DAY' | 'HALF_DAY' | 'EMERGENCY'>('FULL_DAY');
+  const [startDate, setStartDate] = useState('2026-10-12');
+  const [endDate, setEndDate] = useState('2026-10-14');
   const [reason, setReason] = useState('');
+  const [requests, setRequests] = useState<LeaveRequestItem[]>([
+    {
+      id: '1',
+      type: 'Full Day',
+      dateRange: '12 Oct – 14 Oct 2026',
+      days: 3,
+      reason: 'Attending family wedding ceremony',
+      status: 'PENDING',
+      note: 'Sent · waiting for your manager · payroll effect applied after approval',
+    },
+    {
+      id: '2',
+      type: 'Emergency',
+      dateRange: '18 Sep – 19 Sep 2026',
+      days: 2,
+      reason: 'Medical emergency consultation',
+      status: 'APPROVED',
+      note: 'Approved as paid leave. No deduction applied to payroll.',
+    },
+  ]);
 
-  const handleApply = () => {
-    const result = applyLeaveSchema.safeParse({
-      leaveType,
-      startDate,
-      endDate,
-      reason,
-      isHalfDay: false,
-    });
-
-    if (!result.success) {
-      const firstIssue = result.error.issues?.[0];
-      Alert.alert('Validation Error', firstIssue ? firstIssue.message : 'Please check form fields');
+  const handleSubmit = () => {
+    if (!reason.trim()) {
+      RNAlert.alert('Required', 'Please enter a reason for your leave request.');
       return;
     }
 
-    Alert.alert('Leave Submitted', 'Your leave request has been sent to your department supervisor for approval.');
-    setModalVisible(false);
+    const newReq: LeaveRequestItem = {
+      id: Date.now().toString(),
+      type: leaveType === 'FULL_DAY' ? 'Full Day' : leaveType === 'HALF_DAY' ? 'Half Day' : 'Emergency',
+      dateRange: `${startDate} – ${endDate}`,
+      days: 3,
+      reason: reason.trim(),
+      status: 'PENDING',
+      note: 'Sent · waiting for your manager · payroll effect applied after approval',
+    };
+
+    setRequests([newReq, ...requests]);
+    setSheetOpen(false);
     setReason('');
+    RNAlert.alert('Request Sent', 'Your leave request has been submitted to your manager.');
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={styles.content}>
-      {/* Leave Balances Header */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Leave Balances</Text>
-        <TouchableOpacity
-          style={[styles.applyButton, { backgroundColor: theme.tint }]}
-          onPress={() => setModalVisible(true)}
+    <ScrollView
+      style={[styles.container, { backgroundColor: t.colors.surfaceCanvasWarm }]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Title + Action */}
+      <View style={styles.topHeader}>
+        <Text style={[t.typography.h1, { color: t.colors.textPrimary }]}>
+          Leave
+        </Text>
+        <Button
+          variant="primary"
+          size="sm"
+          leadingIcon={<Plus size={16} color="#FFFFFF" />}
+          onPress={() => setSheetOpen(true)}
         >
-          <Plus size={16} color="#FFFFFF" />
-          <Text style={styles.applyButtonText}>Apply Leave</Text>
-        </TouchableOpacity>
+          Request Leave
+        </Button>
       </View>
 
+      {/* ========================================================
+          LEAVE BALANCES
+         ======================================================== */}
       <View style={styles.balanceGrid}>
-        <View style={[styles.balanceCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Text style={[styles.balanceNum, { color: '#7166F3' }]}>12</Text>
-          <Text style={[styles.balanceLabel, { color: theme.text }]}>Annual Paid</Text>
-          <Text style={[styles.balanceSub, { color: theme.tabIconDefault }]}>3 used of 15</Text>
-        </View>
+        <Card style={{ flex: 1 }}>
+          <Text
+            style={[
+              t.typography.dataLg,
+              { color: t.colors.brandPrimary, fontVariant: ['tabular-nums'] },
+            ]}
+          >
+            12
+          </Text>
+          <Text
+            style={[
+              t.typography.label,
+              { color: t.colors.textPrimary, marginTop: 4 },
+            ]}
+          >
+            Annual Paid
+          </Text>
+          <Text
+            style={[
+              t.typography.caption,
+              { color: t.colors.textSecondary, marginTop: 2 },
+            ]}
+          >
+            3 used of 15
+          </Text>
+        </Card>
 
-        <View style={[styles.balanceCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Text style={[styles.balanceNum, { color: '#0FA57E' }]}>7</Text>
-          <Text style={[styles.balanceLabel, { color: theme.text }]}>Sick Leave</Text>
-          <Text style={[styles.balanceSub, { color: theme.tabIconDefault }]}>1 used of 8</Text>
-        </View>
+        <Card style={{ flex: 1 }}>
+          <Text
+            style={[
+              t.typography.dataLg,
+              { color: t.colors.status.success.fg, fontVariant: ['tabular-nums'] },
+            ]}
+          >
+            7
+          </Text>
+          <Text
+            style={[
+              t.typography.label,
+              { color: t.colors.textPrimary, marginTop: 4 },
+            ]}
+          >
+            Sick Leave
+          </Text>
+          <Text
+            style={[
+              t.typography.caption,
+              { color: t.colors.textSecondary, marginTop: 2 },
+            ]}
+          >
+            1 used of 8
+          </Text>
+        </Card>
+
+        <Card style={{ flex: 1 }}>
+          <Text
+            style={[
+              t.typography.dataLg,
+              { color: t.colors.status.warning.fg, fontVariant: ['tabular-nums'] },
+            ]}
+          >
+            4
+          </Text>
+          <Text
+            style={[
+              t.typography.label,
+              { color: t.colors.textPrimary, marginTop: 4 },
+            ]}
+          >
+            Casual
+          </Text>
+          <Text
+            style={[
+              t.typography.caption,
+              { color: t.colors.textSecondary, marginTop: 2 },
+            ]}
+          >
+            0 used of 4
+          </Text>
+        </Card>
       </View>
 
-      {/* Assigned Tasks Section */}
-      <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Assigned Tasks</Text>
-      </View>
+      {/* ========================================================
+          YOUR REQUESTS (Screen E11)
+         ======================================================== */}
+      <Text style={[t.typography.h2, { color: t.colors.textPrimary, marginBottom: 12 }]}>
+        Your requests
+      </Text>
 
-      <View style={[styles.taskCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <View style={styles.taskTop}>
-          <View style={[styles.taskTag, { backgroundColor: '#F59E0B20' }]}>
-            <Text style={{ color: '#F59E0B', fontSize: 11, fontWeight: '700' }}>IN PROGRESS</Text>
-          </View>
-          <Text style={[styles.taskDate, { color: theme.tabIconDefault }]}>Due Today</Text>
-        </View>
-        <Text style={[styles.taskTitle, { color: theme.text }]}>Quarterly inventory verification</Text>
-        <Text style={[styles.taskDesc, { color: theme.tabIconDefault }]}>
-          Complete shelf count and upload photo proof via camera.
-        </Text>
-      </View>
-
-      <View style={[styles.taskCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <View style={styles.taskTop}>
-          <View style={[styles.taskTag, { backgroundColor: '#0FA57E20' }]}>
-            <Text style={{ color: '#0FA57E', fontSize: 11, fontWeight: '700' }}>COMPLETED</Text>
-          </View>
-          <Text style={[styles.taskDate, { color: theme.tabIconDefault }]}>Yesterday</Text>
-        </View>
-        <Text style={[styles.taskTitle, { color: theme.text }]}>Submit travel expense receipts</Text>
-        <Text style={[styles.taskDesc, { color: theme.tabIconDefault }]}>
-          Fuel and toll conveyance claim for client site visit.
-        </Text>
-      </View>
-
-      {/* Apply Leave Modal */}
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: theme.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>Apply for Leave</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <X size={22} color={theme.text} />
-              </TouchableOpacity>
+      {requests.map((item) => (
+        <Card key={item.id}>
+          <View style={styles.requestTopRow}>
+            <View>
+              <Text
+                style={[t.typography.bodySemibold, { color: t.colors.textPrimary }]}
+              >
+                {item.dateRange}
+              </Text>
+              <Text
+                style={[
+                  t.typography.caption,
+                  { color: t.colors.textSecondary, marginTop: 2 },
+                ]}
+              >
+                {item.type} · {item.days} days
+              </Text>
             </View>
+            <StatusChip
+              status={
+                item.status === 'APPROVED'
+                  ? { key: 'approved', label: 'Approved ✓', tone: 'success' }
+                  : { key: 'pending', label: 'Pending Review', tone: 'warning' }
+              }
+              size="sm"
+            />
+          </View>
 
-            <Text style={[styles.inputLabel, { color: theme.tabIconDefault }]}>Leave Type</Text>
-            <View style={styles.typeSelector}>
-              {['PAID', 'SICK', 'CASUAL'].map((type) => (
-                <TouchableOpacity
-                  key={type}
+          <Text
+            style={[
+              t.typography.secondary,
+              { color: t.colors.textSecondary, marginTop: 8 },
+            ]}
+          >
+            Reason: {item.reason}
+          </Text>
+
+          <View
+            style={[
+              styles.noteBanner,
+              {
+                backgroundColor:
+                  item.status === 'APPROVED'
+                    ? t.colors.status.success.bg
+                    : t.colors.surfaceCanvas,
+                borderColor:
+                  item.status === 'APPROVED'
+                    ? t.colors.status.success.border
+                    : t.colors.borderSubtle,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                t.typography.caption,
+                {
+                  color:
+                    item.status === 'APPROVED'
+                      ? t.colors.status.success.text
+                      : t.colors.textSecondary,
+                },
+              ]}
+            >
+              {item.note}
+            </Text>
+          </View>
+        </Card>
+      ))}
+
+      {/* ========================================================
+          REQUEST LEAVE SHEET (Screen E10)
+         ======================================================== */}
+      <Sheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        title="Request Leave"
+        footer={
+          <Button variant="primary" size="xl" onPress={handleSubmit}>
+            Send Request to Manager
+          </Button>
+        }
+      >
+        <Text
+          style={[
+            t.typography.label,
+            { color: t.colors.textSecondary, marginBottom: 8 },
+          ]}
+        >
+          Leave Type
+        </Text>
+        <View style={styles.typeSelector}>
+          {(
+            [
+              { key: 'FULL_DAY', label: 'Full Day' },
+              { key: 'HALF_DAY', label: 'Half Day' },
+              { key: 'EMERGENCY', label: 'Emergency' },
+            ] as const
+          ).map((item) => {
+            const isActive = leaveType === item.key;
+            return (
+              <TouchableOpacity
+                key={item.key}
+                style={[
+                  styles.typeChip,
+                  {
+                    borderColor: isActive
+                      ? t.colors.brandPrimary
+                      : t.colors.borderDefault,
+                    backgroundColor: isActive
+                      ? t.colors.brandPrimary
+                      : t.colors.surfaceDefault,
+                    borderRadius: t.radius.button,
+                  },
+                ]}
+                onPress={() => setLeaveType(item.key)}
+              >
+                <Text
                   style={[
-                    styles.typeChip,
-                    { borderColor: theme.border },
-                    leaveType === type && { backgroundColor: theme.tint, borderColor: theme.tint },
+                    t.typography.label,
+                    {
+                      color: isActive
+                        ? t.colors.textOnPrimary
+                        : t.colors.textPrimary,
+                    },
                   ]}
-                  onPress={() => setLeaveType(type)}
                 >
-                  <Text style={[styles.typeText, { color: leaveType === type ? '#FFF' : theme.text }]}>
-                    {type}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={[styles.inputLabel, { color: theme.tabIconDefault }]}>Start Date (YYYY-MM-DD)</Text>
-            <TextInput
-              style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-              value={startDate}
-              onChangeText={setStartDate}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={theme.tabIconDefault}
-            />
-
-            <Text style={[styles.inputLabel, { color: theme.tabIconDefault }]}>End Date (YYYY-MM-DD)</Text>
-            <TextInput
-              style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-              value={endDate}
-              onChangeText={setEndDate}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={theme.tabIconDefault}
-            />
-
-            <Text style={[styles.inputLabel, { color: theme.tabIconDefault }]}>Reason</Text>
-            <TextInput
-              style={[styles.input, styles.textArea, { color: theme.text, borderColor: theme.border }]}
-              value={reason}
-              onChangeText={setReason}
-              placeholder="Provide reason for absence..."
-              placeholderTextColor={theme.tabIconDefault}
-              multiline
-              numberOfLines={3}
-            />
-
-            <TouchableOpacity style={[styles.submitButton, { backgroundColor: theme.tint }]} onPress={handleApply}>
-              <Text style={styles.submitText}>Submit Leave Request</Text>
-            </TouchableOpacity>
-          </View>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
-      </Modal>
+
+        <Input
+          label="Start Date"
+          value={startDate}
+          onChangeText={setStartDate}
+          placeholder="YYYY-MM-DD"
+          containerStyle={{ marginTop: 12 }}
+        />
+
+        <Input
+          label="End Date"
+          value={endDate}
+          onChangeText={setEndDate}
+          placeholder="YYYY-MM-DD"
+        />
+
+        {/* Live Payroll Consequence Banner (matching web LeaveRequestForm) */}
+        <View
+          style={[
+            styles.consequenceBox,
+            {
+              backgroundColor: t.colors.brandPrimarySubtle,
+              borderColor: t.colors.brandPrimarySubtleHover,
+              borderRadius: t.radius.input,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              t.typography.captionSemibold,
+              { color: t.colors.brandPrimary },
+            ]}
+          >
+            ✓ 3 days requested · Approved as paid leave
+          </Text>
+          <Text
+            style={[
+              t.typography.caption,
+              { color: t.colors.textSecondary, marginTop: 2 },
+            ]}
+          >
+            No salary deduction will be applied for October payroll.
+          </Text>
+        </View>
+
+        <TextArea
+          label="Reason for Absence"
+          value={reason}
+          onChangeText={setReason}
+          placeholder="Tell your manager why you need these days..."
+          numberOfLines={3}
+        />
+      </Sheet>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 20, paddingBottom: 40 },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  sectionTitle: { fontSize: 18, fontWeight: '700' },
-  applyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
-  },
-  applyButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
-  balanceGrid: { flexDirection: 'row', gap: 12 },
-  balanceCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  balanceNum: { fontSize: 26, fontWeight: '800' },
-  balanceLabel: { fontSize: 14, fontWeight: '600', marginTop: 4 },
-  balanceSub: { fontSize: 12, marginTop: 2 },
-  taskCard: {
-    padding: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 10,
-  },
-  taskTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  taskTag: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  taskDate: { fontSize: 12 },
-  taskTitle: { fontSize: 15, fontWeight: '700' },
-  taskDesc: { fontSize: 12, marginTop: 4, lineHeight: 18 },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: '#00000088',
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    padding: 24,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-  modalHeader: {
+  content: { padding: 18, paddingBottom: 40 },
+  topHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
   },
-  modalTitle: { fontSize: 18, fontWeight: '700' },
-  inputLabel: { fontSize: 12, fontWeight: '600', marginTop: 12, marginBottom: 6 },
-  typeSelector: { flexDirection: 'row', gap: 10 },
+  balanceGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 8,
+  },
+  requestTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  noteBanner: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  typeSelector: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   typeChip: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
     alignItems: 'center',
-  },
-  typeText: { fontSize: 13, fontWeight: '700' },
-  input: {
     borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
   },
-  textArea: { height: 75, textAlignVertical: 'top' },
-  submitButton: {
-    marginTop: 20,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
+  consequenceBox: {
+    padding: 12,
+    borderWidth: 1,
+    marginVertical: 12,
   },
-  submitText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
 });
