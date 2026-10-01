@@ -14,14 +14,25 @@
 export const SUPPORT_TERMS_KEY = "customer_terms";
 
 /**
- * The first version of that notice that allows support access. Null until
- * the reviewed wording is published (`npm run publish-notices`); then set it
- * to that version number in the same change.
+ * The first version of that notice that allows support access: v3, approved
+ * by Flowacord's lawyer and published 1 Oct 2026 (consent/documents.ts
+ * SUPPORT_SENTENCES).
  */
-export const SUPPORT_TERMS_VERSION: number | null = null;
+export const SUPPORT_TERMS_VERSION: number | null = 3;
 
 /** Companies with no real person's data: the placeholder and the sample. */
 export const SUPPORT_OPEN_SLUGS: readonly string[] = ["demo-co", "sunrise-traders-sample"];
+
+/**
+ * The version an owner's latest record for the Terms stands for, or null.
+ * Changing an optional choice later is recorded as UPDATED — still
+ * acceptance. Only a withdrawal takes it away.
+ */
+export function acceptedTermsVersion(
+  latest: { action: "GRANTED" | "UPDATED" | "WITHDRAWN"; noticeVersion: number } | null,
+): number | null {
+  return latest && latest.action !== "WITHDRAWN" ? latest.noticeVersion : null;
+}
 
 /** Why support can't open this company right now, or null if it can. */
 export function supportRefusal(

@@ -101,7 +101,7 @@ describe.skipIf(!HAS_DB)("Flowacord support login (database)", () => {
     await db.tenant.update({ where: { id: demo.id }, data: { status: demo.status } });
   });
 
-  it("refuses a real company until its Terms allow support, without touching it", async () => {
+  it("refuses a real company until its owner accepts the Terms that allow support, without touching it", async () => {
     const db = getDb();
     const real = await db.tenant.findFirst({
       where: { slug: { notIn: ["demo-co", "sunrise-traders-sample"] }, status: "ACTIVE" },
@@ -110,7 +110,7 @@ describe.skipIf(!HAS_DB)("Flowacord support login (database)", () => {
     if (!real) return;
     const r = await actions.startSupportSessionAction({ tenantId: real.id });
     expect(r.ok).toBe(false);
-    expect(r.error).toContain("the Terms don't cover support access");
+    expect(r.error).toContain("the owner hasn't accepted the updated Terms");
     expect(await db.supportSession.count({ where: { tenantId: real.id, platformUserId: admins[0].id } })).toBe(0);
   });
 

@@ -1,11 +1,12 @@
 import "server-only";
 
 import { getDb } from "@/lib/db";
-import { SUPPORT_TERMS_KEY } from "./support-policy";
+import { SUPPORT_TERMS_KEY, acceptedTermsVersion } from "./support-policy";
 
 /**
  * The newest version of the support-allowing Terms (support-policy.ts) the
- * company's owner has accepted and not withdrawn, or null.
+ * company's owner has accepted and not withdrawn, or null. Changing an
+ * optional choice later (UPDATED) is still acceptance.
  */
 export async function ownerTermsVersion(tenantId: string): Promise<number | null> {
   const db = getDb();
@@ -20,5 +21,5 @@ export async function ownerTermsVersion(tenantId: string): Promise<number | null
     orderBy: { seq: "desc" },
     select: { action: true, noticeVersion: true },
   });
-  return latest?.action === "GRANTED" ? latest.noticeVersion : null;
+  return acceptedTermsVersion(latest);
 }

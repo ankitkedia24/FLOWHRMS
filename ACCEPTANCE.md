@@ -174,9 +174,9 @@ Legend: **Met** · **Partly met** · **Not met** · **N/A**
    colour-blindness, forced-colors, 200% zoom. Built to spec, untested.
 2. **Retention and data rights** — windows agreed, export and deletion
    workflows built (Constitution §7).
-3. **Support access** — built (docs/md/SUPPORT-ACCESS.md); have the
-   drafted Terms and Privacy wording reviewed and published before it is
-   used on real companies.
+3. **Support access** — built (docs/md/SUPPORT-ACCESS.md); the Terms and
+   Privacy wording that allows it was approved by the lawyer and published
+   on 1 October 2026.
 4. **Backup restore rehearsal** (OPERATIONS.md).
 5. **Payroll rules reviewed** by a qualified local professional.
 

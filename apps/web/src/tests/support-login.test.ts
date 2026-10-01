@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { SUPPORT_OPEN_SLUGS, SUPPORT_TERMS_VERSION, supportRefusal } from "@/lib/platform/support-policy";
+import {
+  SUPPORT_OPEN_SLUGS,
+  SUPPORT_TERMS_VERSION,
+  acceptedTermsVersion,
+  supportRefusal,
+} from "@/lib/platform/support-policy";
 import { withoutSupportMember } from "@/lib/db";
 
 /**
@@ -12,12 +17,15 @@ describe("which companies support may open (supportRefusal)", () => {
   const sample = { slug: "sunrise-traders-sample", status: "ACTIVE" };
   const real = { slug: "group-g", status: "ACTIVE" };
 
-  it("opens only the placeholder and sample companies until the Terms allow support", () => {
-    expect(SUPPORT_TERMS_VERSION).toBeNull();
+  it("waits for version 3 of the company terms, the one that allows support", () => {
+    expect(SUPPORT_TERMS_VERSION).toBe(3);
+  });
+
+  it("opens only the placeholder and sample companies while no Terms allow support", () => {
     expect(SUPPORT_OPEN_SLUGS).toEqual(["demo-co", "sunrise-traders-sample"]);
-    expect(supportRefusal(sample, null)).toBeNull();
-    expect(supportRefusal({ ...sample, slug: "demo-co" }, null)).toBeNull();
-    expect(supportRefusal(real, null)).toBe(
+    expect(supportRefusal(sample, null, null)).toBeNull();
+    expect(supportRefusal({ ...sample, slug: "demo-co" }, null, null)).toBeNull();
+    expect(supportRefusal(real, null, null)).toBe(
       "Not yet: the Terms don't cover support access. Until the reviewed wording is published, support opens only the placeholder and sample companies.",
     );
   });
@@ -35,6 +43,15 @@ describe("which companies support may open (supportRefusal)", () => {
     expect(supportRefusal({ ...sample, status: "SUSPENDED" }, null)).toBe(
       "This company is suspended. Restore it before opening it as support.",
     );
+  });
+});
+
+describe("what counts as the owner having accepted the Terms (acceptedTermsVersion)", () => {
+  it("counts a grant, and a later change of optional choices, but not a withdrawal", () => {
+    expect(acceptedTermsVersion(null)).toBeNull();
+    expect(acceptedTermsVersion({ action: "GRANTED", noticeVersion: 3 })).toBe(3);
+    expect(acceptedTermsVersion({ action: "UPDATED", noticeVersion: 3 })).toBe(3);
+    expect(acceptedTermsVersion({ action: "WITHDRAWN", noticeVersion: 3 })).toBeNull();
   });
 });
 
