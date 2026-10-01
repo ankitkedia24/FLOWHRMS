@@ -14,10 +14,9 @@
 export const SUPPORT_TERMS_KEY = "customer_terms";
 
 /**
- * The first version of that notice that allows support access: v3, prepared
- * 1 Oct 2026 for legal review (consent/documents.ts SUPPORT_SENTENCES). This
- * branch must not reach main until the wording is approved and published —
- * see docs/md/SUPPORT-ACCESS.md → Publishing.
+ * The first version of that notice that allows support access: v3, approved
+ * by Flowacord's lawyer and published 1 Oct 2026 (consent/documents.ts
+ * SUPPORT_SENTENCES).
  */
 export const SUPPORT_TERMS_VERSION: number | null = 3;
 

@@ -588,7 +588,7 @@ function amendParagraph(doc: ConsentDocument, version: number, from: string, to:
 }
 
 /**
- * 1 Oct 2026 — PREPARED FOR LEGAL REVIEW, NOT YET PUBLISHED
+ * 1 Oct 2026 — approved by Flowacord's lawyer as written, and published
  * (docs/md/SUPPORT-ACCESS.md, docs/md/LEGAL-REVIEW-SUPPORT-TERMS.md).
  *
  * The company terms, Terms of Service and Privacy Policy say that named

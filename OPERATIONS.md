@@ -184,8 +184,9 @@ inside the company with the Owner's access until you press **Exit support**
 show in its Activity log as "Flowacord support". Sessions are listed on
 /platform/system.
 
-**Until the updated Terms are reviewed and published, only the placeholder
-and sample companies can be opened.** A database query by someone with the
+**A real company opens once its owner has accepted the v3 Terms**
+(published 1 October 2026; owners are asked at their next sign-in). The
+placeholder and sample companies always open. A database query by someone with the
 password is still possible and still unrecorded — don't use it for support.
 
 ## Monitoring
@@ -214,5 +215,4 @@ Everything below is on **/platform/system** (platform admins only).
 - A restore into a new Supabase project, sign-ins included, hasn't been
   rehearsed; the weekly rehearsal restores company data into a local
   throwaway database.
-- Support access to real companies waits on the lawyer-reviewed Terms (docs/md/SUPPORT-ACCESS.md).
 - Scheduled daily summaries need a notification provider.

@@ -640,3 +640,8 @@ they didn't, and so what customers accepted stays true.
 
 *Reopens if:* the lawyer's wording changes what support may do, or
 companies should see support sessions themselves.
+
+*Update 1 Oct 2026:* the lawyer approved the support wording as written; the
+company terms, Terms of Service and Privacy Policy were published as
+version 3, and a real company opens for support once its owner has
+accepted them (asked at their next sign-in).

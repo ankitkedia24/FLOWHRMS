@@ -1,6 +1,6 @@
 # Flowacord support access
 
-Version 1.1 · 1 October 2026 · Owner decision D-PL-03 · Built; **real companies locked until the v3 Terms are reviewed and published** (prepared on branch `legal/support-terms`).
+Version 1.2 · 1 October 2026 · Owner decision D-PL-03 · Built and live. **The v3 Terms were approved by the lawyer and published on 1 October 2026; a real company opens once its owner has accepted them.**
 
 ## What it is
 
@@ -27,8 +27,8 @@ A Flowacord platform admin can work inside a customer's company to help them: se
 
 `lib/platform/support-policy.ts`:
 
-- **Now:** only the placeholder (`demo-co`) and sample (`sunrise-traders-sample`) companies, which hold no real person's data.
-- **After the v3 Terms are published** (below): any active company whose Owner has accepted v3 — a later change of their optional choices still counts; a withdrawal doesn't. Everyone is asked to accept a new version at their next sign-in (the consent gate), so this opens company by company without anyone doing anything else.
+- Always: the placeholder (`demo-co`) and sample (`sunrise-traders-sample`) companies, which hold no real person's data.
+- Any other active company once its Owner has accepted the v3 Terms (published 1 October 2026) — a later change of their optional choices still counts; a withdrawal doesn't. Owners are asked at their next sign-in. Everyone is asked to accept a new version at their next sign-in (the consent gate), so this opens company by company without anyone doing anything else.
 - Never a suspended company.
 
 ## How it works
@@ -45,9 +45,9 @@ A Flowacord platform admin can work inside a customer's company to help them: se
 
 ## The Terms that unlock real companies
 
-Version 3 of the company terms ("Registering a company on FlowHRMS"), the Terms of Service and the Privacy Policy is **prepared on the branch `legal/support-terms` and not merged**: the live site refuses sign-ups when its built-in text and the published text differ, so the code and the publishing must go together. The wording for the lawyer, with each paragraph as it reads today and as proposed, is `docs/md/LEGAL-REVIEW-SUPPORT-TERMS.md`; the exact text is `SUPPORT_SENTENCES` in `src/lib/consent/documents.ts` (a test keeps the two identical). The same branch sets `SUPPORT_TERMS_VERSION = 3`.
+Version 3 of the company terms ("Registering a company on FlowHRMS"), the Terms of Service and the Privacy Policy — **approved by the lawyer as written and published on 1 October 2026**. The code and the publishing went out together, because the live site refuses sign-ups when its built-in text and the published text differ. The wording for the lawyer, with each paragraph as it reads today and as proposed, is `docs/md/LEGAL-REVIEW-SUPPORT-TERMS.md`; the exact text is `SUPPORT_SENTENCES` in `src/lib/consent/documents.ts` (a test keeps the two identical). The same branch sets `SUPPORT_TERMS_VERSION = 3`.
 
-## Publishing (after the lawyer approves)
+## Publishing (how v3 went out; follow the same order for any later version)
 
 1. If the lawyer changes the wording, change `SUPPORT_SENTENCES` and the review document on the branch, and run the tests.
 2. Fetch both remotes and merge `main` into `legal/support-terms`; run all tests and the build.

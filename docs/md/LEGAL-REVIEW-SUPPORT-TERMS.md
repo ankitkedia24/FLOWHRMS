@@ -1,6 +1,6 @@
 # FlowHRMS — proposed wording on Flowacord support access
 
-**For legal review · prepared 1 October 2026 · not yet published**
+**Approved by Flowacord's lawyer as written · published as version 3 on 1 October 2026**
 
 ## Background
 
@@ -73,4 +73,4 @@ Proposed — followed by:
 
 ---
 
-*For Flowacord, after approval:* `docs/md/SUPPORT-ACCESS.md` → Publishing. If the wording changes, the branch `legal/support-terms` is updated to match before publishing.
+*Published 1 October 2026 following `docs/md/SUPPORT-ACCESS.md` → Publishing. Any later change to this wording is a new version, reviewed the same way.*
