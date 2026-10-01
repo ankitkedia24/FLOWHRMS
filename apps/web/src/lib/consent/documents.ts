@@ -564,13 +564,84 @@ const PRIVACY_V2: ConsentDocument = {
   }),
 };
 
+/**
+ * Version 3 of a document: one paragraph amended, and a loud failure if the
+ * wording to amend isn't there exactly once — a new version must never
+ * quietly repeat the old text.
+ */
+function amendParagraph(doc: ConsentDocument, version: number, from: string, to: string): ConsentDocument {
+  let hits = 0;
+  const sections = doc.sections.map((section) =>
+    section.paragraphs
+      ? {
+          ...section,
+          paragraphs: section.paragraphs.map((p) => {
+            if (!p.includes(from)) return p;
+            hits += 1;
+            return p.replace(from, to);
+          }),
+        }
+      : section,
+  );
+  if (hits !== 1) throw new Error(`documents.ts: ${doc.key} v${version} expected one paragraph to amend, found ${hits}`);
+  return { ...doc, version, sections };
+}
+
+/**
+ * 1 Oct 2026 — PREPARED FOR LEGAL REVIEW, NOT YET PUBLISHED
+ * (docs/md/SUPPORT-ACCESS.md, docs/md/LEGAL-REVIEW-SUPPORT-TERMS.md).
+ *
+ * The company terms, Terms of Service and Privacy Policy say that named
+ * Flowacord staff may open a company's account to give support and to
+ * maintain and improve the service, may change data where needed, that
+ * each access is recorded, and that changes show as "Flowacord support".
+ * Publishing these is what lets support open real companies, once each
+ * owner has accepted them (support-policy.ts SUPPORT_TERMS_VERSION).
+ */
+export const SUPPORT_SENTENCES = {
+  customerTerms:
+    "Those instructions include giving support: named Flowacord staff may open your company's FlowHRMS account to help you, fix problems, and maintain and improve the service, and may change your company's data where that is needed. Each time they do is recorded, and changes they make appear in your company's activity log as \"Flowacord support\".",
+  terms:
+    "Your company's instructions include giving support: named Flowacord staff may access your company's data, and change it where needed, to support you, fix problems, and maintain and improve FlowHRMS. Each access is recorded, and changes appear in your company's activity log as \"Flowacord support\".",
+  privacy:
+    "Named Flowacord staff may access a customer company's data to support that company and to maintain and improve FlowHRMS; each access is recorded, and any change they make is shown to the company as \"Flowacord support\".",
+} as const;
+
+const CUSTOMER_TERMS_V3: ConsentDocument = {
+  ...amendParagraph(
+    CUSTOMER_TERMS_V2,
+    3,
+    "as its Data Processor, under the Terms of Service.",
+    `as its Data Processor, under the Terms of Service. ${SUPPORT_SENTENCES.customerTerms}`,
+  ),
+  purposes: CUSTOMER_TERMS_V2.purposes.map((p) =>
+    p.key === "fiduciary_role"
+      ? { ...p, label: `${p.label.replace(/\.$/, "")}, including giving support as described above.` }
+      : p,
+  ),
+};
+
+const TERMS_V3: ConsentDocument = amendParagraph(
+  TERMS_V2,
+  3,
+  "For your own account data Flowacord is the Data Fiduciary",
+  `${SUPPORT_SENTENCES.terms} For your own account data Flowacord is the Data Fiduciary`,
+);
+
+const PRIVACY_V3: ConsentDocument = amendParagraph(
+  PRIVACY_V2,
+  3,
+  "to support customers, and to meet legal obligations.",
+  `to support customers, and to meet legal obligations. ${SUPPORT_SENTENCES.privacy}`,
+);
+
 /** The current version of every document. Append new versions; never edit. */
 export const CURRENT_DOCUMENTS: Record<DocumentKey, ConsentDocument> = {
   account_holder: ACCOUNT_HOLDER_V1,
-  customer_terms: CUSTOMER_TERMS_V2,
+  customer_terms: CUSTOMER_TERMS_V3,
   employee: EMPLOYEE_V3,
-  terms: TERMS_V2,
-  privacy: PRIVACY_V2,
+  terms: TERMS_V3,
+  privacy: PRIVACY_V3,
 };
 
 /**

@@ -1,6 +1,6 @@
 # Flowacord support access
 
-Version 1.0 · 30 September 2026 · Owner decision D-PL-03 · Built; **real companies locked until the Terms below are reviewed and published.**
+Version 1.1 · 1 October 2026 · Owner decision D-PL-03 · Built; **real companies locked until the v3 Terms are reviewed and published** (prepared on branch `legal/support-terms`).
 
 ## What it is
 
@@ -28,7 +28,7 @@ A Flowacord platform admin can work inside a customer's company to help them: se
 `lib/platform/support-policy.ts`:
 
 - **Now:** only the placeholder (`demo-co`) and sample (`sunrise-traders-sample`) companies, which hold no real person's data.
-- **After the Terms are published** (below): any active company whose Owner has accepted that version. Everyone is asked to accept a new version at their next sign-in (the consent gate), so this opens company by company without anyone doing anything else.
+- **After the v3 Terms are published** (below): any active company whose Owner has accepted v3 — a later change of their optional choices still counts; a withdrawal doesn't. Everyone is asked to accept a new version at their next sign-in (the consent gate), so this opens company by company without anyone doing anything else.
 - Never a suspended company.
 
 ## How it works
@@ -43,20 +43,16 @@ A Flowacord platform admin can work inside a customer's company to help them: se
 | Support changes: actor = the support identity, `actorType` PLATFORM, metadata `supportSessionId`, `supportBy` | `lib/audit.ts` |
 | Consent screens are skipped for support; support never consents for anyone and never records its own location | `lib/authz/guard.ts`, `lib/field-visits/service.ts` |
 
-## Draft wording for the Terms and Privacy Policy — for legal review
+## The Terms that unlock real companies
 
-**DRAFT — not published.** Today the published texts say Flowacord processes employees' data "only on your company's instructions" and give staff "least-privilege access". The additions below make support access one of those instructions. Publish only after the lawyer approves; then bump each document's `version` in `src/lib/consent/documents.ts`, run `npm run publish-notices` (keep the old versions published until Hostinger has deployed — see the notice publish bridge in OPERATIONS.md), and set `SUPPORT_TERMS_VERSION` in `support-policy.ts` to the new `customer_terms` version in the same change.
+Version 3 of the company terms ("Registering a company on FlowHRMS"), the Terms of Service and the Privacy Policy is **prepared on the branch `legal/support-terms` and not merged**: the live site refuses sign-ups when its built-in text and the published text differ, so the code and the publishing must go together. The wording for the lawyer, with each paragraph as it reads today and as proposed, is `docs/md/LEGAL-REVIEW-SUPPORT-TERMS.md`; the exact text is `SUPPORT_SENTENCES` in `src/lib/consent/documents.ts` (a test keeps the two identical). The same branch sets `SUPPORT_TERMS_VERSION = 3`.
 
-*Registering a company (`customer_terms` notice), after "…under the Terms of Service.":*
+## Publishing (after the lawyer approves)
 
-> Your company also instructs Flowacord to let named Flowacord staff open its FlowHRMS account to give support, fix problems, and maintain and improve the service, and to make changes to your company's data where that is needed. Each time they do is recorded, and changes they make appear in your company's activity log as "Flowacord support".
-
-*Terms of Service, data-processing section, after "…on your company's instructions,":*
-
-> including the instruction to give support: named Flowacord staff may access your company's data, and change it where needed, to support you, fix problems, and maintain and improve FlowHRMS. Access is recorded by Flowacord, and changes appear in your company's activity log as "Flowacord support".
-
-*Privacy Policy, "How we use personal data":*
-
-> Named Flowacord staff may access a customer company's data to support that company and to maintain and improve FlowHRMS. Each access is recorded, and any change they make is shown to the company as "Flowacord support".
-
-*Questions for the lawyer:* whether improving the product needs its own purpose (or aggregated use only); whether the employee notice needs a line too; whether a change log on request is enough, or companies should be able to see sessions themselves.
+1. If the lawyer changes the wording, change `SUPPORT_SENTENCES` and the review document on the branch, and run the tests.
+2. Fetch both remotes and merge `main` into `legal/support-terms`; run all tests and the build.
+3. `npm run publish-notices --workspace=@flowhrms/web -- --dry-run` should list exactly customer_terms v3, terms v3 and privacy v3.
+4. Publish **and keep the v2 versions published** until the new build is live (the notice publish bridge): run `npm run publish-notices --workspace=@flowhrms/web`, then set customer_terms v2, terms v2 and privacy v2 back to PUBLISHED. Otherwise sign-ups fail on the old build.
+5. Merge to `main`, push to both remotes, and watch Hostinger deploy. Check /terms and /privacy show the new sentence.
+6. Retire the v2 versions.
+7. Each owner is asked to accept the new version at their next sign-in; employees are not asked anything. A company opens for support once its owner has accepted.
