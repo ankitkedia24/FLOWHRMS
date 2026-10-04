@@ -45,7 +45,11 @@ export default function ProfileScreen() {
       'Are you sure you want to sign out of FlowHRMS on this device?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: () => {} },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: () => router.replace('/login' as any),
+        },
       ]
     );
   };

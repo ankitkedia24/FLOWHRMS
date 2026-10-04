@@ -101,6 +101,7 @@ function RootLayoutNav() {
         <Stack.Screen name="account" options={{ headerShown: false }} />
         <Stack.Screen name="consent" options={{ headerShown: false }} />
         <Stack.Screen name="splash" options={{ headerShown: false }} />
+        <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen
           name="modal"
           options={{

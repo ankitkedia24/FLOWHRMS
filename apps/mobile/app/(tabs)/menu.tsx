@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { NavigationHub } from '@/components/ui/NavigationHub';
 import { ConsentModal } from '@/components/ui/ConsentModal';
 
@@ -8,6 +9,7 @@ import { ConsentModal } from '@/components/ui/ConsentModal';
  * Mounts the NavigationHub component from Stitch.
  */
 export default function MenuScreen() {
+  const router = useRouter();
   const [consentVisible, setConsentVisible] = useState(false);
 
   const handleSignOut = () => {
@@ -16,7 +18,11 @@ export default function MenuScreen() {
       'Are you sure you want to sign out of FlowHRMS?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: () => {} },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: () => router.replace('/login' as any),
+        },
       ]
     );
   };

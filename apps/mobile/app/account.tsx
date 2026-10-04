@@ -73,7 +73,7 @@ export default function AccountScreen() {
           style: 'destructive',
           onPress: () => {
             Alert.alert('Signed Out', 'You have been signed out.');
-            router.replace('/(tabs)');
+            router.replace('/login' as any);
           },
         },
       ]
