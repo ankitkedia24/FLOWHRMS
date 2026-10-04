@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,7 +7,9 @@ import {
   TextInput,
   TouchableOpacity,
   Switch,
+  Alert,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import {
   Search,
   UserPlus,
@@ -19,6 +21,8 @@ import {
 import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
 import { EmployeeCard, EmployeeData } from '@/components/ui/EmployeeCard';
+import { useToast } from '@/components/ui/Toast';
+import { employeesService } from '@/lib/api-service';
 
 const INITIAL_EMPLOYEES: EmployeeData[] = [
   {
@@ -52,11 +56,62 @@ const INITIAL_EMPLOYEES: EmployeeData[] = [
 export default function EmployeesScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
+  const router = useRouter();
+  const toast = useToast();
 
+  const [employees, setEmployees] = useState<EmployeeData[]>(INITIAL_EMPLOYEES);
   const [searchQuery, setSearchQuery] = useState('');
   const [includeLeft, setIncludeLeft] = useState(false);
 
-  const filteredEmployees = INITIAL_EMPLOYEES.filter(
+  useEffect(() => {
+    employeesService.getEmployees().then((res) => {
+      if (res.success && res.data?.employees) {
+        // optionally update list
+      }
+    }).catch(() => {});
+  }, []);
+
+  const handleAddEmployee = async () => {
+    try {
+      const res = await employeesService.inviteEmployee({
+        name: 'Arjun Verma',
+        email: 'arjun.v@fxfloat.com',
+        phone: '+919988776655',
+        role: 'Field Supervisor',
+      });
+
+      if (res.success) {
+        const newEmp: EmployeeData = res.data?.employee || {
+          id: String(Date.now()),
+          name: 'Arjun Verma',
+          role: 'Field Supervisor',
+          phone: '+919988776655',
+          status: 'active',
+          location: 'Delhi NCR Hub',
+          attendanceStatus: 'not_recorded',
+          initials: 'AV',
+        };
+        setEmployees((prev) => [newEmp, ...prev]);
+        toast.success(
+          'Employee Invited',
+          'Invite link & temporary passcode sent via SMS and Email.'
+        );
+      } else {
+        toast.error('Invite Failed', res.error || 'Could not send employee invitation.');
+      }
+    } catch {
+      toast.error('Network Error', 'Check your connection to server.');
+    }
+  };
+
+  const handleShareInvite = () => {
+    toast.success(
+      'Invite Link Copied',
+      'Joining link copied: https://flowhrms.in/join/fx-float'
+    );
+  };
+
+  const filteredEmployees = employees.filter(
     (emp) =>
       emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (emp.phone && emp.phone.includes(searchQuery)) ||
@@ -92,6 +147,7 @@ export default function EmployeesScreen() {
             },
           ]}
           activeOpacity={0.7}
+          onPress={() => router.push('/id-card' as any)}
         >
           <Printer size={14} color={t.colors.textSecondary} />
           <Text
@@ -109,6 +165,7 @@ export default function EmployeesScreen() {
           { backgroundColor: t.colors.brandPrimary },
         ]}
         activeOpacity={0.85}
+        onPress={handleAddEmployee}
       >
         <UserPlus size={16} color="#FFFFFF" strokeWidth={2.5} />
         <Text style={styles.addEmployeeBtnText}>Add employee</Text>
@@ -210,6 +267,7 @@ export default function EmployeesScreen() {
         <TouchableOpacity
           style={styles.shareLinkRow}
           activeOpacity={0.7}
+          onPress={handleShareInvite}
         >
           <Text style={[styles.shareLinkText, { color: t.colors.brandPrimary }]}>
             Share invite link

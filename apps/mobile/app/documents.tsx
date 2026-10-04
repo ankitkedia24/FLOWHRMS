@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useToast } from '@/components/ui/Toast';
+import { featureService } from '@/lib/api-service';
 import {
   ArrowLeft,
   ShieldCheck,
@@ -47,6 +49,7 @@ export default function DocumentsScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
+  const toast = useToast();
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [docName, setDocName] = useState('ID proof');
@@ -81,27 +84,43 @@ export default function DocumentsScreen() {
     }
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!docName.trim()) {
-      Alert.alert('Required', 'Please enter what this document is.');
+      toast.error('Required Field', 'Please enter what this document is.');
       return;
     }
     setUploading(true);
-    setTimeout(() => {
-      setUploading(false);
-      const newDoc: DocumentItem = {
-        id: `doc-${Date.now()}`,
+    try {
+      const fileName = selectedFileName || 'document_upload.pdf';
+      const res = await featureService.uploadDocument({
         name: docName.trim(),
-        fileName: selectedFileName || 'document_upload.pdf',
+        fileName,
         size: '1.8 MB',
-        uploadedAt: 'Today',
-        status: 'pending',
-      };
-      setDocuments([newDoc, ...documents]);
-      setShowAddForm(false);
-      setSelectedFileName(null);
-      Alert.alert('Document Uploaded', 'Your document is uploaded and secured in vault.');
-    }, 1000);
+      });
+      if (res.success) {
+        const newDoc: DocumentItem = res.data || {
+          id: `doc-${Date.now()}`,
+          name: docName.trim(),
+          fileName,
+          size: '1.8 MB',
+          uploadedAt: 'Today',
+          status: 'pending',
+        };
+        setDocuments([newDoc, ...documents]);
+        setShowAddForm(false);
+        setSelectedFileName(null);
+        toast.success(
+          'Document Uploaded',
+          'Your file is encrypted and securely stored in the corporate vault.'
+        );
+      } else {
+        toast.error('Upload Failed', res.error || 'Failed to upload document.');
+      }
+    } catch (e: any) {
+      toast.error('Network Error', 'Could not reach server. Please retry.');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -112,6 +131,7 @@ export default function DocumentsScreen() {
         style: 'destructive',
         onPress: () => {
           setDocuments(documents.filter((d) => d.id !== id));
+          toast.info('Document Removed', 'File was deleted from secure vault.');
         },
       },
     ]);

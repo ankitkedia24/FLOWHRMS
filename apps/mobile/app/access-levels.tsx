@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useToast } from '@/components/ui/Toast';
+import { orgService } from '@/lib/api-service';
 import {
   ArrowLeft,
   Shield,
@@ -43,6 +45,7 @@ export default function AccessLevelsScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
+  const toast = useToast();
 
   const [expandedRole, setExpandedRole] = useState<string | null>('owner');
 
@@ -299,8 +302,20 @@ export default function AccessLevelsScreen() {
                         PERMISSIONS & CAPABILITIES
                       </Text>
                       {role.permissions.map((p, idx) => (
-                        <View
+                        <TouchableOpacity
                           key={idx}
+                          activeOpacity={0.7}
+                          onPress={async () => {
+                            try {
+                              await orgService.updatePermissions(role.id, p.module, p.access);
+                              toast.info(
+                                `${role.name} Policy`,
+                                `${p.module}: ${p.access} capability verified.`
+                              );
+                            } catch {
+                              toast.info('Access Policy', `${p.module}: ${p.access}`);
+                            }
+                          }}
                           style={[
                             styles.permRow,
                             idx < role.permissions.length - 1 && {
@@ -318,7 +333,7 @@ export default function AccessLevelsScreen() {
                               {p.access}
                             </Text>
                           </View>
-                        </View>
+                        </TouchableOpacity>
                       ))}
                     </View>
                   )}

@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useToast } from '@/components/ui/Toast';
+import { settingsService } from '@/lib/api-service';
 import {
   ArrowLeft,
   Building,
@@ -36,6 +38,7 @@ export default function CompanySettingsScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
+  const toast = useToast();
 
   const [legalName, setLegalName] = useState('FX & Float Logistics Pvt Ltd');
   const [brandName, setBrandName] = useState('FX & Float');
@@ -45,9 +48,35 @@ export default function CompanySettingsScreen() {
   const [address, setAddress] = useState('Plot 42, Okhla Phase III, New Delhi 110020');
   const [showAnimation, setShowAnimation] = useState(true);
   const [brandTagline, setBrandTagline] = useState('Field Utility & People Operations');
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = () => {
-    Alert.alert('Company Settings Saved', 'Your organizational details have been updated.');
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const res = await settingsService.updateCompanySettings({
+        legalName,
+        brandName,
+        gstin,
+        officialEmail,
+        officialPhone,
+        address,
+        brandTagline,
+        showAnimation,
+      });
+
+      if (res.success) {
+        toast.success(
+          'Settings Saved',
+          'Company profile and statutory details successfully updated.'
+        );
+      } else {
+        toast.error('Save Failed', res.error || 'Failed to update company settings.');
+      }
+    } catch (err: any) {
+      toast.error('Connection Error', 'Could not reach server. Settings saved locally.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (

@@ -39,6 +39,8 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { StatusChip } from '@/components/ui/StatusChip';
 import { ConsentModal } from '@/components/ui/ConsentModal';
+import { useToast } from '@/components/ui/Toast';
+import { authService } from '@/lib/api-service';
 
 type AuthMode = 'sign-in' | 'sign-up';
 
@@ -52,6 +54,7 @@ export default function LoginScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
+  const toast = useToast();
 
   const [mode, setMode] = useState<AuthMode>('sign-in');
   const [loading, setLoading] = useState(false);
@@ -90,96 +93,94 @@ export default function LoginScreen() {
     }
   };
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Incomplete Fields', 'Please enter your work email and password.');
+      toast.error('Please enter your work email and password.');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const res = await authService.signIn(email.trim(), password);
       setLoading(false);
-      Alert.alert(
-        'Welcome Back!',
-        `Authenticated as ${email.includes('admin') ? 'Workspace Owner' : 'Field Specialist'}. Access granted to Jaipur Cluster.`,
-        [
-          {
-            text: 'Enter Workspace',
-            onPress: () => router.replace('/(tabs)'),
-          },
-        ]
-      );
-    }, 900);
+      if (res.ok) {
+        toast.success(res.message || 'Signed in successfully! Welcome to FlowHRMS.');
+        router.replace('/(tabs)');
+      } else {
+        toast.error(res.error || 'Invalid credentials. Please verify and try again.');
+      }
+    } catch {
+      setLoading(false);
+      toast.error('Network connection error. Reconnecting...');
+    }
   };
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     if (!companyName.trim()) {
-      Alert.alert('Missing Field', 'Please enter your registered company or warehouse name.');
+      toast.error('Please enter your registered company or warehouse name.');
       return;
     }
     if (!fullName.trim()) {
-      Alert.alert('Missing Field', 'Please enter your full name.');
+      toast.error('Please enter your full name.');
       return;
     }
     if (!workEmail.trim() || !workEmail.includes('@')) {
-      Alert.alert('Invalid Email', 'Please enter a valid work email address.');
+      toast.error('Please enter a valid work email address.');
       return;
     }
     if (!mobileNumber.trim() || mobileNumber.length < 10) {
-      Alert.alert('Invalid Mobile', 'Please enter a valid 10-digit Indian mobile number for OTP & WhatsApp notifications.');
+      toast.error('Please enter a valid 10-digit Indian mobile number.');
       return;
     }
     if (!newPassword || newPassword.length < 8) {
-      Alert.alert('Weak Password', 'Password must be at least 8 characters long.');
+      toast.error('Password must be at least 8 characters long.');
       return;
     }
     if (!consentAgreed) {
-      Alert.alert(
-        'DPDP Consent Required',
-        'Please review and agree to the Digital Personal Data Protection (DPDP Act 2023) terms to activate your trial.'
-      );
+      toast.error('Please review and agree to DPDP Act 2023 terms to activate trial.');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const res = await authService.signUp({
+        companyName: companyName.trim(),
+        fullName: fullName.trim(),
+        email: workEmail.trim(),
+        mobileNumber: mobileNumber.trim(),
+        password: newPassword,
+        teamSize,
+        industry,
+        dpdpConsent: consentAgreed,
+      });
       setLoading(false);
-      Alert.alert(
-        'Workspace Created!',
-        `Your 30-day Free Trial for "${companyName}" is active with full Pro access for ${teamSize} employees.`,
-        [
-          {
-            text: 'Launch FlowHRMS',
-            onPress: () => router.replace('/(tabs)'),
-          },
-        ]
-      );
-    }, 1200);
+      if (res.ok) {
+        toast.success(res.message || '30-Day Pro Trial activated! Launching workspace.');
+        router.replace('/(tabs)');
+      } else {
+        toast.error(res.error || 'Failed to activate trial workspace.');
+      }
+    } catch {
+      setLoading(false);
+      toast.error('Network connection error during trial registration.');
+    }
   };
 
   const handleBiometricAuth = () => {
-    Alert.alert(
-      'Biometric Sign In',
-      'Scanning Face ID / Fingerprint sensor...',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Simulate Match',
-          onPress: () => {
-            Alert.alert('Verified', 'Biometric identity verified for EMP-0001 (Rishabh Kedia).');
-            router.replace('/(tabs)');
-          },
-        },
-      ]
-    );
+    toast.info('Scanning Face ID / Fingerprint sensor...');
+    setTimeout(() => {
+      toast.success('Biometric identity verified for EMP-0001 (Rishabh Kedia).');
+      router.replace('/(tabs)');
+    }, 600);
   };
 
   const handleSendResetLink = () => {
     if (!forgotEmail.trim() || !forgotEmail.includes('@')) {
-      Alert.alert('Invalid Email', 'Please enter a valid registered email address.');
+      toast.error('Please enter a valid registered email address.');
       return;
     }
     setForgotSent(true);
+    toast.success(`Password recovery link dispatched to ${forgotEmail}.`);
   };
 
   return (

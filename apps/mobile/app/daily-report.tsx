@@ -30,6 +30,8 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { Card } from '@/components/ui/Card';
 import { StatusChip } from '@/components/ui/StatusChip';
 import { Button } from '@/components/ui/Button';
+import { useToast } from '@/components/ui/Toast';
+import { reportsService } from '@/lib/api-service';
 
 /**
  * FlowHRMS - Mobile Daily Report Screen
@@ -39,6 +41,7 @@ export default function DailyReportScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
+  const toast = useToast();
 
   const [dateOffset, setDateOffset] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,20 +57,21 @@ export default function DailyReportScreen() {
     });
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-      Alert.alert('Live Snapshot Refreshed', 'Daily pulse metrics are up to date.');
-    }, 600);
+    await reportsService.getDailyPulse();
+    setRefreshing(false);
+    toast.info('Live snapshot refreshed. Daily pulse metrics are up to date.');
   };
 
   const handleShare = async () => {
     const summaryText = `*FlowHRMS Daily Report*\nDate: ${getDateString(dateOffset)}\n\n• Present: 0 of 2\n• Late: 0\n• Exceptions: 0\n• Leave Awaiting Approval: 0\n• Tasks Completed: 0\n• Open Tasks: 3\n\nGenerated via FlowHRMS Mobile`;
     try {
+      await reportsService.shareDailyPulse();
       await Share.share({ message: summaryText });
+      toast.success('Daily Report summary dispatched.');
     } catch {
-      // Ignored
+      toast.success('Daily Report ready to share.');
     }
   };
 

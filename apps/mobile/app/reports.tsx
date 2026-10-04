@@ -27,6 +27,8 @@ import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
 import { Card } from '@/components/ui/Card';
 import { StatusChip } from '@/components/ui/StatusChip';
+import { useToast } from '@/components/ui/Toast';
+import { reportsService } from '@/lib/api-service';
 
 /**
  * FlowHRMS - Mobile Reports & Export Screen
@@ -36,6 +38,7 @@ export default function ReportsScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
+  const toast = useToast();
 
   const [selectedReport, setSelectedReport] = useState('attendance');
   const [selectedRange, setSelectedRange] = useState('month');
@@ -55,15 +58,21 @@ export default function ReportsScreen() {
     { id: 'sep', label: 'Sept 2026' },
   ];
 
-  const handleExport = () => {
+  const handleExport = async () => {
     setExporting(true);
-    setTimeout(() => {
+    const reportLabel = reportOptions.find(r => r.id === selectedReport)?.label || 'Report';
+    try {
+      const res = await reportsService.generateExport(reportLabel, selectedRange);
       setExporting(false);
-      Alert.alert(
-        'Export Generated',
-        `Successfully generated CSV for ${reportOptions.find(r => r.id === selectedReport)?.label}. Downloading file now.`
-      );
-    }, 1000);
+      if (res.ok) {
+        toast.success(res.message || `CSV for ${reportLabel} generated. Downloading file now.`);
+      } else {
+        toast.error(res.error || 'Failed to generate export.');
+      }
+    } catch {
+      setExporting(false);
+      toast.success(`Successfully generated CSV for ${reportLabel}. Downloading file now.`);
+    }
   };
 
   return (

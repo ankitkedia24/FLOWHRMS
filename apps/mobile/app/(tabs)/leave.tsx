@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert as RNAlert,
+  ActivityIndicator,
 } from 'react-native';
 import { Plus, X, Calendar, AlertCircle, CheckCircle } from 'lucide-react-native';
 import { getTheme } from '@/constants/Theme';
@@ -15,6 +16,8 @@ import { Button } from '@/components/ui/Button';
 import { StatusChip } from '@/components/ui/StatusChip';
 import { Input, TextArea } from '@/components/ui/Input';
 import { Sheet } from '@/components/ui/Sheet';
+import { useToast } from '@/components/ui/Toast';
+import { leaveService } from '@/lib/api-service';
 
 interface LeaveRequestItem {
   id: string;
@@ -33,12 +36,14 @@ interface LeaveRequestItem {
 export default function LeaveScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
+  const toast = useToast();
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [leaveType, setLeaveType] = useState<'FULL_DAY' | 'HALF_DAY' | 'EMERGENCY'>('FULL_DAY');
   const [startDate, setStartDate] = useState('2026-10-12');
   const [endDate, setEndDate] = useState('2026-10-14');
   const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [requests, setRequests] = useState<LeaveRequestItem[]>([
     {
       id: '1',
@@ -60,26 +65,58 @@ export default function LeaveScreen() {
     },
   ]);
 
-  const handleSubmit = () => {
+  useEffect(() => {
+    // Optionally fetch initial balances
+    leaveService.getBalances().then((res) => {
+      if (res.success && res.data?.requests) {
+        // Can optionally merge fresh requests
+      }
+    }).catch(() => {});
+  }, []);
+
+  const handleSubmit = async () => {
     if (!reason.trim()) {
-      RNAlert.alert('Required', 'Please enter a reason for your leave request.');
+      toast.error('Reason Required', 'Please enter a brief explanation for your leave.');
       return;
     }
 
-    const newReq: LeaveRequestItem = {
-      id: Date.now().toString(),
-      type: leaveType === 'FULL_DAY' ? 'Full Day' : leaveType === 'HALF_DAY' ? 'Half Day' : 'Emergency',
-      dateRange: `${startDate} – ${endDate}`,
-      days: 3,
-      reason: reason.trim(),
-      status: 'PENDING',
-      note: 'Sent · waiting for your manager · payroll effect applied after approval',
-    };
+    setSubmitting(true);
+    try {
+      const typeLabel = leaveType === 'FULL_DAY' ? 'Full Day' : leaveType === 'HALF_DAY' ? 'Half Day' : 'Emergency';
+      const res = await leaveService.applyLeave({
+        type: typeLabel,
+        startDate,
+        endDate,
+        reason: reason.trim(),
+        days: 3,
+      });
 
-    setRequests([newReq, ...requests]);
-    setSheetOpen(false);
-    setReason('');
-    RNAlert.alert('Request Sent', 'Your leave request has been submitted to your manager.');
+      if (res.success) {
+        const newReq: LeaveRequestItem = res.data?.request || {
+          id: Date.now().toString(),
+          type: typeLabel,
+          dateRange: `${startDate} – ${endDate}`,
+          days: 3,
+          reason: reason.trim(),
+          status: 'PENDING',
+          note: 'Sent · waiting for your manager · payroll effect applied after approval',
+        };
+
+        setRequests([newReq, ...requests]);
+        setSheetOpen(false);
+        setReason('');
+        toast.success(
+          'Leave Request Submitted',
+          'Your leave application has been routed to your reporting manager.'
+        );
+      } else {
+        toast.error('Submission Failed', res.error || 'Failed to submit leave request.');
+      }
+    } catch (e: any) {
+      toast.error('Network Error', 'Could not reach server. Please retry.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

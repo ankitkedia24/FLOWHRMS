@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useToast } from '@/components/ui/Toast';
+import { featureService } from '@/lib/api-service';
 import {
   ArrowLeft,
   User,
@@ -35,31 +37,48 @@ export default function AccountScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
+  const toast = useToast();
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  const handleUpdatePassword = () => {
+  const handleUpdatePassword = async () => {
     if (!currentPassword) {
-      Alert.alert('Required', 'Please enter your current password.');
+      toast.error('Required Field', 'Please enter your current password.');
       return;
     }
     if (newPassword.length < 8) {
-      Alert.alert('Weak Password', 'New password must be at least 8 characters long.');
+      toast.error('Weak Password', 'New password must be at least 8 characters long.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Mismatch', 'New password and confirm password do not match.');
+      toast.error('Password Mismatch', 'New password and confirm password do not match.');
       return;
     }
 
-    Alert.alert('Password Updated', 'Your account password has been successfully updated.');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
+    setIsUpdating(true);
+    try {
+      const res = await featureService.changePassword(currentPassword, newPassword);
+      if (res.success) {
+        toast.success(
+          'Password Updated',
+          'Your account password and encryption keys have been updated.'
+        );
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        toast.error('Update Failed', res.error || 'Could not change password.');
+      }
+    } catch (e: any) {
+      toast.error('Network Error', 'Please check your connection.');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const handleSignOut = () => {
@@ -72,7 +91,7 @@ export default function AccountScreen() {
           text: 'Sign Out',
           style: 'destructive',
           onPress: () => {
-            Alert.alert('Signed Out', 'You have been signed out.');
+            toast.info('Signed Out', 'Your session has ended.');
             router.replace('/login' as any);
           },
         },

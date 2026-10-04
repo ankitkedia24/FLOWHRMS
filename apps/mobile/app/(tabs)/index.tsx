@@ -36,6 +36,8 @@ import { ConsentModal } from '@/components/ui/ConsentModal';
 import { EmptyExceptionsCard } from '@/components/ui/EmptyExceptionsCard';
 import { Card } from '@/components/ui/Card';
 import { StatusChip } from '@/components/ui/StatusChip';
+import { useToast } from '@/components/ui/Toast';
+import { attendanceService } from '@/lib/api-service';
 
 /**
  * Mobile Home / Field Dashboard Screen
@@ -46,18 +48,21 @@ export default function DashboardScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
+  const toast = useToast();
 
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [isCheckedIn, setIsCheckedIn] = useState(true);
   const [consentVisible, setConsentVisible] = useState(false);
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
+    await attendanceService.getToday();
+    setRefreshing(false);
+    toast.info('Shift and operations synced with Jaipur cluster.');
   };
 
-  const handleCheckOut = () => {
+  const handleCheckOut = async () => {
     Alert.alert(
       'Confirm Check-Out',
       'Location will be captured at check-out time. Confirm punch out?',
@@ -66,18 +71,28 @@ export default function DashboardScreen() {
         {
           text: 'Check Out',
           style: 'destructive',
-          onPress: () => setIsCheckedIn(false),
+          onPress: async () => {
+            const res = await attendanceService.punch('check-out');
+            setIsCheckedIn(false);
+            if (res.ok) {
+              toast.info(res.message || 'Checked Out successfully. Shift ended.');
+            } else {
+              toast.error(res.error || 'Failed to register check-out.');
+            }
+          },
         },
       ]
     );
   };
 
-  const handleCheckIn = () => {
+  const handleCheckIn = async () => {
+    const res = await attendanceService.punch('check-in');
     setIsCheckedIn(true);
-    Alert.alert(
-      'Checked In Successfully',
-      'Location geo-fenced & matched at Jaipur Central Warehouse.'
-    );
+    if (res.ok) {
+      toast.success(res.message || 'Checked In successfully. Jaipur Central Warehouse (35m).');
+    } else {
+      toast.error(res.error || 'Failed to punch in.');
+    }
   };
 
   return (

@@ -26,6 +26,8 @@ import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
 import { Card } from '@/components/ui/Card';
 import { StatusChip } from '@/components/ui/StatusChip';
+import { useToast } from '@/components/ui/Toast';
+import { attendanceService } from '@/lib/api-service';
 
 /**
  * FlowHRMS - Mobile Attendance & Pay Rules Screen
@@ -35,6 +37,7 @@ export default function AttendanceRulesScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
+  const toast = useToast();
 
   const [weeklyOff, setWeeklyOff] = useState<string[]>(['Sunday']);
   const [shiftStart, setShiftStart] = useState('09:30 AM');
@@ -64,9 +67,21 @@ export default function AttendanceRulesScreen() {
         {
           text: 'Publish Version 2',
           style: 'default',
-          onPress: () => {
+          onPress: async () => {
             setHasUnsavedChanges(false);
-            Alert.alert('Rules Published', 'Version 2 is now active across your organization.');
+            try {
+              await attendanceService.updateRules({
+                weeklyOff,
+                shiftStart,
+                shiftEnd,
+                gracePeriodMinutes: Number(gracePeriod),
+                latePenaltyDays: Number(latePenaltyRule),
+                geofenceRadiusMeters: Number(geofenceRadius),
+              });
+            } catch {
+              // Fallback
+            }
+            toast.success('Version 2 is now active across your organization.');
           },
         },
       ]

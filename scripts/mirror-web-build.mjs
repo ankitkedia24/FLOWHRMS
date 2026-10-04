@@ -44,7 +44,14 @@ function mirror(name, skip = () => false) {
   console.log(`[mirror] ${relative(root, from)} -> ${name}`);
 }
 
-mirror(".next", (rel) => rel === "cache" || rel.startsWith(`cache${sep}`));
+mirror(
+  ".next",
+  (rel) =>
+    rel === "cache" ||
+    rel.startsWith(`cache${sep}`) ||
+    rel === "dev" ||
+    rel.startsWith(`dev${sep}`),
+);
 mirror("public");
 
 // The standalone server, laid out the way Hostinger expects.

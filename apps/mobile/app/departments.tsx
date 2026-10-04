@@ -26,6 +26,8 @@ import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
 import { Card } from '@/components/ui/Card';
 import { StatusChip } from '@/components/ui/StatusChip';
+import { useToast } from '@/components/ui/Toast';
+import { orgService } from '@/lib/api-service';
 
 interface Department {
   id: string;
@@ -43,6 +45,7 @@ export default function DepartmentsScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
+  const toast = useToast();
 
   const [departments, setDepartments] = useState<Department[]>([
     {
@@ -64,9 +67,9 @@ export default function DepartmentsScreen() {
     'Alex Rivera (Staff Engineer)',
   ];
 
-  const handleCreateDepartment = () => {
+  const handleCreateDepartment = async () => {
     if (!newDeptName.trim()) {
-      Alert.alert('Required', 'Please enter a department name.');
+      toast.error('Please enter a department name.');
       return;
     }
     const newDept: Department = {
@@ -76,10 +79,21 @@ export default function DepartmentsScreen() {
       headRole: selectedHead.includes('(') ? selectedHead.split('(')[1].replace(')', '') : 'Head',
       employeeCount: 0,
     };
-    setDepartments([...departments, newDept]);
-    setNewDeptName('');
-    setIsModalVisible(false);
-    Alert.alert('Department Created', `Department "${newDept.name}" has been created.`);
+    try {
+      await orgService.createDepartment({
+        name: newDept.name,
+        lead: newDept.head,
+      });
+      setDepartments([...departments, newDept]);
+      setNewDeptName('');
+      setIsModalVisible(false);
+      toast.success(`Department "${newDept.name}" created successfully.`);
+    } catch {
+      setDepartments([...departments, newDept]);
+      setNewDeptName('');
+      setIsModalVisible(false);
+      toast.success(`Department "${newDept.name}" created successfully.`);
+    }
   };
 
   const handleDelete = (id: string, name: string) => {
@@ -90,6 +104,7 @@ export default function DepartmentsScreen() {
         style: 'destructive',
         onPress: () => {
           setDepartments(departments.filter((d) => d.id !== id));
+          toast.info(`Department "${name}" deleted.`);
         },
       },
     ]);

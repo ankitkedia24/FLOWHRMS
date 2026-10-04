@@ -11,19 +11,15 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useToast } from '@/components/ui/Toast';
+import { featureService } from '@/lib/api-service';
 import {
   ArrowLeft,
-  ReceiptText,
   CreditCard,
   Check,
-  Shield,
   Clock,
   Download,
-  Building,
   Sparkles,
-  ExternalLink,
-  ChevronRight,
-  FileText,
 } from 'lucide-react-native';
 import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -31,6 +27,27 @@ import { Card } from '@/components/ui/Card';
 import { StatusChip } from '@/components/ui/StatusChip';
 
 type SubscriptionTab = 'plans' | 'checkout' | 'invoices';
+
+const PLAN_CONFIG = {
+  starter: {
+    name: 'Starter',
+    users: 'Up to 5 employees',
+    monthlyPrice: 999,
+    yearlyMonthlyEquivalent: 799,
+  },
+  pro: {
+    name: 'PRO',
+    users: 'Up to 50 active employees',
+    monthlyPrice: 2999,
+    yearlyMonthlyEquivalent: 2399,
+  },
+  enterprise: {
+    name: 'Enterprise',
+    users: 'Unlimited workforce',
+    monthlyPrice: 9999,
+    yearlyMonthlyEquivalent: 7999,
+  },
+} as const;
 
 /**
  * FlowHRMS - Mobile Subscription Screen
@@ -40,22 +57,44 @@ export default function SubscriptionScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
+  const toast = useToast();
 
   const [activeTab, setActiveTab] = useState<SubscriptionTab>('plans');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'pro' | 'enterprise'>('pro');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handlePayNow = () => {
+  const activePlanMeta = PLAN_CONFIG[selectedPlan];
+  const activeRate =
+    billingCycle === 'monthly'
+      ? activePlanMeta.monthlyPrice
+      : activePlanMeta.yearlyMonthlyEquivalent;
+  const basePrice = billingCycle === 'monthly' ? activeRate : activeRate * 12;
+  const igstAmount = Math.round(basePrice * 0.18 * 100) / 100;
+  const totalAmount = Math.round((basePrice + igstAmount) * 100) / 100;
+
+  const formattedBase = `₹${basePrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+  const formattedGst = `₹${igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+  const formattedTotal = `₹${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+
+  const handlePayNow = async () => {
     setIsProcessing(true);
-    setTimeout(() => {
+    try {
+      const res = await featureService.checkoutPlan(selectedPlan, billingCycle);
+      if (res.success) {
+        toast.success(
+          'Payment Successful',
+          `Your subscription to FlowHRMS ${selectedPlan.toUpperCase()} is active. Invoice #${res.data?.invoiceId || 'FL-2026-1002'} created.`
+        );
+        setActiveTab('invoices');
+      } else {
+        toast.error('Payment Failed', res.error || 'Could not complete subscription checkout.');
+      }
+    } catch (e: any) {
+      toast.error('Payment Error', 'Transaction timed out. Please retry.');
+    } finally {
       setIsProcessing(false);
-      Alert.alert(
-        'Payment Successful',
-        'Your subscription to FlowHRMS PRO is confirmed. Tax invoice #FL-2026-1002 has been generated.'
-      );
-      setActiveTab('invoices');
-    }, 1500);
+    }
   };
 
   return (
@@ -327,7 +366,10 @@ export default function SubscriptionScreen() {
                     borderColor: t.colors.borderDefault,
                   },
                 ]}
-                onPress={() => setSelectedPlan('starter')}
+                onPress={() => {
+                  setSelectedPlan('starter');
+                  setActiveTab('checkout');
+                }}
               >
                 <Text
                   style={[
@@ -335,7 +377,7 @@ export default function SubscriptionScreen() {
                     { color: selectedPlan === 'starter' ? '#FFFFFF' : t.colors.textPrimary },
                   ]}
                 >
-                  {selectedPlan === 'starter' ? 'Selected Plan' : 'Select Starter'}
+                  {selectedPlan === 'starter' ? 'Selected • Continue →' : 'Select Starter & Checkout →'}
                 </Text>
               </TouchableOpacity>
             </Card>
@@ -472,16 +514,16 @@ export default function SubscriptionScreen() {
                 Order Summary
               </Text>
               <Text style={[styles.sectionSubtitle, { color: t.colors.textSecondary }]}>
-                Plan: PRO (Up to 50 active users)
+                Plan: {activePlanMeta.name} ({activePlanMeta.users}) • {billingCycle === 'monthly' ? 'Monthly Billing' : 'Annual Billing (Save 20%)'}
               </Text>
 
               <View style={styles.summaryBreakdown}>
                 <View style={[styles.sumRow, { borderBottomColor: t.colors.borderSubtle }]}>
                   <Text style={[t.typography.body, { color: t.colors.textSecondary }]}>
-                    Plan Base Price
+                    Plan Base Price ({billingCycle === 'monthly' ? '1 Month' : '1 Year'})
                   </Text>
                   <Text style={[styles.sumValText, { color: t.colors.textPrimary }]}>
-                    ₹2,999.00
+                    {formattedBase}
                   </Text>
                 </View>
                 <View style={[styles.sumRow, { borderBottomColor: t.colors.borderSubtle }]}>
@@ -489,7 +531,7 @@ export default function SubscriptionScreen() {
                     Integrated GST (18% IGST)
                   </Text>
                   <Text style={[styles.sumValText, { color: t.colors.textPrimary }]}>
-                    ₹539.82
+                    {formattedGst}
                   </Text>
                 </View>
                 <View style={styles.totalRow}>
@@ -497,7 +539,7 @@ export default function SubscriptionScreen() {
                     Total Net Due
                   </Text>
                   <Text style={[styles.totalAmount, { color: t.colors.brandPrimary }]}>
-                    ₹3,538.82
+                    {formattedTotal}
                   </Text>
                 </View>
               </View>
@@ -562,7 +604,7 @@ export default function SubscriptionScreen() {
               ) : (
                 <>
                   <CreditCard size={18} color="#FFFFFF" />
-                  <Text style={styles.payCtaText}>Pay ₹3,538.82 & Activate</Text>
+                  <Text style={styles.payCtaText}>Pay {formattedTotal} & Activate</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -604,7 +646,12 @@ export default function SubscriptionScreen() {
                 Tax Invoices & Receipts
               </Text>
               <TouchableOpacity
-                onPress={() => Alert.alert('Export Invoices', 'All PDF receipts exported to your work email.')}
+                onPress={() =>
+                  toast.info(
+                    'Export Invoices',
+                    'All PDF receipts sent to operations@fxfloat.com.'
+                  )
+                }
               >
                 <Text style={[styles.exportAllText, { color: t.colors.brandPrimary }]}>
                   Export All
@@ -664,7 +711,12 @@ export default function SubscriptionScreen() {
                     borderColor: t.colors.borderDefault,
                   },
                 ]}
-                onPress={() => Alert.alert('Downloading Proforma', 'Downloading official proforma invoice PDF.')}
+                onPress={() =>
+                  toast.success(
+                    'Download Initiated',
+                    'Proforma invoice FL-2026-1001 downloaded to device.'
+                  )
+                }
               >
                 <Download size={14} color={t.colors.brandPrimary} />
                 <Text style={[styles.pdfDownloadText, { color: t.colors.textPrimary }]}>

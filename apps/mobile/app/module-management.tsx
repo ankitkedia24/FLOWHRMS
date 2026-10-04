@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useToast } from '@/components/ui/Toast';
+import { settingsService } from '@/lib/api-service';
 import {
   ArrowLeft,
   Boxes,
@@ -113,29 +115,45 @@ export default function ModuleManagementScreen() {
     },
   ]);
 
-  const toggleModule = (id: string) => {
-    setModules(
-      modules.map((m) => {
-        if (m.id === id) {
-          if (m.isCore) {
-            Alert.alert(
-              'Core Module',
-              'Employee Management is required by the FlowHRMS platform and cannot be turned off.'
-            );
-            return m;
-          }
-          const next = !m.enabled;
-          Alert.alert(
-            next ? `Enabled ${m.name}` : `Turned Off ${m.name}`,
-            next
-              ? `${m.name} is now enabled across the mobile app and web workspace.`
-              : `Turning off ${m.name} removes it from navigation. No past data is deleted.`
-          );
-          return { ...m, enabled: next };
-        }
-        return m;
-      })
+  const toast = useToast();
+
+  const toggleModule = async (id: string) => {
+    const target = modules.find((m) => m.id === id);
+    if (!target) return;
+
+    if (target.isCore) {
+      toast.info('Core module', 'Employee Management is required and cannot be disabled.');
+      return;
+    }
+
+    const nextState = !target.enabled;
+    // Optimistic UI update
+    setModules((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, enabled: nextState } : m))
     );
+
+    try {
+      const res = await settingsService.toggleModule(id, nextState);
+      if (res.success) {
+        toast.success(
+          nextState ? `${target.name} Enabled` : `${target.name} Disabled`,
+          nextState
+            ? `${target.name} module is now live across workspace.`
+            : `${target.name} hidden from navigation menus.`
+        );
+      } else {
+        // Revert on error
+        setModules((prev) =>
+          prev.map((m) => (m.id === id ? { ...m, enabled: !nextState } : m))
+        );
+        toast.error('Update Failed', res.error || 'Could not update module configuration.');
+      }
+    } catch (e: any) {
+      setModules((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, enabled: !nextState } : m))
+      );
+      toast.error('Network Error', 'Check your backend server connection.');
+    }
   };
 
   const toggleSubControl = (moduleId: string, controlKey: string) => {
@@ -150,6 +168,7 @@ export default function ModuleManagementScreen() {
         return m;
       })
     );
+    toast.info('Feature Preference', `Sub-control preference saved.`);
   };
 
   const activeCount = modules.filter((m) => m.enabled).length;

@@ -32,6 +32,8 @@ const PUBLIC_PATHS = [
   "/api/razorpay",
   // The uptime monitor's check: "ok" or "down", nothing else.
   "/api/health",
+  // Mobile app REST API endpoints
+  "/api/v1",
 ];
 
 /**

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -17,6 +17,8 @@ import {
 } from 'lucide-react-native';
 import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
+import { useToast } from '@/components/ui/Toast';
+import { tasksService } from '@/lib/api-service';
 
 interface TaskItem {
   id: string;
@@ -61,10 +63,73 @@ const INITIAL_TASKS: TaskItem[] = [
 export default function TasksScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
+  const toast = useToast();
 
+  const [tasks, setTasks] = useState<TaskItem[]>(INITIAL_TASKS);
   const [activeFilter, setActiveFilter] = useState<'all' | 'pending' | 'completed'>('all');
 
-  const filteredTasks = INITIAL_TASKS.filter((task) => {
+  useEffect(() => {
+    tasksService.getTasks().then((res) => {
+      if (res.success && res.data?.tasks) {
+        // Can optionally merge tasks
+      }
+    }).catch(() => {});
+  }, []);
+
+  const handleCreateTask = async () => {
+    try {
+      const res = await tasksService.createTask({
+        title: 'Ad-hoc Client Site Audit',
+        location: 'Sector 62 Noida Hub',
+        dueTime: '06:00 PM',
+        category: 'inspection',
+      });
+      if (res.success) {
+        const newTask: TaskItem = res.data?.task || {
+          id: String(Date.now()),
+          title: 'Ad-hoc Client Site Audit',
+          location: 'Sector 62 Noida Hub',
+          dueTime: '06:00 PM',
+          category: 'inspection',
+          status: 'pending',
+        };
+        setTasks((prev) => [newTask, ...prev]);
+        toast.success('Task Created', 'Field task dispatched to mobile roster.');
+      } else {
+        toast.error('Task Creation Failed', res.error || 'Could not assign task.');
+      }
+    } catch {
+      toast.error('Network Error', 'Check your server connection.');
+    }
+  };
+
+  const handleTaskAction = async (task: TaskItem) => {
+    if (task.status === 'completed') {
+      toast.info('Task Completed', `Audit report archived for "${task.title}".`);
+      return;
+    }
+
+    try {
+      const nextStatus = task.status === 'pending' ? 'in_progress' : 'completed';
+      const res = await tasksService.updateTaskStatus(task.id, nextStatus);
+      if (res.success) {
+        setTasks((prev) =>
+          prev.map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t))
+        );
+        if (nextStatus === 'completed') {
+          toast.success('Task Completed', 'Geo-proof verified & sign-off logged.');
+        } else {
+          toast.info('Task Started', 'Timer running for on-site execution.');
+        }
+      } else {
+        toast.error('Update Failed', res.error || 'Could not update task.');
+      }
+    } catch {
+      toast.error('Network Error', 'Could not sync task status.');
+    }
+  };
+
+  const filteredTasks = tasks.filter((task) => {
     if (activeFilter === 'pending') return task.status !== 'completed';
     if (activeFilter === 'completed') return task.status === 'completed';
     return true;
@@ -96,6 +161,7 @@ export default function TasksScreen() {
             { backgroundColor: t.colors.brandPrimary },
           ]}
           activeOpacity={0.8}
+          onPress={handleCreateTask}
         >
           <Plus size={15} color="#FFFFFF" strokeWidth={2.5} />
           <Text style={styles.newTaskBtnText}>New Task</Text>
@@ -222,6 +288,7 @@ export default function TasksScreen() {
                       : { backgroundColor: t.colors.brandPrimarySubtle },
                   ]}
                   activeOpacity={0.7}
+                  onPress={() => handleTaskAction(task)}
                 >
                   {isCompleted ? (
                     <Text

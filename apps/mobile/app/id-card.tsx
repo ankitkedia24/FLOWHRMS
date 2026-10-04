@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useToast } from '@/components/ui/Toast';
+import { featureService } from '@/lib/api-service';
 import {
   ArrowLeft,
   Layers,
@@ -38,6 +40,7 @@ export default function IdCardScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
+  const toast = useToast();
 
   const [orientation, setOrientation] = useState<'upright' | 'sideways'>('upright');
   const [isBackSide, setIsBackSide] = useState(false);
@@ -56,11 +59,29 @@ export default function IdCardScreen() {
   const [selectedColor, setSelectedColor] = useState('#181445');
   const [selectedAlign, setSelectedAlign] = useState<'left' | 'center'>('center');
 
-  const handleDownloadPdf = () => {
-    Alert.alert(
-      'Print-Ready PDF',
-      'Generating high-resolution 300 DPI ID card PDF template with crop marks.'
-    );
+  const handleDownloadPdf = async () => {
+    try {
+      const res = await featureService.saveIdCardConfig({
+        orientation,
+        showPhoto,
+        showCode,
+        showDesignation,
+        showBloodGroup,
+        showEmergency,
+        showQr,
+        styling: { activeElement, selectedColor, selectedAlign },
+      });
+      if (res.success) {
+        toast.success(
+          'ID Card PDF Ready',
+          'High-resolution 300 DPI print template prepared successfully.'
+        );
+      } else {
+        toast.error('Export Error', res.error || 'Could not export card PDF.');
+      }
+    } catch (e: any) {
+      toast.error('Network Error', 'Check connection to server.');
+    }
   };
 
   return (
@@ -464,7 +485,10 @@ export default function IdCardScreen() {
                   styles.saveStyleBtn,
                   { backgroundColor: t.colors.brandPrimary },
                 ]}
-                onPress={() => setIsStyleModalOpen(false)}
+                onPress={() => {
+                  setIsStyleModalOpen(false);
+                  toast.success('Style Applied', `${activeElement} style updated on ID card.`);
+                }}
               >
                 <Text style={styles.saveStyleBtnText}>Apply Element Style</Text>
               </TouchableOpacity>

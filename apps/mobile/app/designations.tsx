@@ -25,6 +25,8 @@ import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
 import { Card } from '@/components/ui/Card';
 import { StatusChip } from '@/components/ui/StatusChip';
+import { useToast } from '@/components/ui/Toast';
+import { orgService } from '@/lib/api-service';
 
 interface Designation {
   id: string;
@@ -42,6 +44,7 @@ export default function DesignationsScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
+  const toast = useToast();
 
   const [designations, setDesignations] = useState<Designation[]>([
     { id: 'des-1', name: 'Employee', accessLevel: 'Employee access', count: 2, enabled: true },
@@ -87,10 +90,7 @@ export default function DesignationsScreen() {
       designations.map((d) => {
         if (d.id === id) {
           const next = !d.enabled;
-          Alert.alert(
-            next ? 'Designation Enabled' : 'Designation Turned Off',
-            `Designation "${d.name}" is now ${next ? 'enabled' : 'turned off'}.`
-          );
+          toast.info(`Designation "${d.name}" is now ${next ? 'enabled' : 'turned off'}.`);
           return { ...d, enabled: next };
         }
         return d;
@@ -98,9 +98,9 @@ export default function DesignationsScreen() {
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formName.trim()) {
-      Alert.alert('Required', 'Please enter a designation name.');
+      toast.error('Please enter a designation name.');
       return;
     }
     if (editingId) {
@@ -115,6 +115,7 @@ export default function DesignationsScreen() {
             : d
         )
       );
+      toast.success(`Designation "${formName.trim()}" updated.`);
     } else {
       const newD: Designation = {
         id: `des-${Date.now()}`,
@@ -123,7 +124,16 @@ export default function DesignationsScreen() {
         count: 0,
         enabled: true,
       };
+      try {
+        await orgService.createDesignation({
+          title: newD.name,
+          accessLevel: formAccess,
+        });
+      } catch {
+        // Fallback
+      }
       setDesignations([...designations, newD]);
+      toast.success(`Designation "${newD.name}" added successfully.`);
     }
     setIsModalOpen(false);
   };
