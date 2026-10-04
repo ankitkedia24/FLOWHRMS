@@ -109,45 +109,46 @@ export function NavigationHub({
       icon: CreditCard,
       badge: 'Oct Calc',
       badgeVariant: 'neutral',
-      route: '#',
+      route: '/payroll',
     },
     {
       title: 'Daily Report',
       icon: FileBarChart,
       badge: 'Today',
       badgeVariant: 'success',
-      route: '#',
+      route: '/daily-report',
     },
     {
       title: 'Reports & Analytics',
       icon: BarChart3,
-      route: '#',
+      route: '/reports',
     },
     {
       title: 'My Workspace',
       icon: Building2,
-      route: '#',
+      route: '/company-settings',
     },
     {
       title: 'Integrations',
       icon: Share2,
       badge: 'API / WA',
       badgeVariant: 'success',
-      route: '#',
+      route: '/module-management',
     },
   ];
 
   const configModules = [
-    { title: 'Module Management', icon: Boxes },
-    { title: 'Designations & Roles', icon: UserCheck },
-    { title: 'Access Level & Permissions', icon: Shield },
-    { title: 'Attendance & Pay Rules', icon: FileCheck },
-    { title: 'Departments', icon: Building },
-    { title: 'Performance Scoring', icon: Award },
-    { title: 'Expense Rules', icon: Receipt },
-    { title: 'Company Settings', icon: Settings },
-    { title: 'Subscription & Billing', icon: ReceiptText, badge: 'Pro Trial' },
-    { title: 'Activity Logs & Audit Trail', icon: ShieldCheck },
+    { title: 'Module Management', icon: Boxes, route: '/module-management' },
+    { title: 'Designations & Roles', icon: UserCheck, route: '/designations' },
+    { title: 'Access Level & Permissions', icon: Shield, route: '/access-levels' },
+    { title: 'Attendance & Pay Rules', icon: FileCheck, route: '/attendance-rules' },
+    { title: 'Departments', icon: Building, route: '/departments' },
+    { title: 'ID Card Studio', icon: CreditCard, badge: 'Canvas', route: '/id-card' },
+    { title: 'Employee Documents Vault', icon: FileBarChart, route: '/documents' },
+    { title: 'Payslips & Statements', icon: Receipt, route: '/payslips' },
+    { title: 'Company Settings', icon: Settings, route: '/company-settings' },
+    { title: 'Subscription & Billing', icon: ReceiptText, badge: 'Pro Trial', route: '/subscription' },
+    { title: 'Activity Logs & Audit Trail', icon: ShieldCheck, route: '/activity-log' },
   ];
 
   const filteredDaily = dailyModules.filter((m) =>
@@ -233,6 +234,7 @@ export function NavigationHub({
               styles.settingsBtn,
               { backgroundColor: t.colors.surfaceSunken },
             ]}
+            onPress={() => router.push('/company-settings' as any)}
             activeOpacity={0.7}
           >
             <Settings size={18} color={t.colors.textSecondary} />
@@ -266,7 +268,11 @@ export function NavigationHub({
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.upgradeBtn} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.upgradeBtn}
+            onPress={() => router.push('/subscription' as any)}
+            activeOpacity={0.7}
+          >
             <Text
               style={[styles.upgradeText, { color: t.colors.brandPrimary }]}
             >
@@ -470,6 +476,11 @@ export function NavigationHub({
                   borderBottomColor: t.colors.borderSubtle,
                 },
               ]}
+              onPress={() => {
+                if (item.route) {
+                  router.push(item.route as any);
+                }
+              }}
               activeOpacity={0.7}
             >
               <View style={styles.listItemLeft}>
@@ -527,7 +538,11 @@ export function NavigationHub({
         ]}
       >
         {/* Account & Security */}
-        <TouchableOpacity style={styles.listItem} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.listItem}
+          onPress={() => router.push('/account' as any)}
+          activeOpacity={0.7}
+        >
           <View style={styles.listItemLeft}>
             <View
               style={[

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react-native';
 import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
+import { useRouter } from 'expo-router';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { StatusChip } from '@/components/ui/StatusChip';
@@ -33,6 +34,7 @@ import { StatusChip } from '@/components/ui/StatusChip';
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
+  const router = useRouter();
 
   const [darkMode, setDarkMode] = useState(false);
   const [offlineSync, setOfflineSync] = useState(true);
@@ -170,13 +172,14 @@ export default function ProfileScreen() {
       </Card>
 
       {/* ========================================================
-          YOUR RECORDS (Screen E16)
+          YOUR RECORDS & VAULT
          ======================================================== */}
       <Card>
-        <CardHeader title="Your Records" />
+        <CardHeader title="Your Records & Vault" />
         <TouchableOpacity
           style={styles.recordLink}
-          onPress={() => RNAlert.alert('ID Card', 'Digital ID verification card.')}
+          onPress={() => router.push('/id-card' as any)}
+          activeOpacity={0.7}
         >
           <View style={styles.recordLeft}>
             <CreditCard size={18} color={t.colors.brandPrimary} />
@@ -186,7 +189,7 @@ export default function ProfileScreen() {
                 { color: t.colors.textPrimary, marginLeft: 10 },
               ]}
             >
-              Digital ID Card
+              Digital ID Card Studio
             </Text>
           </View>
           <ChevronRight size={18} color={t.colors.textTertiary} />
@@ -201,7 +204,8 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={styles.recordLink}
-          onPress={() => RNAlert.alert('Payslips', 'September 2026 payslip generated.')}
+          onPress={() => router.push('/payslips' as any)}
+          activeOpacity={0.7}
         >
           <View style={styles.recordLeft}>
             <FileText size={18} color={t.colors.brandPrimary} />
@@ -212,6 +216,58 @@ export default function ProfileScreen() {
               ]}
             >
               Payslips & Tax Slips
+            </Text>
+          </View>
+          <ChevronRight size={18} color={t.colors.textTertiary} />
+        </TouchableOpacity>
+
+        <View
+          style={[
+            styles.divider,
+            { backgroundColor: t.colors.borderSubtle },
+          ]}
+        />
+
+        <TouchableOpacity
+          style={styles.recordLink}
+          onPress={() => router.push('/documents' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.recordLeft}>
+            <Shield size={18} color={t.colors.brandPrimary} />
+            <Text
+              style={[
+                t.typography.bodyMedium,
+                { color: t.colors.textPrimary, marginLeft: 10 },
+              ]}
+            >
+              Encrypted Documents Vault
+            </Text>
+          </View>
+          <ChevronRight size={18} color={t.colors.textTertiary} />
+        </TouchableOpacity>
+
+        <View
+          style={[
+            styles.divider,
+            { backgroundColor: t.colors.borderSubtle },
+          ]}
+        />
+
+        <TouchableOpacity
+          style={styles.recordLink}
+          onPress={() => router.push('/account' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.recordLeft}>
+            <User size={18} color={t.colors.brandPrimary} />
+            <Text
+              style={[
+                t.typography.bodyMedium,
+                { color: t.colors.textPrimary, marginLeft: 10 },
+              ]}
+            >
+              Account & Password Security
             </Text>
           </View>
           <ChevronRight size={18} color={t.colors.textTertiary} />

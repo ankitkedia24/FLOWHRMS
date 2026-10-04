@@ -84,6 +84,23 @@ function RootLayoutNav() {
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="payroll" options={{ headerShown: false }} />
+        <Stack.Screen name="daily-report" options={{ headerShown: false }} />
+        <Stack.Screen name="reports" options={{ headerShown: false }} />
+        <Stack.Screen name="documents" options={{ headerShown: false }} />
+        <Stack.Screen name="payslips" options={{ headerShown: false }} />
+        <Stack.Screen name="activity-log" options={{ headerShown: false }} />
+        <Stack.Screen name="departments" options={{ headerShown: false }} />
+        <Stack.Screen name="designations" options={{ headerShown: false }} />
+        <Stack.Screen name="access-levels" options={{ headerShown: false }} />
+        <Stack.Screen name="attendance-rules" options={{ headerShown: false }} />
+        <Stack.Screen name="module-management" options={{ headerShown: false }} />
+        <Stack.Screen name="company-settings" options={{ headerShown: false }} />
+        <Stack.Screen name="subscription" options={{ headerShown: false }} />
+        <Stack.Screen name="id-card" options={{ headerShown: false }} />
+        <Stack.Screen name="account" options={{ headerShown: false }} />
+        <Stack.Screen name="consent" options={{ headerShown: false }} />
+        <Stack.Screen name="splash" options={{ headerShown: false }} />
         <Stack.Screen
           name="modal"
           options={{

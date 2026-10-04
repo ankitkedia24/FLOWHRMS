@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { StyleSheet, View, Text, type ViewStyle } from 'react-native';
+import { StyleSheet, View, Text, type ViewStyle, type StyleProp } from 'react-native';
 import { getTheme, type StatusTone } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
 
@@ -15,7 +15,7 @@ export interface CardProps {
   warm?: boolean;
   /** Remove padding (for tables and lists that manage their own). */
   flush?: boolean;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   children: ReactNode;
 }
 
