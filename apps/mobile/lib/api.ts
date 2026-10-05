@@ -29,6 +29,8 @@ export async function apiClient<T = unknown>(
       }
     }
 
+    console.log(`\n📱 [Mobile App] Fetching: ${url}`);
+
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...(options.headers as Record<string, string>),
@@ -43,18 +45,22 @@ export async function apiClient<T = unknown>(
       headers,
     });
 
+    console.log(`📱 [Mobile App] Status: ${response.status} from ${url}`);
+
     const json = await response.json().catch(() => null);
 
     if (!response.ok) {
+      console.warn(`📱 [Mobile App] Error from ${url}:`, json || response.statusText);
       return {
         data: null,
-        error: json?.error || `Request failed with status ${response.status}`,
+        error: json?.error || `Request failed with status ${response.status} from ${url}`,
       };
     }
 
     return { data: json as T, error: null };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Network error";
-    return { data: null, error: message };
+    console.error(`📱 [Mobile App] Connection failed to ${API_BASE_URL}:`, message);
+    return { data: null, error: `Connection failed to ${API_BASE_URL} (${message})` };
   }
 }

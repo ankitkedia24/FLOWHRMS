@@ -3,9 +3,9 @@ import {
   StyleSheet,
   View,
   Text,
-  SafeAreaView,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlowHRMSLogo } from '@/components/brand/FlowHRMSLogo';
 
 interface SplashScreenViewProps {
