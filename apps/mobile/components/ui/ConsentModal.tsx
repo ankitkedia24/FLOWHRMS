@@ -127,7 +127,7 @@ export function ConsentModal({
             <X size={20} color={t.colors.textSecondary} />
           </TouchableOpacity>
 
-          <FlowHRMSLogo width={120} height={30} showSubtitle={false} />
+          <FlowHRMSLogo width={120} height={22} variant={colorScheme === 'dark' ? 'dark' : 'light'} />
 
           <View
             style={[

@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+import * as SecureStore from "expo-secure-store";
 import { supabase } from "./supabase";
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000/api/v1";
@@ -40,8 +42,26 @@ export async function apiClient<T = unknown>(
       headers["Authorization"] = `Bearer ${token}`;
     }
 
+    // Attach stored user profile context if available
+    try {
+      const profileStr =
+        Platform.OS === "web"
+          ? typeof localStorage !== "undefined"
+            ? localStorage.getItem("flowhrms_user_profile")
+            : null
+          : await SecureStore.getItemAsync("flowhrms_user_profile").catch(() => null);
+
+      if (profileStr) {
+        const profile = JSON.parse(profileStr);
+        if (profile.email) headers["x-user-email"] = profile.email;
+        if (profile.id) headers["x-user-id"] = profile.id;
+        if (profile.tenant?.id) headers["x-tenant-id"] = profile.tenant.id;
+      }
+    } catch {}
+
     const response = await fetch(url, {
       ...options,
+      cache: "no-store",
       headers,
     });
 

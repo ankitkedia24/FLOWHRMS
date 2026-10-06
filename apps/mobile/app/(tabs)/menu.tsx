@@ -3,13 +3,15 @@ import { View, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { NavigationHub } from '@/components/ui/NavigationHub';
 import { ConsentModal } from '@/components/ui/ConsentModal';
+import { useAuth } from '@/lib/auth-context';
 
 /**
- * Menu Tab Screen
- * Mounts the NavigationHub component from Stitch.
+ * Menu Tab Screen (Main Navigation - Drawer / Hub)
+ * Mounts the NavigationHub component with role-aware context.
  */
 export default function MenuScreen() {
   const router = useRouter();
+  const { user, signOut } = useAuth();
   const [consentVisible, setConsentVisible] = useState(false);
 
   const handleSignOut = () => {
@@ -21,7 +23,10 @@ export default function MenuScreen() {
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: () => router.replace('/login' as any),
+          onPress: async () => {
+            await signOut();
+            router.replace('/login');
+          },
         },
       ]
     );
@@ -30,10 +35,10 @@ export default function MenuScreen() {
   return (
     <View style={styles.container}>
       <NavigationHub
-        userName="Rishabh"
-        userRole="Owner"
-        employeeCode="EMP-0001"
-        workspaceName="FX & Float Logistics"
+        userName={user?.name || 'Rishabh'}
+        userRole={user?.role || 'Owner'}
+        employeeCode={user?.employeeCode || 'EMP-0001'}
+        workspaceName={user?.tenant?.name || 'FX & Float Logistics'}
         trialDaysLeft={26}
         onSignOut={handleSignOut}
         onConsentPress={() => setConsentVisible(true)}
@@ -41,7 +46,7 @@ export default function MenuScreen() {
 
       <ConsentModal
         visible={consentVisible}
-        userName="Rishabh"
+        userName={user?.name || 'Rishabh'}
         onAgree={() => setConsentVisible(false)}
         onDecline={() => setConsentVisible(false)}
         onClose={() => setConsentVisible(false)}

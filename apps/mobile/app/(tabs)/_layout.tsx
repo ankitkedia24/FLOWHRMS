@@ -46,9 +46,13 @@ function TabIcon({
   );
 }
 
+import { useAuth } from '@/lib/auth-context';
+import { EmployeeTopBar } from '@/components/shell/EmployeeTopBar';
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
+  const { user, isAdmin } = useAuth();
 
   return (
     <Tabs
@@ -70,14 +74,22 @@ export default function TabLayout() {
           fontWeight: '600',
         },
         headerShadowVisible: false,
-        header: () => <AppHeader />,
+        header: () =>
+          isAdmin ? (
+            <AppHeader
+              workspaceName={user?.tenant?.name || 'FX & Float'}
+              locationCluster={user?.cluster || 'Jaipur'}
+            />
+          ) : (
+            <EmployeeTopBar title="FlowHRMS" subtitle="Field" />
+          ),
       }}
     >
-      {/* 1. Dashboard */}
+      {/* 1. Admin Dashboard OR Employee Home */}
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: isAdmin ? 'Dashboard' : 'Home',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon Icon={LayoutDashboard} color={color} focused={focused} />
           ),
@@ -88,25 +100,38 @@ export default function TabLayout() {
       <Tabs.Screen
         name="attendance"
         options={{
-          title: 'Attendance',
+          title: isAdmin ? 'Attendance' : 'My Punch',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon Icon={Clock} color={color} focused={focused} />
           ),
         }}
       />
 
-      {/* 3. Employees */}
+      {/* 3. Employees (Admin only) */}
       <Tabs.Screen
         name="employees"
         options={{
           title: 'Employees',
+          href: isAdmin ? '/(tabs)/employees' : null,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon Icon={Users} color={color} focused={focused} />
           ),
         }}
       />
 
-      {/* 4. Tasks */}
+      {/* 4. Leave (Employee primary tab, hidden from bottom bar for admin who manages it from dashboard/menu) */}
+      <Tabs.Screen
+        name="leave"
+        options={{
+          title: 'Leaves',
+          href: !isAdmin ? '/(tabs)/leave' : null,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon Icon={CalendarDays} color={color} focused={focused} />
+          ),
+        }}
+      />
+
+      {/* 5. Tasks */}
       <Tabs.Screen
         name="tasks"
         options={{
@@ -117,7 +142,7 @@ export default function TabLayout() {
         }}
       />
 
-      {/* 5. Menu */}
+      {/* 6. Menu */}
       <Tabs.Screen
         name="menu"
         options={{
@@ -128,14 +153,7 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Hidden deep-link routes */}
-      <Tabs.Screen
-        name="leave"
-        options={{
-          href: null,
-          title: 'Leaves',
-        }}
-      />
+      {/* Hidden deep-link route */}
       <Tabs.Screen
         name="profile"
         options={{

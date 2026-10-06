@@ -67,8 +67,9 @@ export function NavigationHub({
   const router = useRouter();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const isAdmin = userRole.toLowerCase().includes('admin') || userRole.toLowerCase().includes('owner');
 
-  const dailyModules = [
+  const adminDailyModules = [
     {
       title: 'Dashboard',
       icon: LayoutDashboard,
@@ -86,12 +87,12 @@ export function NavigationHub({
     {
       title: 'Employees',
       icon: Users,
-      badge: '2 Active',
+      badge: '24 Active',
       badgeVariant: 'neutral',
       route: '/(tabs)/employees',
     },
     {
-      title: 'Leave',
+      title: 'Leave Management',
       icon: CalendarDays,
       badge: '1 Pending',
       badgeVariant: 'indigo',
@@ -105,9 +106,9 @@ export function NavigationHub({
       route: '/(tabs)/tasks',
     },
     {
-      title: 'Payroll',
+      title: 'Payroll Engine',
       icon: CreditCard,
-      badge: 'Oct Calc',
+      badge: 'Oct Ready',
       badgeVariant: 'neutral',
       route: '/payroll',
     },
@@ -124,25 +125,80 @@ export function NavigationHub({
       route: '/reports',
     },
     {
-      title: 'My Workspace',
-      icon: Building2,
-      route: '/company-settings',
+      title: 'Departments',
+      icon: Building,
+      route: '/departments',
     },
     {
-      title: 'Integrations',
-      icon: Share2,
-      badge: 'API / WA',
-      badgeVariant: 'success',
-      route: '/module-management',
+      title: 'Company Settings',
+      icon: Settings,
+      route: '/company-settings',
     },
   ];
 
-  const configModules = [
+  const employeeDailyModules = [
+    {
+      title: 'Home',
+      icon: LayoutDashboard,
+      badge: 'Field',
+      badgeVariant: 'success',
+      route: '/(tabs)',
+    },
+    {
+      title: 'My Attendance',
+      icon: Clock,
+      badge: 'Today: In',
+      badgeVariant: 'success',
+      route: '/(tabs)/attendance',
+    },
+    {
+      title: 'Apply Leave',
+      icon: CalendarDays,
+      badge: '4 Casual',
+      badgeVariant: 'indigo',
+      route: '/(tabs)/leave',
+    },
+    {
+      title: 'My Payroll & Payslips',
+      icon: CreditCard,
+      badge: 'Sep Slip',
+      badgeVariant: 'neutral',
+      route: '/payslips',
+    },
+    {
+      title: 'Digital ID Card',
+      icon: CreditCard,
+      badge: 'Active',
+      badgeVariant: 'success',
+      route: '/id-card',
+    },
+    {
+      title: 'My Documents',
+      icon: FileBarChart,
+      badge: 'KYC OK',
+      badgeVariant: 'neutral',
+      route: '/documents',
+    },
+    {
+      title: 'My Tasks & Shifts',
+      icon: CheckSquare,
+      badge: '3 Tasks',
+      badgeVariant: 'indigo',
+      route: '/(tabs)/tasks',
+    },
+    {
+      title: 'My Profile',
+      icon: UserCheck,
+      route: '/(tabs)/profile',
+    },
+  ];
+
+  const adminConfigModules = [
     { title: 'Module Management', icon: Boxes, route: '/module-management' },
     { title: 'Designations & Roles', icon: UserCheck, route: '/designations' },
     { title: 'Access Level & Permissions', icon: Shield, route: '/access-levels' },
     { title: 'Attendance & Pay Rules', icon: FileCheck, route: '/attendance-rules' },
-    { title: 'Departments', icon: Building, route: '/departments' },
+    { title: 'Departments & Units', icon: Building, route: '/departments' },
     { title: 'ID Card Studio', icon: CreditCard, badge: 'Canvas', route: '/id-card' },
     { title: 'Employee Documents Vault', icon: FileBarChart, route: '/documents' },
     { title: 'Payslips & Statements', icon: Receipt, route: '/payslips' },
@@ -150,6 +206,17 @@ export function NavigationHub({
     { title: 'Subscription & Billing', icon: ReceiptText, badge: 'Pro Trial', route: '/subscription' },
     { title: 'Activity Logs & Audit Trail', icon: ShieldCheck, route: '/activity-log' },
   ];
+
+  const employeeConfigModules = [
+    { title: 'Digital ID Card', icon: CreditCard, badge: 'Verified', route: '/id-card' },
+    { title: 'KYC & Personal Documents', icon: FileBarChart, route: '/documents' },
+    { title: 'Monthly Payslip Downloads', icon: Receipt, route: '/payslips' },
+    { title: 'DPDP Privacy & Consent', icon: ShieldCheck, route: '/consent' },
+    { title: 'Account Settings', icon: Settings, route: '/account' },
+  ];
+
+  const dailyModules = isAdmin ? adminDailyModules : employeeDailyModules;
+  const configModules = isAdmin ? adminConfigModules : employeeConfigModules;
 
   const filteredDaily = dailyModules.filter((m) =>
     m.title.toLowerCase().includes(searchQuery.toLowerCase())

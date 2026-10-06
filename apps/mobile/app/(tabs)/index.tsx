@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -22,6 +22,13 @@ import {
   Clock,
   Calendar,
   Layers,
+  Building,
+  CalendarDays,
+  FileText,
+  UserCheck,
+  Award,
+  Palmtree,
+  Bell,
 } from 'lucide-react-native';
 import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -38,22 +45,33 @@ import { Card } from '@/components/ui/Card';
 import { StatusChip } from '@/components/ui/StatusChip';
 import { useToast } from '@/components/ui/Toast';
 import { attendanceService } from '@/lib/api-service';
+import { useAuth } from '@/lib/auth-context';
 
 /**
- * Mobile Home / Field Dashboard Screen
- * Supports seamless toggling between Admin Mode (Stitch Screen 16)
- * and Field Employee Mode (Stitch Screens 11 & 27).
+ * Role-Based Mobile Home / Dashboard (Screen 4A & 4B)
+ *
+ * Implements the core architecture rule:
+ * - Admin/Owner -> Admin Dashboard (Company/organization overview & Admin Modules)
+ * - Employee   -> Employee Home (Employee's personal HRMS overview & Employee Modules)
+ *
+ * Home and Dashboard are NOT competing generic screens; they are role-resolved experiences.
  */
-export default function DashboardScreen() {
+export default function RoleResolvedDashboardScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
   const toast = useToast();
+  const { user, isAdmin, switchRole } = useAuth();
 
-  const [isAdminMode, setIsAdminMode] = useState(false);
+  // Role view defaults directly to the authenticated role
+  const [isAdminView, setIsAdminView] = useState(isAdmin);
   const [refreshing, setRefreshing] = useState(false);
   const [isCheckedIn, setIsCheckedIn] = useState(true);
   const [consentVisible, setConsentVisible] = useState(false);
+
+  useEffect(() => {
+    setIsAdminView(isAdmin);
+  }, [isAdmin]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -95,6 +113,13 @@ export default function DashboardScreen() {
     }
   };
 
+  const handleTogglePreview = () => {
+    const nextMode = !isAdminView;
+    setIsAdminView(nextMode);
+    switchRole(nextMode ? 'admin' : 'employee');
+    toast.info(`Switched view to: ${nextMode ? 'Admin Dashboard' : 'Employee Home'}`);
+  };
+
   return (
     <View style={[styles.screen, { backgroundColor: t.colors.surfaceCanvasWarm }]}>
       {/* Free Trial Banner */}
@@ -104,7 +129,7 @@ export default function DashboardScreen() {
         onChoosePlan={() => router.push('/subscription' as any)}
       />
 
-      {/* Mode Switcher Pill Banner (Stitch Screen 11) */}
+      {/* Role Context Bar & Preview Switcher */}
       <View
         style={[
           styles.modeBar,
@@ -116,9 +141,13 @@ export default function DashboardScreen() {
       >
         <View style={styles.modeInfo}>
           <Text style={[styles.modeRoleText, { color: t.colors.textSecondary }]}>
-            Viewing as:{' '}
+            Role:{' '}
             <Text style={{ fontWeight: '800', color: t.colors.textPrimary }}>
-              {isAdminMode ? 'Admin / Owner' : 'Field Employee'}
+              {isAdminView ? 'Admin / Owner' : 'Field Employee'}
+            </Text>
+            {' · '}
+            <Text style={{ color: t.colors.brandPrimary, fontWeight: '600' }}>
+              {isAdminView ? 'Admin Dashboard' : 'Employee Home'}
             </Text>
           </Text>
         </View>
@@ -127,10 +156,11 @@ export default function DashboardScreen() {
             styles.modeSwitchBtn,
             { backgroundColor: t.colors.brandPrimarySubtle },
           ]}
-          onPress={() => setIsAdminMode(!isAdminMode)}
+          onPress={handleTogglePreview}
+          activeOpacity={0.7}
         >
           <Text style={[styles.modeSwitchBtnText, { color: t.colors.brandPrimary }]}>
-            {isAdminMode ? 'Switch to Field Mode ↗' : 'Switch to Admin Mode ↗'}
+            {isAdminView ? 'Preview Employee View ↗' : 'Preview Admin View ↗'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -148,12 +178,12 @@ export default function DashboardScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {isAdminMode ? (
+        {isAdminView ? (
           /* =======================================================
-             ADMIN DASHBOARD (Stitch Screen 16: Mobile App Dashboard)
+             4A. ADMIN DASHBOARD (Company & Organization Overview)
              ======================================================= */
           <View style={styles.adminDashboard}>
-            {/* Quick Metrics Header */}
+            {/* Quick Pulse Metrics */}
             <View style={styles.adminPulseRow}>
               <View
                 style={[
@@ -164,9 +194,9 @@ export default function DashboardScreen() {
                   },
                 ]}
               >
-                <Text style={[styles.pulseNumber, { color: t.colors.textPrimary }]}>0 / 2</Text>
+                <Text style={[styles.pulseNumber, { color: t.colors.textPrimary }]}>24</Text>
                 <Text style={[styles.pulseLabel, { color: t.colors.textSecondary }]}>
-                  Present Today
+                  Total Employees
                 </Text>
               </View>
 
@@ -179,9 +209,9 @@ export default function DashboardScreen() {
                   },
                 ]}
               >
-                <Text style={[styles.pulseNumber, { color: t.colors.accentPositive }]}>0</Text>
+                <Text style={[styles.pulseNumber, { color: t.colors.accentPositive }]}>22</Text>
                 <Text style={[styles.pulseLabel, { color: t.colors.textSecondary }]}>
-                  Exceptions
+                  On Duty Today
                 </Text>
               </View>
 
@@ -194,26 +224,158 @@ export default function DashboardScreen() {
                   },
                 ]}
               >
-                <Text style={[styles.pulseNumber, { color: t.colors.brandPrimary }]}>3</Text>
+                <Text style={[styles.pulseNumber, { color: t.colors.brandPrimary }]}>1</Text>
                 <Text style={[styles.pulseLabel, { color: t.colors.textSecondary }]}>
-                  Active Tasks
+                  Pending Leave
                 </Text>
               </View>
             </View>
 
-            {/* Needs your review Section */}
+            {/* Exceptions / Pending Review */}
             <View style={styles.sectionHeader}>
               <Text style={[t.typography.h3, { color: t.colors.textPrimary }]}>
-                Needs your review
+                Attendance Exceptions & Audits
               </Text>
               <StatusChip status={{ key: 'clear', label: '0 Pending', tone: 'neutral' }} size="sm" />
             </View>
             <EmptyExceptionsCard
               title="No exceptions to review."
-              subtitle="All shift check-ins and locations are clear."
+              subtitle="All shift check-ins and locations are clear across Jaipur hub."
             />
 
-            {/* October 2026 Payroll Preview Card */}
+            {/* Admin Modules (The 7 Core Admin Modules) */}
+            <View style={styles.sectionHeader}>
+              <Text style={[t.typography.h3, { color: t.colors.textPrimary }]}>
+                Admin Modules
+              </Text>
+              <Text style={[t.typography.caption, { color: t.colors.textTertiary }]}>
+                Company Operations
+              </Text>
+            </View>
+
+            <View style={styles.shortcutsGrid}>
+              {/* 1. Employees */}
+              <TouchableOpacity
+                style={[
+                  styles.shortcutItem,
+                  { backgroundColor: t.colors.surfaceDefault, borderColor: t.colors.borderDefault },
+                ]}
+                onPress={() => router.push('/(tabs)/employees')}
+              >
+                <View style={[styles.scIconBox, { backgroundColor: '#EEF2FF' }]}>
+                  <Users size={18} color="#4F46E5" />
+                </View>
+                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>Employees</Text>
+                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>24 active roster</Text>
+              </TouchableOpacity>
+
+              {/* 2. Attendance */}
+              <TouchableOpacity
+                style={[
+                  styles.shortcutItem,
+                  { backgroundColor: t.colors.surfaceDefault, borderColor: t.colors.borderDefault },
+                ]}
+                onPress={() => router.push('/(tabs)/attendance')}
+              >
+                <View style={[styles.scIconBox, { backgroundColor: '#ECFDF5' }]}>
+                  <Clock size={18} color="#10B981" />
+                </View>
+                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>Attendance</Text>
+                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>Punches & Rules</Text>
+              </TouchableOpacity>
+
+              {/* 3. Leave Management */}
+              <TouchableOpacity
+                style={[
+                  styles.shortcutItem,
+                  { backgroundColor: t.colors.surfaceDefault, borderColor: t.colors.borderDefault },
+                ]}
+                onPress={() => router.push('/(tabs)/leave')}
+              >
+                <View style={[styles.scIconBox, { backgroundColor: '#FEF3C7' }]}>
+                  <CalendarDays size={18} color="#D97706" />
+                </View>
+                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>Leave Mgmt</Text>
+                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>1 pending review</Text>
+              </TouchableOpacity>
+
+              {/* 4. Payroll */}
+              <TouchableOpacity
+                style={[
+                  styles.shortcutItem,
+                  { backgroundColor: t.colors.surfaceDefault, borderColor: t.colors.borderDefault },
+                ]}
+                onPress={() => router.push('/payroll' as any)}
+              >
+                <View style={[styles.scIconBox, { backgroundColor: '#FDF2F8' }]}>
+                  <CreditCard size={18} color="#DB2777" />
+                </View>
+                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>Payroll</Text>
+                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>October calculation</Text>
+              </TouchableOpacity>
+
+              {/* 5. Departments */}
+              <TouchableOpacity
+                style={[
+                  styles.shortcutItem,
+                  { backgroundColor: t.colors.surfaceDefault, borderColor: t.colors.borderDefault },
+                ]}
+                onPress={() => router.push('/departments' as any)}
+              >
+                <View style={[styles.scIconBox, { backgroundColor: '#EDE9FE' }]}>
+                  <Building size={18} color="#7C3AED" />
+                </View>
+                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>Departments</Text>
+                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>Logistics & Fleet</Text>
+              </TouchableOpacity>
+
+              {/* 6. Reports */}
+              <TouchableOpacity
+                style={[
+                  styles.shortcutItem,
+                  { backgroundColor: t.colors.surfaceDefault, borderColor: t.colors.borderDefault },
+                ]}
+                onPress={() => router.push('/reports' as any)}
+              >
+                <View style={[styles.scIconBox, { backgroundColor: '#E0F2FE' }]}>
+                  <FileBarChart size={18} color="#0284C7" />
+                </View>
+                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>Reports</Text>
+                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>Audit CSVs</Text>
+              </TouchableOpacity>
+
+              {/* 7. Settings */}
+              <TouchableOpacity
+                style={[
+                  styles.shortcutItem,
+                  { backgroundColor: t.colors.surfaceDefault, borderColor: t.colors.borderDefault },
+                ]}
+                onPress={() => router.push('/company-settings' as any)}
+              >
+                <View style={[styles.scIconBox, { backgroundColor: '#F3F4F6' }]}>
+                  <Settings size={18} color="#4B5563" />
+                </View>
+                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>Settings</Text>
+                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>Company & DPDP</Text>
+              </TouchableOpacity>
+
+              {/* Daily Report Extra */}
+              <TouchableOpacity
+                style={[
+                  styles.shortcutItem,
+                  { backgroundColor: t.colors.surfaceDefault, borderColor: t.colors.borderDefault },
+                ]}
+                onPress={() => router.push('/daily-report' as any)}
+              >
+                <View style={[styles.scIconBox, { backgroundColor: '#ECFDF5' }]}>
+                  <FileText size={18} color="#059669" />
+                </View>
+                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>Daily Report</Text>
+                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>Today's summary</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Payroll Run Preview Card */}
             <Card style={styles.payrollPreviewCard}>
               <View style={styles.payrollTop}>
                 <View>
@@ -222,7 +384,7 @@ export default function DashboardScreen() {
                       October 2026 Payroll
                     </Text>
                     <StatusChip
-                      status={{ key: 'not_ready', label: 'Not ready', tone: 'neutral' }}
+                      status={{ key: 'not_ready', label: 'Ready to compute', tone: 'info' }}
                       size="sm"
                     />
                   </View>
@@ -232,7 +394,7 @@ export default function DashboardScreen() {
                       { color: t.colors.textSecondary, marginTop: 4, maxWidth: 240 },
                     ]}
                   >
-                    1 employee payable. Ready to compute based on approved attendance.
+                    24 employees payable. Compliant with wage act & attendance rules.
                   </Text>
                 </View>
 
@@ -249,134 +411,14 @@ export default function DashboardScreen() {
               </View>
             </Card>
 
-            {/* Open Tasks Card */}
-            <Card style={styles.tasksPreviewCard}>
-              <View style={styles.tasksTop}>
-                <View>
-                  <Text style={[t.typography.h3, { color: t.colors.textPrimary }]}>
-                    Open tasks
-                  </Text>
-                  <Text style={[t.typography.caption, { color: t.colors.textTertiary, marginTop: 2 }]}>
-                    3 ongoing team assignments
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.viewAllBtn}
-                  onPress={() => router.push('/(tabs)/tasks')}
-                >
-                  <Text style={[styles.viewAllText, { color: t.colors.brandPrimary }]}>
-                    View all →
-                  </Text>
-                </TouchableOpacity>
-              </View>
+            {/* Cluster Peer Check-in Feed */}
+            <ClusterCheckInFeed
+              onViewLiveMap={() =>
+                Alert.alert('Live Map', 'Regional logistics map opened.')
+              }
+            />
 
-              <View style={styles.tasksMiniList}>
-                <View style={[styles.taskMiniItem, { borderBottomColor: t.colors.borderSubtle }]}>
-                  <CheckSquare size={16} color={t.colors.brandPrimary} />
-                  <View style={styles.taskMiniTextWrap}>
-                    <Text style={[styles.taskMiniTitle, { color: t.colors.textPrimary }]}>
-                      Morning Stock Verification
-                    </Text>
-                    <Text style={[t.typography.caption, { color: t.colors.textTertiary }]}>
-                      Assigned to Manas Mody • Due 11:00 AM
-                    </Text>
-                  </View>
-                  <StatusChip status={{ key: 'in_progress', label: 'In Progress', tone: 'info' }} size="sm" />
-                </View>
-
-                <View style={styles.taskMiniItem}>
-                  <CheckSquare size={16} color={t.colors.brandPrimary} />
-                  <View style={styles.taskMiniTextWrap}>
-                    <Text style={[styles.taskMiniTitle, { color: t.colors.textPrimary }]}>
-                      Client Route Inspection
-                    </Text>
-                    <Text style={[t.typography.caption, { color: t.colors.textTertiary }]}>
-                      Assigned to Delivery Partner • Due 02:30 PM
-                    </Text>
-                  </View>
-                  <StatusChip status={{ key: 'pending', label: 'Pending', tone: 'neutral' }} size="sm" />
-                </View>
-              </View>
-            </Card>
-
-            {/* Quick Operations Shortcuts */}
-            <View style={styles.sectionHeader}>
-              <Text style={[t.typography.h3, { color: t.colors.textPrimary }]}>
-                Daily Operations & Reports
-              </Text>
-            </View>
-
-            <View style={styles.shortcutsGrid}>
-              <TouchableOpacity
-                style={[
-                  styles.shortcutItem,
-                  {
-                    backgroundColor: t.colors.surfaceDefault,
-                    borderColor: t.colors.borderDefault,
-                  },
-                ]}
-                onPress={() => router.push('/daily-report' as any)}
-              >
-                <View style={[styles.scIconBox, { backgroundColor: '#ECFDF5' }]}>
-                  <FileBarChart size={18} color="#10B981" />
-                </View>
-                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>Daily Report</Text>
-                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>Live pulse</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.shortcutItem,
-                  {
-                    backgroundColor: t.colors.surfaceDefault,
-                    borderColor: t.colors.borderDefault,
-                  },
-                ]}
-                onPress={() => router.push('/reports' as any)}
-              >
-                <View style={[styles.scIconBox, { backgroundColor: t.colors.brandPrimarySubtle }]}>
-                  <CreditCard size={18} color={t.colors.brandPrimary} />
-                </View>
-                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>Exports</Text>
-                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>Audit CSVs</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.shortcutItem,
-                  {
-                    backgroundColor: t.colors.surfaceDefault,
-                    borderColor: t.colors.borderDefault,
-                  },
-                ]}
-                onPress={() => router.push('/departments' as any)}
-              >
-                <View style={[styles.scIconBox, { backgroundColor: '#EDE9FE' }]}>
-                  <Users size={18} color="#7C3AED" />
-                </View>
-                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>Departments</Text>
-                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>Units & Heads</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.shortcutItem,
-                  {
-                    backgroundColor: t.colors.surfaceDefault,
-                    borderColor: t.colors.borderDefault,
-                  },
-                ]}
-                onPress={() => router.push('/activity-log' as any)}
-              >
-                <View style={[styles.scIconBox, { backgroundColor: '#FEF3C7' }]}>
-                  <ShieldCheck size={18} color="#D97706" />
-                </View>
-                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>Activity Log</Text>
-                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>Audit trail</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Recent Activity Timeline */}
+            {/* Recent Audit Timeline */}
             <ActivityTimeline
               title="RECENT AUDIT ACTIVITY"
               countLabel="Immutable log"
@@ -384,16 +426,16 @@ export default function DashboardScreen() {
           </View>
         ) : (
           /* =======================================================
-             FIELD EMPLOYEE HOME (Stitch Screens 11 & 27)
+             4B. EMPLOYEE HOME (Personal HRMS Overview)
              ======================================================= */
           <View style={styles.employeeDashboard}>
-            {/* 1. Hero Check-in Card */}
+            {/* 1. Hero Check-in Card (My Attendance / Instant Punch) */}
             <CheckInHeroCard
-              shiftName="SHIFT A"
-              shiftHours="09:00 - 18:00"
-              employeeName="Ramesh"
-              locationName="Jaipur Central Warehouse"
-              avatarInitials="RS"
+              shiftName="GENERAL SHIFT"
+              shiftHours="08:30 - 17:30"
+              employeeName={user?.name || 'Ramesh Kumar'}
+              locationName={user?.cluster || 'Jaipur Central Warehouse'}
+              avatarInitials={user?.name ? user.name.split(' ').map((n) => n[0]).join('').substring(0, 2) : 'RK'}
               isCheckedIn={isCheckedIn}
               checkInTime="09:12 AM"
               onCheckOut={handleCheckOut}
@@ -401,10 +443,117 @@ export default function DashboardScreen() {
               onLogFieldVisit={() => router.push('/(tabs)/tasks')}
             />
 
-            {/* 2. Respectful Privacy Banner (Evidence, not surveillance) */}
+            {/* 2. Respectful Privacy Banner */}
             <PrivacyBanner />
 
-            {/* 3. Field Operational Toolkit (4-column grid) */}
+            {/* 3. Employee Modules (The 6 Personal HRMS Tools) */}
+            <View style={styles.sectionHeader}>
+              <Text style={[t.typography.h3, { color: t.colors.textPrimary }]}>
+                My HRMS
+              </Text>
+              <Text style={[t.typography.caption, { color: t.colors.textTertiary }]}>
+                Personal Hub
+              </Text>
+            </View>
+
+            <View style={styles.shortcutsGrid}>
+              {/* 1. My Attendance */}
+              <TouchableOpacity
+                style={[
+                  styles.shortcutItem,
+                  { backgroundColor: t.colors.surfaceDefault, borderColor: t.colors.borderDefault },
+                ]}
+                onPress={() => router.push('/(tabs)/attendance')}
+              >
+                <View style={[styles.scIconBox, { backgroundColor: '#ECFDF5' }]}>
+                  <Clock size={18} color="#10B981" />
+                </View>
+                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>My Attendance</Text>
+                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>22/24 days present</Text>
+              </TouchableOpacity>
+
+              {/* 2. Apply Leave */}
+              <TouchableOpacity
+                style={[
+                  styles.shortcutItem,
+                  { backgroundColor: t.colors.surfaceDefault, borderColor: t.colors.borderDefault },
+                ]}
+                onPress={() => router.push('/(tabs)/leave')}
+              >
+                <View style={[styles.scIconBox, { backgroundColor: '#FEF3C7' }]}>
+                  <CalendarDays size={18} color="#D97706" />
+                </View>
+                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>Apply Leave</Text>
+                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>4 casual balance</Text>
+              </TouchableOpacity>
+
+              {/* 3. My Payroll */}
+              <TouchableOpacity
+                style={[
+                  styles.shortcutItem,
+                  { backgroundColor: t.colors.surfaceDefault, borderColor: t.colors.borderDefault },
+                ]}
+                onPress={() => router.push('/payslips' as any)}
+              >
+                <View style={[styles.scIconBox, { backgroundColor: '#EEF2FF' }]}>
+                  <CreditCard size={18} color="#4F46E5" />
+                </View>
+                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>My Payroll</Text>
+                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>Download payslips</Text>
+              </TouchableOpacity>
+
+              {/* 4. Holidays */}
+              <TouchableOpacity
+                style={[
+                  styles.shortcutItem,
+                  { backgroundColor: t.colors.surfaceDefault, borderColor: t.colors.borderDefault },
+                ]}
+                onPress={() =>
+                  Alert.alert(
+                    'Upcoming Holidays 2026',
+                    '• Diwali: 1 Nov 2026 (Gazetted)\n• Guru Nanak Jayanti: 15 Nov 2026\n• Christmas: 25 Dec 2026'
+                  )
+                }
+              >
+                <View style={[styles.scIconBox, { backgroundColor: '#FDF2F8' }]}>
+                  <Palmtree size={18} color="#DB2777" />
+                </View>
+                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>Holidays</Text>
+                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>Diwali · 1 Nov</Text>
+              </TouchableOpacity>
+
+              {/* 5. Profile & ID Card */}
+              <TouchableOpacity
+                style={[
+                  styles.shortcutItem,
+                  { backgroundColor: t.colors.surfaceDefault, borderColor: t.colors.borderDefault },
+                ]}
+                onPress={() => router.push('/id-card' as any)}
+              >
+                <View style={[styles.scIconBox, { backgroundColor: '#EDE9FE' }]}>
+                  <Award size={18} color="#7C3AED" />
+                </View>
+                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>Digital ID</Text>
+                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>{user?.employeeCode || 'EMP-0428'}</Text>
+              </TouchableOpacity>
+
+              {/* 6. Documents Vault */}
+              <TouchableOpacity
+                style={[
+                  styles.shortcutItem,
+                  { backgroundColor: t.colors.surfaceDefault, borderColor: t.colors.borderDefault },
+                ]}
+                onPress={() => router.push('/documents' as any)}
+              >
+                <View style={[styles.scIconBox, { backgroundColor: '#E0F2FE' }]}>
+                  <FileText size={18} color="#0284C7" />
+                </View>
+                <Text style={[styles.scTitle, { color: t.colors.textPrimary }]}>My Documents</Text>
+                <Text style={[styles.scDesc, { color: t.colors.textTertiary }]}>KYC & Aadhaar</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* 4. Field Operational Toolkit */}
             <FieldToolkit
               onStockProof={() => router.push('/(tabs)/tasks')}
               onStoreVisit={() => router.push('/(tabs)/tasks')}
@@ -414,23 +563,16 @@ export default function DashboardScreen() {
               }
             />
 
-            {/* 4. Today's Pulse Metrics (2x2 Grid) */}
+            {/* 5. Today's Pulse Metrics */}
             <MetricsGrid
-              title="TODAY'S PULSE"
-              subtitle="Jaipur Hub"
+              title="MY FIELD PULSE"
+              subtitle={user?.cluster || 'Jaipur Hub'}
             />
 
-            {/* 5. Today's Schedule & Logs Activity Timeline */}
+            {/* 6. Today's Schedule & Logs Activity Timeline */}
             <ActivityTimeline
-              title="TODAY'S SCHEDULE & LOGS"
-              countLabel="3 of 4 logged"
-            />
-
-            {/* 6. Cluster Peer Check-in Feed */}
-            <ClusterCheckInFeed
-              onViewLiveMap={() =>
-                Alert.alert('Live Map', 'Regional logistics map opened.')
-              }
+              title="MY SCHEDULE & PUNCH LOGS"
+              countLabel="Today's records"
             />
           </View>
         )}
@@ -439,7 +581,7 @@ export default function DashboardScreen() {
       {/* DPDP 2023 Consent Modal */}
       <ConsentModal
         visible={consentVisible}
-        userName="Rishabh"
+        userName={user?.name || 'Rishabh'}
         onAgree={() => setConsentVisible(false)}
         onDecline={() => setConsentVisible(false)}
         onClose={() => setConsentVisible(false)}
@@ -469,7 +611,7 @@ const styles = StyleSheet.create({
   modeSwitchBtn: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 8,
+    borderRadius: 6,
   },
   modeSwitchBtnText: {
     fontSize: 11,
@@ -479,15 +621,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
     paddingBottom: 40,
   },
   adminDashboard: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
     gap: 16,
   },
   employeeDashboard: {
-    gap: 14,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 16,
   },
   adminPulseRow: {
     flexDirection: 'row',
@@ -496,18 +640,19 @@ const styles = StyleSheet.create({
   pulseCard: {
     flex: 1,
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
   },
   pulseNumber: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
   },
   pulseLabel: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '600',
-    marginTop: 2,
+    marginTop: 4,
+    textAlign: 'center',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -515,14 +660,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 4,
   },
+  shortcutsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  shortcutItem: {
+    width: '48%',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  scIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  scTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  scDesc: {
+    fontSize: 11,
+    marginTop: 2,
+  },
   payrollPreviewCard: {
     padding: 16,
-    marginBottom: 0,
   },
   payrollTop: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   payrollTitleRow: {
     flexDirection: 'row',
@@ -541,66 +712,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
-  },
-  tasksPreviewCard: {
-    padding: 16,
-    marginBottom: 0,
-  },
-  tasksTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  viewAllBtn: {
-    paddingVertical: 2,
-  },
-  viewAllText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  tasksMiniList: {
-    gap: 0,
-  },
-  taskMiniItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-  },
-  taskMiniTextWrap: {
-    flex: 1,
-  },
-  taskMiniTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  shortcutsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  shortcutItem: {
-    width: '48%',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  scIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  scTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  scDesc: {
-    fontSize: 11,
-    marginTop: 1,
   },
 });

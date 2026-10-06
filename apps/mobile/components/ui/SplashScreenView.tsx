@@ -17,7 +17,26 @@ interface SplashScreenViewProps {
  * Exact implementation of Stitch "FlowHRMS - Splash Screen".
  * Atmospheric deep indigo gradient, elevated glass logo pill, tagline, and progress shimmer.
  */
-export function SplashScreenView({ onLoaded }: SplashScreenViewProps) {
+export function SplashScreenView({
+  onLoaded,
+  statusMessage = 'Restoring session & verifying access...',
+}: SplashScreenViewProps & { statusMessage?: string }) {
+  const [progressWidth, setProgressWidth] = React.useState(20);
+
+  React.useEffect(() => {
+    const timer1 = setTimeout(() => setProgressWidth(70), 400);
+    const timer2 = setTimeout(() => setProgressWidth(140), 900);
+    const timer3 = setTimeout(() => {
+      if (onLoaded) onLoaded();
+    }, 1200);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, [onLoaded]);
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Soft background ambient ambient lights */}
@@ -28,7 +47,7 @@ export function SplashScreenView({ onLoaded }: SplashScreenViewProps) {
       <View style={styles.centerpiece}>
         {/* Brand Logo Container with soft elevated glass pill */}
         <View style={styles.logoPill}>
-          <FlowHRMSLogo width={220} height={55} variant="dark" />
+          <FlowHRMSLogo width={270} height={50} variant="dark" />
         </View>
 
         {/* Tagline */}
@@ -47,8 +66,11 @@ export function SplashScreenView({ onLoaded }: SplashScreenViewProps) {
       <View style={styles.footer}>
         {/* Loading bar */}
         <View style={styles.loaderBarContainer}>
-          <View style={styles.loaderProgress} />
+          <View style={[styles.loaderProgress, { width: progressWidth }]} />
         </View>
+
+        {/* Session status info */}
+        <Text style={styles.statusText}>{statusMessage}</Text>
 
         {/* Trust Credential Text */}
         <Text style={styles.credentialText}>
@@ -94,12 +116,14 @@ const styles = StyleSheet.create({
   },
   logoPill: {
     paddingVertical: 18,
-    paddingHorizontal: 24,
-    borderRadius: 28,
+    paddingHorizontal: 26,
+    borderRadius: 24,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     marginBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
@@ -155,6 +179,12 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 2,
     backgroundColor: '#818CF8',
+  },
+  statusText: {
+    fontSize: 11,
+    color: '#A5B4FC',
+    fontWeight: '500',
+    marginBottom: 6,
   },
   credentialText: {
     fontSize: 11,

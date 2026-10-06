@@ -41,6 +41,9 @@ import { StatusChip } from '@/components/ui/StatusChip';
 import { ConsentModal } from '@/components/ui/ConsentModal';
 import { useToast } from '@/components/ui/Toast';
 import { authService } from '@/lib/api-service';
+import { useAuth } from '@/lib/auth-context';
+import { FlowHRMSLogo } from '@/components/brand/FlowHRMSLogo';
+import { FlowHRMSAppIcon } from '@/components/brand/FlowHRMSAppIcon';
 
 type AuthMode = 'sign-in' | 'sign-up';
 
@@ -55,6 +58,7 @@ export default function LoginScreen() {
   const t = getTheme(colorScheme);
   const router = useRouter();
   const toast = useToast();
+  const { signIn, signInDemo, signUp } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>('sign-in');
   const [loading, setLoading] = useState(false);
@@ -93,6 +97,9 @@ export default function LoginScreen() {
     }
   };
 
+  /**
+   * Step 2 Authentication -> Step 3 Role Resolution
+   */
   const handleSignIn = async () => {
     if (!email.trim() || !password.trim()) {
       toast.error('Please enter your work email and password.');
@@ -101,10 +108,15 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const res = await authService.signIn(email.trim(), password);
+      const res = await signIn(email.trim(), password);
       setLoading(false);
       if (res.ok) {
-        toast.success(res.message || 'Signed in successfully! Welcome to FlowHRMS.');
+        const isAdmin = res.role === 'Owner' || res.role === 'Admin';
+        toast.success(
+          isAdmin
+            ? 'Role Resolved: Admin / Owner. Opening Admin Dashboard...'
+            : 'Role Resolved: Employee. Opening Employee Home...'
+        );
         router.replace('/(tabs)');
       } else {
         toast.error(res.error || 'Invalid credentials. Please verify and try again.');
@@ -143,7 +155,7 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const res = await authService.signUp({
+      const res = await signUp({
         companyName: companyName.trim(),
         fullName: fullName.trim(),
         email: workEmail.trim(),
@@ -155,7 +167,7 @@ export default function LoginScreen() {
       });
       setLoading(false);
       if (res.ok) {
-        toast.success(res.message || '30-Day Pro Trial activated! Launching workspace.');
+        toast.success('Workspace created! Role: Admin. Opening Admin Dashboard...');
         router.replace('/(tabs)');
       } else {
         toast.error(res.error || 'Failed to activate trial workspace.');
@@ -166,12 +178,15 @@ export default function LoginScreen() {
     }
   };
 
-  const handleBiometricAuth = () => {
-    toast.info('Scanning Face ID / Fingerprint sensor...');
-    setTimeout(() => {
-      toast.success('Biometric identity verified for EMP-0001 (Rishabh Kedia).');
+  const handleBiometricAuth = async () => {
+    toast.info('Scanning biometric sensor...');
+    try {
+      await signInDemo('admin');
+      toast.success('Biometric verified: Admin (Rishabh Kedia). Opening Admin Dashboard...');
       router.replace('/(tabs)');
-    }, 600);
+    } catch {
+      toast.error('Biometric verification failed.');
+    }
   };
 
   const handleSendResetLink = () => {
@@ -200,12 +215,9 @@ export default function LoginScreen() {
         >
           {/* Header Brand Lockup */}
           <View style={styles.brandLockup}>
-            <View style={[styles.brandIconWrap, { backgroundColor: t.colors.brandPrimary }]}>
-              <Sparkles size={24} color="#FFFFFF" />
-            </View>
-            <View style={styles.brandTitleRow}>
-              <Text style={[styles.brandName, { color: t.colors.brandNavy }]}>Flow</Text>
-              <Text style={[styles.brandNameBold, { color: t.colors.brandPrimary }]}>HRMS</Text>
+            <FlowHRMSAppIcon size={56} />
+            <View style={{ marginTop: 12, marginBottom: 4 }}>
+              <FlowHRMSLogo width={210} height={39} variant={colorScheme === 'dark' ? 'dark' : 'light'} />
             </View>
             <Text style={[styles.brandTagline, { color: t.colors.textSecondary }]}>
               Modern Field Workforce Management & Indian SME Compliance

@@ -50,7 +50,7 @@ export function AppHeader({
     >
       {/* Brand logo & Workspace selector */}
       <View style={styles.leftGroup}>
-        <FlowHRMSLogo width={135} height={34} showSubtitle={false} />
+        <FlowHRMSLogo width={138} height={26} variant={colorScheme === 'dark' ? 'dark' : 'light'} />
 
         {/* Workspace Pill */}
         <TouchableOpacity
