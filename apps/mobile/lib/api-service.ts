@@ -150,6 +150,7 @@ export const tasksService = {
     location?: string;
     dueTime?: string;
     category?: string;
+    proofRequirement?: string;
   }) {
     const res = await apiClient<any>('/tasks', {
       method: 'POST',
@@ -161,13 +162,13 @@ export const tasksService = {
     return { ok: false, success: false, error: res.error || 'Failed to create task' };
   },
 
-  async updateTaskStatus(id: string, status: string) {
+  async updateTaskStatus(id: string, status: string, note?: string) {
     const res = await apiClient<any>('/tasks', {
       method: 'PATCH',
-      body: JSON.stringify({ id, status }),
+      body: JSON.stringify({ id, status, note }),
     });
     if (res.data?.ok) {
-      return { ok: true, success: true, message: res.data.message };
+      return { ok: true, success: true, message: res.data.message, updated: res.data.updated };
     }
     return { ok: false, success: false, error: res.error || 'Failed to update task' };
   },

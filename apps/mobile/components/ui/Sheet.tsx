@@ -8,8 +8,10 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Dimensions,
   type ViewStyle,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -38,6 +40,7 @@ export function Sheet({
   footer,
   preventClose = false,
 }: SheetProps) {
+  const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
 
@@ -49,6 +52,14 @@ export function Sheet({
       onRequestClose={preventClose ? undefined : onClose}
     >
       <View style={[styles.overlay, { backgroundColor: t.colors.surfaceOverlay }]}>
+        {/* Backdrop tap to dismiss */}
+        {!preventClose && (
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={onClose}
+          />
+        )}
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.keyboardView}
@@ -99,22 +110,30 @@ export function Sheet({
               )}
             </View>
 
-            {/* Content */}
+            {/* Scrollable Content */}
             <ScrollView
               style={styles.content}
-              contentContainerStyle={styles.contentInner}
+              contentContainerStyle={[
+                styles.contentInner,
+                { paddingBottom: footer ? 16 : Math.max(insets.bottom, 20) },
+              ]}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
+              bounces={false}
             >
               {children}
             </ScrollView>
 
-            {/* Footer */}
+            {/* Sticky Footer - Guaranteed always pinned to bottom */}
             {footer && (
               <View
                 style={[
                   styles.footer,
-                  { borderTopColor: t.colors.borderDefault },
+                  {
+                    backgroundColor: t.colors.surfaceRaised,
+                    borderTopColor: t.colors.borderDefault,
+                    paddingBottom: Math.max(insets.bottom, 16),
+                  },
                 ]}
               >
                 {footer}
@@ -131,17 +150,26 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
+    width: '100%',
+    height: '100%',
   },
   keyboardView: {
+    width: '100%',
     justifyContent: 'flex-end',
+    maxHeight: '100%',
   },
   sheet: {
-    maxHeight: '90%',
+    width: '100%',
+    maxHeight: '88%',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
   },
   handleContainer: {
     alignItems: 'center',
     paddingTop: 8,
     paddingBottom: 4,
+    flexShrink: 0,
   },
   handle: {
     width: 36,
@@ -156,6 +184,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 8,
     gap: 12,
+    flexShrink: 0,
   },
   closeButton: {
     width: 36,
@@ -165,16 +194,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   content: {
-    maxHeight: 400,
+    flexGrow: 0,
+    flexShrink: 1,
   },
   contentInner: {
     paddingHorizontal: 20,
-    paddingBottom: 16,
   },
   footer: {
     borderTopWidth: 1,
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 12,
+    paddingTop: 12,
+    flexShrink: 0,
+    width: '100%',
   },
 });

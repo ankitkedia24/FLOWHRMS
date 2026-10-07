@@ -5,8 +5,10 @@ import {
   Text,
   TouchableOpacity,
   Platform,
+  StatusBar,
 } from 'react-native';
-import { Bell, ChevronDown, Volume2, Shield } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Bell } from 'lucide-react-native';
 import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
 import { FlowHRMSLogo } from '@/components/brand/FlowHRMSLogo';
@@ -23,20 +25,22 @@ interface AppHeaderProps {
 
 /**
  * Mobile App Header Component
- * Matches Stitch "FlowHRMS - Mobile Home Screen" & "Mobile App Dashboard" header bar.
- * Contains: FlowHRMS Logo, Workspace Selector, Live Cluster Indicator, Audio & Notification controls.
+ * Displays clean FlowHRMS brand logo and notifications.
+ * Uses safe area insets to avoid phone clock/battery/status bar overlap.
  */
 export function AppHeader({
-  workspaceName = 'FX & Float',
-  locationCluster = 'Jaipur',
-  isLive = true,
   unreadCount = 2,
   onNotificationPress,
-  onWorkspacePress,
-  onAudioPress,
 }: AppHeaderProps) {
+  const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
+
+  // Compute safe top padding so phone's status bar / notch / island never overlaps
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0
+  );
 
   return (
     <View
@@ -45,67 +49,18 @@ export function AppHeader({
         {
           backgroundColor: t.colors.surfaceDefault,
           borderBottomColor: t.colors.borderSubtle,
+          paddingTop: topInset + (Platform.OS === 'web' ? 10 : 8),
+          minHeight: 52 + topInset,
         },
       ]}
     >
-      {/* Brand logo & Workspace selector */}
+      {/* Brand logo */}
       <View style={styles.leftGroup}>
-        <FlowHRMSLogo width={138} height={26} variant={colorScheme === 'dark' ? 'dark' : 'light'} />
-
-        {/* Workspace Pill */}
-        <TouchableOpacity
-          style={[
-            styles.workspacePill,
-            {
-              backgroundColor: t.colors.surfaceSunken,
-              borderColor: t.colors.borderDefault,
-            },
-          ]}
-          onPress={onWorkspacePress}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[styles.workspaceText, { color: t.colors.textPrimary }]}
-            numberOfLines={1}
-          >
-            {workspaceName}
-          </Text>
-          <ChevronDown size={13} color={t.colors.textSecondary} />
-        </TouchableOpacity>
+        <FlowHRMSLogo width={120} height={23} variant={colorScheme === 'dark' ? 'dark' : 'light'} />
       </View>
 
-      {/* Right Action Icons: Live cluster pill, Audio toggle, Notification bell */}
+      {/* Right Action Icons: Notification bell */}
       <View style={styles.rightGroup}>
-        {isLive && (
-          <View
-            style={[
-              styles.liveBadge,
-              {
-                backgroundColor: t.colors.accentPositiveBg,
-                borderColor: t.colors.accentPositiveBorder,
-              },
-            ]}
-          >
-            <View style={styles.pingContainer}>
-              <View
-                style={[
-                  styles.pingDot,
-                  { backgroundColor: t.colors.accentPositive },
-                ]}
-              />
-            </View>
-            <Text
-              style={[
-                styles.liveText,
-                { color: t.colors.status.success.text },
-              ]}
-            >
-              {locationCluster} • LIVE
-            </Text>
-          </View>
-        )}
-
-        {/* Notification Bell with Badge */}
         <TouchableOpacity
           style={[
             styles.iconButton,
@@ -118,7 +73,7 @@ export function AppHeader({
           activeOpacity={0.7}
           accessibilityLabel="Notifications"
         >
-          <Bell size={17} color={t.colors.textSecondary} />
+          <Bell size={18} color={t.colors.textSecondary} />
           {unreadCount > 0 && (
             <View
               style={[
@@ -142,7 +97,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 8 : 10,
     paddingBottom: 10,
     borderBottomWidth: 1,
     zIndex: 20,
@@ -150,52 +104,10 @@ const styles = StyleSheet.create({
   leftGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  workspacePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  workspaceText: {
-    fontSize: 12,
-    fontWeight: '600',
-    maxWidth: 90,
   },
   rightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  liveBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-    gap: 6,
-  },
-  pingContainer: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pingDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  liveText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: -0.2,
   },
   iconButton: {
     width: 36,

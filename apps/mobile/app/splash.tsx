@@ -20,16 +20,19 @@ export default function SplashScreen() {
   const { checkAuthSession, user } = useAuth();
   const [statusMsg, setStatusMsg] = useState('Initializing FlowHRMS...');
 
-  const handleResolveSession = async () => {
+  const hasResolvedRef = React.useRef(false);
+
+  const handleResolveSession = React.useCallback(async () => {
+    if (hasResolvedRef.current) return;
+    hasResolvedRef.current = true;
+
     try {
       setStatusMsg('Checking authentication session...');
       const { isAuthenticated, role } = await checkAuthSession();
 
       if (!isAuthenticated) {
         setStatusMsg('No active session found. Redirecting to Login...');
-        setTimeout(() => {
-          router.replace('/login');
-        }, 300);
+        router.replace('/login');
       } else {
         const isAdmin = role === 'Owner' || role === 'Admin';
         setStatusMsg(
@@ -37,15 +40,12 @@ export default function SplashScreen() {
             ? 'Authenticated as Admin. Opening Admin Dashboard...'
             : 'Authenticated as Employee. Opening Employee Home...'
         );
-        setTimeout(() => {
-          router.replace('/(tabs)');
-        }, 300);
+        router.replace('/(tabs)');
       }
     } catch {
-      // Fallback to login screen on check failure
       router.replace('/login');
     }
-  };
+  }, [checkAuthSession, router]);
 
   return (
     <SplashScreenView

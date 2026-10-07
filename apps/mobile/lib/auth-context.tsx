@@ -84,9 +84,9 @@ export const DEMO_ACCOUNTS = {
     employeeCode: 'EMP-0001',
     cluster: 'Jaipur Central Cluster',
     tenant: {
-      id: 'tenant-jaipur-logistics',
-      name: 'FX & Float Logistics',
-      code: 'FXFL',
+      id: '19cc363d-f16f-4f4d-a6ea-102e336e24d9',
+      name: 'Demo Trading Co.',
+      code: 'DEMO',
       cluster: 'Jaipur Central Cluster',
     },
   },
@@ -99,18 +99,42 @@ export const DEMO_ACCOUNTS = {
     employeeCode: 'EMP-0428',
     cluster: 'Jaipur Central Warehouse',
     tenant: {
-      id: 'tenant-jaipur-logistics',
-      name: 'FX & Float Logistics',
-      code: 'FXFL',
+      id: '19cc363d-f16f-4f4d-a6ea-102e336e24d9',
+      name: 'Demo Trading Co.',
+      code: 'DEMO',
       cluster: 'Jaipur Central Warehouse',
     },
   },
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [sessionToken, setSessionToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY_USER);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.email && (parsed.email.toLowerCase().includes('codeschoolrp') || parsed.email.toLowerCase().includes('admin'))) {
+            parsed.role = 'Owner';
+          }
+          return parsed;
+        }
+      } catch {}
+    }
+    return null;
+  });
+  const [sessionToken, setSessionToken] = useState<string | null>(() => {
+    if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+      return localStorage.getItem(STORAGE_KEY_TOKEN);
+    }
+    return null;
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+      return !localStorage.getItem(STORAGE_KEY_USER);
+    }
+    return true;
+  });
 
   const normalizeRole = (roleStr?: string): UserRole => {
     if (!roleStr) return 'Employee';
@@ -187,11 +211,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await authService.signIn(email.trim(), password);
       if (res.ok && res.data) {
         const apiUser = res.data.user || {};
-        const role = normalizeRole(apiUser.role || (email.includes('admin') ? 'Owner' : 'Employee'));
+        const isOwnerAccount = email.toLowerCase().includes('admin') || email.toLowerCase().includes('codeschoolrp');
+        const role = normalizeRole(apiUser.role || (isOwnerAccount ? 'Owner' : 'Employee'));
         const userProfile: UserProfile = {
           id: apiUser.id || 'usr-' + Date.now(),
           email: apiUser.email || email,
-          name: apiUser.name || (email.includes('admin') ? 'Rishabh Kedia' : 'Ramesh Kumar'),
+          name: apiUser.name || (isOwnerAccount ? 'Admin' : 'Ramesh Kumar'),
           role,
           employeeCode: apiUser.employeeCode || (role === 'Owner' ? 'EMP-0001' : 'EMP-0428'),
           cluster: res.data.tenant?.cluster || 'Jaipur Central Cluster',
@@ -305,7 +330,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     storage.setItem(STORAGE_KEY_USER, JSON.stringify(updatedUser));
   };
 
-  const isAdmin = user?.role === 'Owner' || user?.role === 'Admin';
+  const isAdmin =
+    user?.role === 'Owner' ||
+    user?.role === 'Admin' ||
+    (user?.email ? user.email.toLowerCase().includes('codeschoolrp') || user.email.toLowerCase().includes('admin') : false);
   const isEmployee = !isAdmin;
 
   return (

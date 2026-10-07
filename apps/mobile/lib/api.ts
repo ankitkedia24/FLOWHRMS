@@ -2,7 +2,15 @@ import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { supabase } from "./supabase";
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000/api/v1";
+function getApiBaseUrl(): string {
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    // When testing in browser on developer PC, localhost avoids CORS & loopback IP failures
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      return "http://localhost:3000/api/v1";
+    }
+  }
+  return process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000/api/v1";
+}
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
@@ -12,11 +20,12 @@ export async function apiClient<T = unknown>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<{ data: T | null; error: string | null }> {
+  const apiBase = getApiBaseUrl();
   try {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
 
-    let url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+    let url = `${apiBase}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
 
     if (options.params) {
       const searchParams = new URLSearchParams();
@@ -80,7 +89,7 @@ export async function apiClient<T = unknown>(
     return { data: json as T, error: null };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Network error";
-    console.error(`📱 [Mobile App] Connection failed to ${API_BASE_URL}:`, message);
-    return { data: null, error: `Connection failed to ${API_BASE_URL} (${message})` };
+    console.error(`📱 [Mobile App] Connection failed to ${apiBase}:`, message);
+    return { data: null, error: `Connection failed to ${apiBase} (${message})` };
   }
 }

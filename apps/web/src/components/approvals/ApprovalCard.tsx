@@ -81,6 +81,7 @@ export function ApprovalCard({
   const [rejecting, setRejecting] = useState(false);
   const [asking, setAsking] = useState(false);
   const [settled, setSettled] = useState<string | null>(auditLine ?? null);
+  const [currentStatuses, setCurrentStatuses] = useState(statuses);
 
   function decide(decision: ApprovalDecision, paid?: boolean) {
     if (decision === "REJECTED" && !reason.trim()) {
@@ -102,6 +103,11 @@ export function ApprovalCard({
       });
       if (result.ok) {
         setSettled(result.message);
+        if (decision === "APPROVED") {
+          setCurrentStatuses([{ key: "completed", label: "Completed", tone: "success" }]);
+        } else if (decision === "REJECTED") {
+          setCurrentStatuses([{ key: "rejected", label: "Rejected", tone: "error" }]);
+        }
         show({ variant: "success", message: result.message });
       } else {
         show({ variant: "error", message: result.error });
@@ -139,9 +145,9 @@ export function ApprovalCard({
             <p className="text-caption text-text-secondary">{requesterMeta}</p>
           )}
         </div>
-        {statuses.length > 0 && (
+        {currentStatuses.length > 0 && (
           <div className="flex flex-wrap justify-end gap-1.5">
-            {statuses.map((status) => (
+            {currentStatuses.map((status) => (
               <StatusChip key={status.key} status={status} size="sm" />
             ))}
           </div>

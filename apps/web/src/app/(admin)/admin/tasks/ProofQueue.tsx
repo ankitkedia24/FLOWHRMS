@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { ApprovalCard } from "@/components/approvals/ApprovalCard";
 import { ViewProofFile } from "@/components/tasks/ViewProofFile";
 import { STATUS } from "@/lib/status";
@@ -22,6 +23,8 @@ export interface ProofQueueItem {
 }
 
 export function ProofQueue({ items }: { items: ProofQueueItem[] }) {
+  const router = useRouter();
+
   return (
     <ul className="flex flex-col gap-4">
       {items.map((item) => (
@@ -68,6 +71,9 @@ export function ProofQueue({ items }: { items: ProofQueueItem[] }) {
                 decision,
                 reason,
               });
+              if (result.ok) {
+                router.refresh();
+              }
               return result.ok
                 ? { ok: true as const, message: result.message }
                 : { ok: false as const, error: result.error };

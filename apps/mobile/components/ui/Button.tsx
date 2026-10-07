@@ -107,8 +107,37 @@ export function Button({
     xl: { fontSize: t.typography.h3.fontSize },
   };
 
+  const {
+    flex,
+    flexGrow,
+    flexShrink,
+    margin,
+    marginTop,
+    marginBottom,
+    marginLeft,
+    marginRight,
+    marginHorizontal,
+    marginVertical,
+    alignSelf,
+    ...innerStyle
+  } = (style as any) || {};
+
+  const outerStyle: ViewStyle = {
+    ...(flex !== undefined && { flex }),
+    ...(flexGrow !== undefined && { flexGrow }),
+    ...(flexShrink !== undefined && { flexShrink }),
+    ...(margin !== undefined && { margin }),
+    ...(marginTop !== undefined && { marginTop }),
+    ...(marginBottom !== undefined && { marginBottom }),
+    ...(marginLeft !== undefined && { marginLeft }),
+    ...(marginRight !== undefined && { marginRight }),
+    ...(marginHorizontal !== undefined && { marginHorizontal }),
+    ...(marginVertical !== undefined && { marginVertical }),
+    ...(alignSelf !== undefined && { alignSelf }),
+  };
+
   return (
-    <View>
+    <View style={outerStyle}>
       <TouchableOpacity
         style={[
           styles.base,
@@ -116,7 +145,8 @@ export function Button({
           isDisabled
             ? { backgroundColor: t.colors.surfaceDisabled }
             : variantStyles[variant],
-          style,
+          flex !== undefined ? { width: '100%' } : null,
+          innerStyle,
         ]}
         activeOpacity={0.8}
         disabled={isDisabled || loading}

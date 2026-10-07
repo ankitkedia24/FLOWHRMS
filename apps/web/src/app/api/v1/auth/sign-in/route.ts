@@ -20,6 +20,17 @@ export const dynamic = "force-dynamic";
  * in SecureStore. If Supabase Auth is unavailable (paused project,
  * placeholder keys, timeout), it falls through to demo credentials.
  */
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, x-user-email, x-user-id, x-tenant-id",
+    },
+  });
+}
+
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
   console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -73,23 +84,75 @@ export async function POST(req: NextRequest) {
         } else if (data.user) {
           console.log(`   ✅ Supabase auth SUCCESS — user: ${data.user.email} (${data.user.id})`);
           console.log(`   🎫 Session token: ${data.session?.access_token ? "present" : "missing"}`);
+          
+          // Check database for real tenant & role
+          let assignedRole = data.user.user_metadata?.role;
+          let tenantInfo = {
+            id: "19cc363d-f16f-4f4d-a6ea-102e336e24d9",
+            name: "Demo Trading Co.",
+            code: "DEMO",
+          };
+
+          try {
+            const db = getDb();
+            const dbUser = await db.user.findFirst({
+              where: {
+                OR: [
+                  { email: { equals: email, mode: "insensitive" } },
+                  { authUserId: data.user.id },
+                ],
+              },
+              include: {
+                memberships: {
+                  include: { tenant: true, role: true },
+                  orderBy: { updatedAt: "desc" },
+                },
+              },
+            });
+
+            // Find relevant membership (prioritize shared tenant or latest updated)
+            const activeMembership =
+              dbUser?.memberships?.find(
+                (m) => m.tenantId === "19cc363d-f16f-4f4d-a6ea-102e336e24d9"
+              ) || dbUser?.memberships?.[0];
+
+            if (activeMembership) {
+              tenantInfo = {
+                id: activeMembership.tenant.id,
+                name: activeMembership.tenant.name,
+                code: activeMembership.tenant.slug?.toUpperCase() || "FLUX",
+              };
+              if (
+                activeMembership.role?.key === "OWNER" ||
+                activeMembership.role?.key === "ADMIN" ||
+                activeMembership.role?.key === "SUPER_ADMIN"
+              ) {
+                assignedRole = "Owner";
+              } else {
+                assignedRole = "Employee";
+              }
+            }
+          } catch (e) {
+            console.warn("Could not query DB tenant on sign in:", e);
+          }
+
+          if (!assignedRole) {
+            assignedRole = email.toLowerCase().includes("admin") ? "Owner" : "Employee";
+          }
+
           return NextResponse.json({
             ok: true,
             user: {
               id: data.user.id,
               email: data.user.email,
               name: data.user.user_metadata?.name ?? email.split("@")[0],
-              role: email.includes("admin") ? "Owner" : "Employee",
+              role: assignedRole,
             },
             session: {
               accessToken: data.session?.access_token,
               expiresAt: data.session?.expires_at,
             },
-            tenant: {
-              id: "tenant-jaipur-logistics",
-              name: "FX & Float Logistics",
-              code: "FXFL",
-            },
+            tenant: tenantInfo,
           });
         } else {
           console.log("   ⚠️  No error but no user returned — falling through");
@@ -112,7 +175,7 @@ export async function POST(req: NextRequest) {
     console.log(`   Dev environment:  ${isDev}`);
 
     if (isDemoOwner || isDemoField || isDev) {
-      const isOwner = email.includes("admin");
+      const isOwner = email.toLowerCase().includes("admin") || email.toLowerCase().includes("codeschoolrp");
       const elapsed = Date.now() - startTime;
       console.log(`   ✅ Dev fallback SUCCESS (${isOwner ? "Owner" : "Employee"}) in ${elapsed}ms`);
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
@@ -130,9 +193,9 @@ export async function POST(req: NextRequest) {
           expiresAt: Date.now() + 86400000 * 30,
         },
         tenant: {
-          id: "tenant-jaipur-logistics",
-          name: "FX & Float Logistics",
-          code: "FXFL",
+          id: "19cc363d-f16f-4f4d-a6ea-102e336e24d9",
+          name: "Demo Trading Co.",
+          code: "DEMO",
           cluster: "Jaipur Central Cluster",
         },
       });

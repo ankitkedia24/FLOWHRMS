@@ -74,16 +74,9 @@ export default function TabLayout() {
           fontWeight: '600',
         },
         headerShadowVisible: false,
-        header: () =>
-          isAdmin ? (
-            <AppHeader
-              workspaceName={user?.tenant?.name || 'FX & Float'}
-              locationCluster={user?.cluster || 'Jaipur'}
-            />
-          ) : (
-            <EmployeeTopBar title="FlowHRMS" subtitle="Field" />
-          ),
+        header: () => <AppHeader />,
       }}
+
     >
       {/* 1. Admin Dashboard OR Employee Home */}
       <Tabs.Screen
@@ -107,12 +100,12 @@ export default function TabLayout() {
         }}
       />
 
-      {/* 3. Employees (Admin only) */}
+      {/* 3. Employees (Admin only tab) */}
       <Tabs.Screen
         name="employees"
         options={{
           title: 'Employees',
-          href: isAdmin ? '/(tabs)/employees' : null,
+          tabBarItemStyle: !isAdmin ? { display: 'none' } : undefined,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon Icon={Users} color={color} focused={focused} />
           ),
@@ -124,7 +117,7 @@ export default function TabLayout() {
         name="leave"
         options={{
           title: 'Leaves',
-          href: !isAdmin ? '/(tabs)/leave' : null,
+          tabBarItemStyle: isAdmin ? { display: 'none' } : undefined,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon Icon={CalendarDays} color={color} focused={focused} />
           ),

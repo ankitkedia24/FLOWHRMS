@@ -64,8 +64,8 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   // Sign In Form State
-  const [email, setEmail] = useState('admin@flowacord.com');
-  const [password, setPassword] = useState('FlowHRMS2026!');
+  const [email, setEmail] = useState('codeschoolrp@gmail.com');
+  const [password, setPassword] = useState('flowacord2026');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
@@ -89,11 +89,11 @@ export default function LoginScreen() {
   // Quick Demo Account Selectors
   const fillDemoAccount = (role: 'owner' | 'field') => {
     if (role === 'owner') {
-      setEmail('admin@flowacord.com');
-      setPassword('FlowHRMS2026!');
+      setEmail('codeschoolrp@gmail.com');
+      setPassword('flowacord2026');
     } else {
-      setEmail('ramesh.kumar@flowacord.com');
-      setPassword('JaipurField2026#');
+      setEmail('rishabh17704@gmail.com');
+      setPassword('flowacord2026');
     }
   };
 
@@ -181,8 +181,8 @@ export default function LoginScreen() {
   const handleBiometricAuth = async () => {
     toast.info('Scanning biometric sensor...');
     try {
-      await signInDemo('admin');
-      toast.success('Biometric verified: Admin (Rishabh Kedia). Opening Admin Dashboard...');
+      await signIn('codeschoolrp@gmail.com', 'flowacord2026');
+      toast.success('Biometric verified. Opening Dashboard...');
       router.replace('/(tabs)');
     } catch {
       toast.error('Biometric verification failed.');
@@ -205,24 +205,27 @@ export default function LoginScreen() {
     >
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
-          {/* Header Brand Lockup */}
-          <View style={styles.brandLockup}>
-            <FlowHRMSAppIcon size={56} />
-            <View style={{ marginTop: 12, marginBottom: 4 }}>
-              <FlowHRMSLogo width={210} height={39} variant={colorScheme === 'dark' ? 'dark' : 'light'} />
+          <View style={styles.centerContainer}>
+            {/* Header Brand Lockup */}
+            <View style={styles.brandLockup}>
+              <FlowHRMSAppIcon size={52} />
+              <View style={{ marginTop: 12, marginBottom: 4 }}>
+                <FlowHRMSLogo width={190} height={35} variant={colorScheme === 'dark' ? 'dark' : 'light'} />
+              </View>
+              <Text style={[styles.brandTagline, { color: t.colors.textSecondary }]}>
+                Modern Field Workforce Management & Indian SME Compliance
+              </Text>
             </View>
-            <Text style={[styles.brandTagline, { color: t.colors.textSecondary }]}>
-              Modern Field Workforce Management & Indian SME Compliance
-            </Text>
-          </View>
 
           {/* Mode Switcher Segmented Tabs */}
           <View
@@ -299,35 +302,16 @@ export default function LoginScreen() {
              ======================================================== */}
           {mode === 'sign-in' ? (
             <View style={styles.formSection}>
-              {/* Live Status Highlight */}
-              <View
-                style={[
-                  styles.livePulseCard,
-                  {
-                    backgroundColor: t.colors.surfaceDefault,
-                    borderColor: t.colors.borderDefault,
-                  },
-                ]}
-              >
-                <View style={styles.livePulseLeft}>
-                  <View style={[styles.liveDot, { backgroundColor: t.colors.accentPositive }]} />
-                  <Text style={[styles.livePulseText, { color: t.colors.textPrimary }]}>
-                    Jaipur Cluster • 142 Active On-Field
-                  </Text>
-                </View>
-                <StatusChip status={{ key: 'live', label: 'Live Shift', tone: 'success' }} size="sm" />
-              </View>
-
               {/* Demo Account Quick Switcher */}
               <View style={styles.demoSwitcherBox}>
                 <Text style={[styles.demoSwitcherLabel, { color: t.colors.textTertiary }]}>
-                  QUICK DEMO CREDENTIALS (1-TAP FILL)
+                  QUICK 1-TAP ROLE SWITCH
                 </Text>
                 <View style={styles.demoChipsRow}>
                   <TouchableOpacity
                     style={[
                       styles.demoChip,
-                      email === 'admin@flowacord.com' && {
+                      email === 'codeschoolrp@gmail.com' && {
                         backgroundColor: t.colors.brandPrimarySubtle,
                         borderColor: t.colors.brandPrimary,
                       },
@@ -339,17 +323,17 @@ export default function LoginScreen() {
                     <Text
                       style={[
                         styles.demoChipText,
-                        { color: email === 'admin@flowacord.com' ? t.colors.brandPrimary : t.colors.textPrimary },
+                        { color: email === 'codeschoolrp@gmail.com' ? t.colors.brandPrimary : t.colors.textPrimary },
                       ]}
                     >
-                      Owner / Admin
+                      Owner (CodeSchool)
                     </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[
                       styles.demoChip,
-                      email === 'ramesh.kumar@flowacord.com' && {
+                      email === 'rishabh17704@gmail.com' && {
                         backgroundColor: t.colors.brandPrimarySubtle,
                         borderColor: t.colors.brandPrimary,
                       },
@@ -357,14 +341,14 @@ export default function LoginScreen() {
                     ]}
                     onPress={() => fillDemoAccount('field')}
                   >
-                    <Text style={styles.demoChipEmoji}>🚚</Text>
+                    <Text style={styles.demoChipEmoji}>👤</Text>
                     <Text
                       style={[
                         styles.demoChipText,
-                        { color: email === 'ramesh.kumar@flowacord.com' ? t.colors.brandPrimary : t.colors.textPrimary },
+                        { color: email === 'rishabh17704@gmail.com' ? t.colors.brandPrimary : t.colors.textPrimary },
                       ]}
                     >
-                      Field Specialist
+                      Employee (Rishabh)
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -846,8 +830,9 @@ export default function LoginScreen() {
               </Text>
             </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
 
       {/* Forgot Password Modal */}
       <Modal
@@ -976,9 +961,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 40,
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 140,
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  centerContainer: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
   },
   brandLockup: {
     alignItems: 'center',

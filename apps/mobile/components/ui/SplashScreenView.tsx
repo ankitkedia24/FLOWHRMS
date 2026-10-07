@@ -23,11 +23,18 @@ export function SplashScreenView({
 }: SplashScreenViewProps & { statusMessage?: string }) {
   const [progressWidth, setProgressWidth] = React.useState(20);
 
+  const hasFiredRef = React.useRef(false);
+  const onLoadedRef = React.useRef(onLoaded);
+  onLoadedRef.current = onLoaded;
+
   React.useEffect(() => {
     const timer1 = setTimeout(() => setProgressWidth(70), 400);
     const timer2 = setTimeout(() => setProgressWidth(140), 900);
     const timer3 = setTimeout(() => {
-      if (onLoaded) onLoaded();
+      if (!hasFiredRef.current && onLoadedRef.current) {
+        hasFiredRef.current = true;
+        onLoadedRef.current();
+      }
     }, 1200);
 
     return () => {
@@ -35,7 +42,7 @@ export function SplashScreenView({
       clearTimeout(timer2);
       clearTimeout(timer3);
     };
-  }, [onLoaded]);
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
