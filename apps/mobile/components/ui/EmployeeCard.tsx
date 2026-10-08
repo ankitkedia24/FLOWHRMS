@@ -13,7 +13,15 @@ export interface EmployeeData {
   email?: string;
   location?: string;
   status: 'active' | 'inactive' | 'on_leave';
-  attendanceStatus?: 'present' | 'late' | 'not_recorded' | 'needs_review';
+  attendanceStatus?: 'present' | 'late' | 'not_recorded' | 'needs_review' | 'checked_out';
+  isCheckedIn?: boolean;
+  isCheckedOut?: boolean;
+  isLate?: boolean;
+  needsReview?: boolean;
+  reviewStatus?: string;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  lateMinutes?: number;
   initials?: string;
 }
 
@@ -27,7 +35,6 @@ interface EmployeeCardProps {
 
 /**
  * Employee Card Component
- * From Stitch "FlowHRMS - Mobile Employees Screen" (§employee-card).
  * Clean, tactile card showing avatar, role, live active pill, contact CTA, and location metadata.
  */
 export function EmployeeCard({
@@ -60,6 +67,35 @@ export function EmployeeCard({
       Linking.openURL(`mailto:${employee.email}`);
     }
   };
+
+  // Determine badge styling based on real attendance state
+  let badgeBg = t.colors.surfaceSunken;
+  let badgeBorder = t.colors.borderDefault;
+  let badgeDot = t.colors.textTertiary;
+  let badgeText = t.colors.textSecondary;
+  let badgeLabel = 'Not Clocked In';
+
+  if (employee.attendanceStatus) {
+    if (employee.isCheckedOut || employee.attendanceStatus === 'checked_out') {
+      badgeBg = '#EFF6FF';
+      badgeBorder = '#BFDBFE';
+      badgeDot = '#3B82F6';
+      badgeText = '#1D4ED8';
+      badgeLabel = 'Punched Out';
+    } else if (employee.isCheckedIn || employee.attendanceStatus === 'present' || employee.attendanceStatus === 'late') {
+      badgeBg = '#ECFDF5';
+      badgeBorder = '#A7F3D0';
+      badgeDot = '#10B981';
+      badgeText = '#047857';
+      badgeLabel = 'On Duty';
+    } else {
+      badgeBg = '#F3F4F6';
+      badgeBorder = '#E5E7EB';
+      badgeDot = '#9CA3AF';
+      badgeText = '#4B5563';
+      badgeLabel = 'Not Clocked In';
+    }
+  }
 
   return (
     <View
@@ -102,7 +138,7 @@ export function EmployeeCard({
               >
                 {employee.name}
               </Text>
-              {employee.code && (
+              {/* {employee.code && (
                 <View
                   style={[
                     styles.codeBadge,
@@ -121,7 +157,7 @@ export function EmployeeCard({
                     {employee.code}
                   </Text>
                 </View>
-              )}
+              )} */}
             </View>
 
             <View style={styles.roleRow}>
@@ -141,42 +177,105 @@ export function EmployeeCard({
           </View>
         </TouchableOpacity>
 
-        {/* Status Badge */}
-        <View
-          style={[
-            styles.statusBadge,
-            {
-              backgroundColor: t.colors.accentPositiveBg,
-              borderColor: t.colors.accentPositiveBorder,
-            },
-          ]}
-        >
+        {/* Dynamic Status Badge */}
+        {employee.attendanceStatus ? (
           <View
             style={[
-              styles.pulseDot,
-              { backgroundColor: t.colors.accentPositive },
-            ]}
-          />
-          <Text
-            style={[
-              styles.statusText,
-              { color: t.colors.status.success.text },
+              styles.statusBadge,
+              { backgroundColor: badgeBg, borderColor: badgeBorder },
             ]}
           >
-            Active
-          </Text>
-        </View>
+            <View
+              style={[
+                styles.pulseDot,
+                { backgroundColor: badgeDot },
+              ]}
+            />
+            <Text style={[styles.statusText, { color: badgeText }]}>
+              {badgeLabel}
+            </Text>
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.statusBadge,
+              {
+                backgroundColor:
+                  employee.status === 'active'
+                    ? t.colors.accentPositiveBg
+                    : t.colors.surfaceSunken,
+                borderColor:
+                  employee.status === 'active'
+                    ? t.colors.accentPositiveBorder
+                    : t.colors.borderDefault,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.pulseDot,
+                {
+                  backgroundColor:
+                    employee.status === 'active'
+                      ? t.colors.accentPositive
+                      : t.colors.textTertiary,
+                },
+              ]}
+            />
+            <Text
+              style={[
+                styles.statusText,
+                {
+                  color:
+                    employee.status === 'active'
+                      ? t.colors.status.success.text
+                      : t.colors.textSecondary,
+                },
+              ]}
+            >
+              {employee.status === 'active' ? 'Active' : 'Inactive'}
+            </Text>
+          </View>
+        )}
       </View>
 
-      {/* Location Row (if present) */}
-      {employee.location && (
+      {/* Exception & Late Flags */}
+      {(employee.isLate || employee.needsReview) && (
+        <View style={styles.flagRow}>
+          {employee.needsReview && (
+            <View style={styles.reviewFlag}>
+              <Text style={styles.reviewFlagText}>Outside Geofence (Review)</Text>
+            </View>
+          )}
+          {employee.isLate && (
+            <View style={styles.lateFlag}>
+              <Text style={styles.lateFlagText}>
+                Late ({employee.lateMinutes}m)
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Location & Shift Timings */}
+      {(employee.location || employee.checkInTime) && (
         <View style={styles.locationRow}>
-          <MapPin size={12} color={t.colors.textTertiary} />
-          <Text
-            style={[styles.locationText, { color: t.colors.textSecondary }]}
-          >
-            {employee.location}
-          </Text>
+          {employee.location && (
+            <View style={styles.metaItem}>
+              <MapPin size={11} color={t.colors.textTertiary} />
+              <Text
+                style={[styles.locationText, { color: t.colors.textSecondary }]}
+                numberOfLines={1}
+              >
+                {employee.location}
+              </Text>
+            </View>
+          )}
+          {employee.checkInTime && (
+            <Text style={[styles.locationText, { color: t.colors.textTertiary }]}>
+              • In: {employee.checkInTime}{employee.checkOutTime ? ` → Out: ${employee.checkOutTime}` : ''}
+            </Text>
+          )}
         </View>
       )}
 
@@ -354,15 +453,50 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+  flagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  reviewFlag: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  reviewFlagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  lateFlag: {
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  lateFlagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    flexWrap: 'wrap',
+    gap: 6,
     marginTop: 8,
     paddingLeft: 2,
   },
   locationText: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '500',
   },
   divider: {
     height: 1,

@@ -54,15 +54,20 @@ export const attendanceService = {
     return res.data?.data ?? null;
   },
 
-  async punch(action: string, coords?: { latitude?: number; longitude?: number; accuracy?: number; address?: string }) {
+  async punch(
+    action: string,
+    coords?: { latitude?: number; longitude?: number; accuracy?: number; address?: string },
+    targetMembershipId?: string
+  ) {
     const res = await apiClient<any>('/attendance/punch', {
       method: 'POST',
       body: JSON.stringify({
         action,
-        latitude: coords?.latitude ?? 26.9124,
-        longitude: coords?.longitude ?? 75.7873,
-        accuracy: coords?.accuracy ?? 35,
+        latitude: coords?.latitude,
+        longitude: coords?.longitude,
+        accuracy: coords?.accuracy,
         address: coords?.address,
+        targetMembershipId,
       }),
     });
     if (res.data?.ok) {
