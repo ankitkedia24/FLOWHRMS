@@ -26,9 +26,9 @@ interface CheckInHeroCardProps {
 export function CheckInHeroCard({
   shiftName = 'SHIFT A',
   shiftHours = '09:00 - 18:00',
-  employeeName = 'Ramesh',
-  locationName = 'Jaipur Central Warehouse',
-  avatarInitials = 'RS',
+  employeeName = 'Employee',
+  locationName = 'Office',
+  avatarInitials = 'EM',
   isCheckedIn = true,
   checkInTime = '09:12 AM',
   onCheckOut,

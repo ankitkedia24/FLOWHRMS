@@ -26,6 +26,7 @@ import { useRouter } from 'expo-router';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { StatusChip } from '@/components/ui/StatusChip';
+import { useAuth } from '@/lib/auth-context';
 
 /**
  * Profile Screen
@@ -35,9 +36,24 @@ export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
+  const { user, signOut } = useAuth();
 
   const [darkMode, setDarkMode] = useState(false);
   const [offlineSync, setOfflineSync] = useState(true);
+
+  const displayName = user?.name || user?.email?.split('@')[0] || 'Employee';
+  const displayEmail = user?.email || 'user@flowhrms.com';
+  const displayRole = user?.role || 'Employee';
+  const displayCluster = user?.cluster || user?.tenant?.name || 'Jaipur Cluster';
+  const displayCode = user?.employeeCode || 'EMP-0001';
+  const displayInitials = user?.name
+    ? user.name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .substring(0, 2)
+        .toUpperCase()
+    : (user?.email ? user.email.substring(0, 2).toUpperCase() : 'EM');
 
   const handleSignOut = () => {
     RNAlert.alert(
@@ -48,7 +64,10 @@ export default function ProfileScreen() {
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: () => router.replace('/login' as any),
+          onPress: async () => {
+            await signOut();
+            router.replace('/login' as any);
+          },
         },
       ]
     );
@@ -82,7 +101,7 @@ export default function ProfileScreen() {
                 { color: t.colors.brandPrimary, fontWeight: '700' },
               ]}
             >
-              RK
+              {displayInitials}
             </Text>
           </View>
 
@@ -93,7 +112,7 @@ export default function ProfileScreen() {
                 { color: t.colors.textPrimary, fontWeight: '700' },
               ]}
             >
-              Ramesh Kumar
+              {displayName}
             </Text>
             <Text
               style={[
@@ -101,7 +120,7 @@ export default function ProfileScreen() {
                 { color: t.colors.textSecondary, marginTop: 2 },
               ]}
             >
-              Field Specialist · Jaipur Cluster
+              {displayRole} · {displayCluster}
             </Text>
             <Text
               style={[
@@ -109,7 +128,7 @@ export default function ProfileScreen() {
                 { color: t.colors.textTertiary, marginTop: 2 },
               ]}
             >
-              EMP-0428
+              {displayCode}
             </Text>
           </View>
         </View>
@@ -131,7 +150,7 @@ export default function ProfileScreen() {
                 { color: t.colors.textPrimary },
               ]}
             >
-              ramesh.kumar@flowacord.com
+              {displayEmail}
             </Text>
           </View>
 
@@ -169,7 +188,7 @@ export default function ProfileScreen() {
                 { color: t.colors.textPrimary },
               ]}
             >
-              Jaipur Central Warehouse
+              {displayCluster}
             </Text>
           </View>
         </View>

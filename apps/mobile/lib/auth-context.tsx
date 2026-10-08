@@ -193,6 +193,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Run initial session check on mount
+  useEffect(() => {
+    checkAuthSession();
+  }, [checkAuthSession]);
+
   /**
    * 2. Sign In (with Role Resolution)
    */
@@ -216,7 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userProfile: UserProfile = {
           id: apiUser.id || 'usr-' + Date.now(),
           email: apiUser.email || email,
-          name: apiUser.name || (isOwnerAccount ? 'Admin' : 'Ramesh Kumar'),
+          name: apiUser.name || (isOwnerAccount ? 'Admin' : (email.split('@')[0] || 'Employee')),
           role,
           employeeCode: apiUser.employeeCode || (role === 'Owner' ? 'EMP-0001' : 'EMP-0428'),
           cluster: res.data.tenant?.cluster || 'Jaipur Central Cluster',
@@ -323,8 +328,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const updatedUser: UserProfile = {
       ...user,
       role: newRole,
-      name: role === 'admin' ? 'Rishabh Kedia' : 'Ramesh Kumar',
-      employeeCode: role === 'admin' ? 'EMP-0001' : 'EMP-0428',
+      name: user.name || (role === 'admin' ? 'Admin' : 'Employee'),
+      employeeCode: user.employeeCode || (role === 'admin' ? 'EMP-0001' : 'EMP-0428'),
     };
     setUser(updatedUser);
     storage.setItem(STORAGE_KEY_USER, JSON.stringify(updatedUser));

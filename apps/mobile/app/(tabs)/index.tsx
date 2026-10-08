@@ -433,9 +433,9 @@ export default function RoleResolvedDashboardScreen() {
             <CheckInHeroCard
               shiftName="GENERAL SHIFT"
               shiftHours="08:30 - 17:30"
-              employeeName={user?.name || 'Ramesh Kumar'}
-              locationName={user?.cluster || 'Jaipur Central Warehouse'}
-              avatarInitials={user?.name ? user.name.split(' ').map((n) => n[0]).join('').substring(0, 2) : 'RK'}
+              employeeName={user?.name || (user?.email ? user.email.split('@')[0] : 'Employee')}
+              locationName={user?.cluster || user?.tenant?.name || 'Assigned Branch'}
+              avatarInitials={user?.name ? user.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase() : 'EM'}
               isCheckedIn={isCheckedIn}
               checkInTime="09:12 AM"
               onCheckOut={handleCheckOut}

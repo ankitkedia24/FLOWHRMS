@@ -16,8 +16,8 @@ export {
 } from 'expo-router';
 
 export const unstable_settings = {
-  // Main app entry point
-  initialRouteName: '(tabs)',
+  // Main app entry point: splash verifies auth session before routing
+  initialRouteName: 'splash',
 };
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -104,9 +104,9 @@ function RootLayoutNav() {
         <StatusBar style={isDark ? 'light' : 'dark'} />
         <ToastProvider>
           <AuthNavigationGate>
-            <Stack initialRouteName="(tabs)">
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack initialRouteName="splash">
               <Stack.Screen name="splash" options={{ headerShown: false }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="login" options={{ headerShown: false }} />
               <Stack.Screen name="payroll" options={{ headerShown: false }} />
               <Stack.Screen name="daily-report" options={{ headerShown: false }} />
