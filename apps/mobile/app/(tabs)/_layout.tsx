@@ -112,7 +112,7 @@ export default function TabLayout() {
         }}
       />
 
-      {/* 4. Leave (Employee primary tab, hidden from bottom bar for admin who manages it from dashboard/menu) */}
+      {/* 4. Leave (Primary for employees on bottom bar; Admin accesses via Menu -> Leave Management) */}
       <Tabs.Screen
         name="leave"
         options={{

@@ -31,6 +31,7 @@ import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
 import { Card } from '@/components/ui/Card';
 import { StatusChip } from '@/components/ui/StatusChip';
+import { useAuth } from '@/lib/auth-context';
 
 /**
  * FlowHRMS - Mobile ID Card Design Screen
@@ -41,6 +42,7 @@ export default function IdCardScreen() {
   const t = getTheme(colorScheme);
   const router = useRouter();
   const toast = useToast();
+  const { isAdmin } = useAuth();
 
   const [orientation, setOrientation] = useState<'upright' | 'sideways'>('upright');
   const [isBackSide, setIsBackSide] = useState(false);
@@ -58,6 +60,51 @@ export default function IdCardScreen() {
   const [activeElement, setActiveElement] = useState('Employee Name');
   const [selectedColor, setSelectedColor] = useState('#181445');
   const [selectedAlign, setSelectedAlign] = useState<'left' | 'center'>('center');
+
+  if (!isAdmin) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.container,
+          {
+            backgroundColor: t.colors.surfaceCanvasWarm,
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingHorizontal: 24,
+          },
+        ]}
+      >
+        <Building size={48} color={t.colors.brandPrimary} />
+        <Text style={{ fontSize: 18, fontWeight: '800', color: t.colors.textPrimary, marginTop: 16 }}>
+          Admin Only Feature
+        </Text>
+        <Text
+          style={{
+            fontSize: 13,
+            color: t.colors.textSecondary,
+            textAlign: 'center',
+            marginTop: 8,
+            lineHeight: 18,
+          }}
+        >
+          The Digital ID Card Studio is reserved for Company Administrators and HR Managers to configure employee templates.
+        </Text>
+        <TouchableOpacity
+          style={{
+            marginTop: 24,
+            paddingVertical: 12,
+            paddingHorizontal: 28,
+            borderRadius: 12,
+            backgroundColor: t.colors.brandPrimary,
+          }}
+          onPress={() => router.back()}
+          activeOpacity={0.8}
+        >
+          <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>Go Back</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   const handleDownloadPdf = async () => {
     try {

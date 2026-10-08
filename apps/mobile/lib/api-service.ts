@@ -121,6 +121,7 @@ export const leaveService = {
       method: 'POST',
       body: JSON.stringify({
         leaveType: payload.leaveType || payload.type,
+        leaveCategory: payload.leaveCategory || payload.category,
         startDate: payload.startDate,
         endDate: payload.endDate,
         reason: payload.reason,
@@ -132,6 +133,22 @@ export const leaveService = {
       return { ok: true, success: true, message: res.data.message, data: res.data.request ?? res.data };
     }
     return { ok: false, success: false, error: res.error || res.data?.error || 'Failed to apply leave' };
+  },
+
+  async decideLeave(payload: {
+    requestId: string;
+    decision: 'APPROVED' | 'REJECTED';
+    paid?: boolean;
+    reason?: string;
+  }) {
+    const res = await apiClient<any>('/leave', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    if (res.data?.ok) {
+      return { ok: true, success: true, message: res.data.message, data: res.data.request };
+    }
+    return { ok: false, success: false, error: res.error || res.data?.error || 'Failed to update leave request' };
   },
 };
 

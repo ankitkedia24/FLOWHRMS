@@ -36,7 +36,7 @@ export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdmin } = useAuth();
 
   const [darkMode, setDarkMode] = useState(false);
   const [offlineSync, setOfflineSync] = useState(true);
@@ -199,31 +199,35 @@ export default function ProfileScreen() {
          ======================================================== */}
       <Card>
         <CardHeader title="Your Records & Vault" />
-        <TouchableOpacity
-          style={styles.recordLink}
-          onPress={() => router.push('/id-card' as any)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.recordLeft}>
-            <CreditCard size={18} color={t.colors.brandPrimary} />
-            <Text
-              style={[
-                t.typography.bodyMedium,
-                { color: t.colors.textPrimary, marginLeft: 10 },
-              ]}
+        {isAdmin && (
+          <>
+            <TouchableOpacity
+              style={styles.recordLink}
+              onPress={() => router.push('/id-card' as any)}
+              activeOpacity={0.7}
             >
-              Digital ID Card Studio
-            </Text>
-          </View>
-          <ChevronRight size={18} color={t.colors.textTertiary} />
-        </TouchableOpacity>
+              <View style={styles.recordLeft}>
+                <CreditCard size={18} color={t.colors.brandPrimary} />
+                <Text
+                  style={[
+                    t.typography.bodyMedium,
+                    { color: t.colors.textPrimary, marginLeft: 10 },
+                  ]}
+                >
+                  Digital ID Card Studio
+                </Text>
+              </View>
+              <ChevronRight size={18} color={t.colors.textTertiary} />
+            </TouchableOpacity>
 
-        <View
-          style={[
-            styles.divider,
-            { backgroundColor: t.colors.borderSubtle },
-          ]}
-        />
+            <View
+              style={[
+                styles.divider,
+                { backgroundColor: t.colors.borderSubtle },
+              ]}
+            />
+          </>
+        )}
 
         <TouchableOpacity
           style={styles.recordLink}
