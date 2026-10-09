@@ -114,8 +114,8 @@ export default function LoginScreen() {
         const isAdmin = res.role === 'Owner' || res.role === 'Admin';
         toast.success(
           isAdmin
-            ? 'Role Resolved: Admin / Owner. Opening Admin Dashboard...'
-            : 'Role Resolved: Employee. Opening Employee Home...'
+            ? 'Welcome back! Opening Admin Dashboard...'
+            : 'Welcome back! Opening your Home...'
         );
         router.replace('/(tabs)');
       } else {
@@ -123,7 +123,7 @@ export default function LoginScreen() {
       }
     } catch {
       setLoading(false);
-      toast.error('Network connection error. Reconnecting...');
+      toast.error('Unable to connect. Please check your internet and try again.');
     }
   };
 
@@ -167,14 +167,14 @@ export default function LoginScreen() {
       });
       setLoading(false);
       if (res.ok) {
-        toast.success('Workspace created! Role: Admin. Opening Admin Dashboard...');
+        toast.success('Workspace created successfully! Opening Dashboard...');
         router.replace('/(tabs)');
       } else {
         toast.error(res.error || 'Failed to activate trial workspace.');
       }
     } catch {
       setLoading(false);
-      toast.error('Network connection error during trial registration.');
+      toast.error('Unable to connect. Please check your internet connection.');
     }
   };
 

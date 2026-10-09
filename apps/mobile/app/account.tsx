@@ -68,7 +68,7 @@ export default function AccountScreen() {
       if (res.success) {
         toast.success(
           'Password Updated',
-          'Your account password and encryption keys have been updated.'
+          'Your account password has been updated successfully.'
         );
         setCurrentPassword('');
         setNewPassword('');
