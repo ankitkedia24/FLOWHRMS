@@ -42,19 +42,11 @@ function TabIcon({
         ]}
       >
         <Icon
-          size={23}
+          size={24}
           color={focused ? t.colors.brandPrimary : (color as string)}
           strokeWidth={focused ? 2.5 : 1.8}
         />
       </View>
-      {focused && (
-        <View
-          style={[
-            styles.activeDot,
-            { backgroundColor: t.colors.brandPrimary },
-          ]}
-        />
-      )}
     </View>
   );
 }
@@ -180,17 +172,10 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   iconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  activeDot: {
-    position: 'absolute',
-    bottom: 1,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
   },
 });
