@@ -20,6 +20,7 @@ import {
   AlertCircle,
   FileText,
   Sparkles,
+  Receipt,
 } from 'lucide-react-native';
 import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -44,9 +45,8 @@ export default function RoleResolvedDashboardScreen() {
   const t = getTheme(colorScheme);
   const router = useRouter();
   const toast = useToast();
-  const { user, isAdmin, switchRole } = useAuth();
+  const { user, isAdmin } = useAuth();
 
-  const [isAdminView, setIsAdminView] = useState(isAdmin);
   const [refreshing, setRefreshing] = useState(false);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
 
@@ -54,10 +54,6 @@ export default function RoleResolvedDashboardScreen() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [todayAttendance, setTodayAttendance] = useState<any>(null);
   const [leaveData, setLeaveData] = useState<any>(null);
-
-  useEffect(() => {
-    setIsAdminView(isAdmin);
-  }, [isAdmin]);
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -133,13 +129,6 @@ export default function RoleResolvedDashboardScreen() {
     } else {
       toast.error(res.error || 'Failed to punch in.');
     }
-  };
-
-  const handleTogglePreview = () => {
-    const nextMode = !isAdminView;
-    setIsAdminView(nextMode);
-    switchRole(nextMode ? 'admin' : 'employee');
-    toast.info(`Switched view to: ${nextMode ? 'Admin Dashboard' : 'Employee Home'}`);
   };
 
   // Live Metrics
@@ -246,55 +235,6 @@ export default function RoleResolvedDashboardScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: t.colors.surfaceCanvasWarm }]}>
-      {/* Sleek Top Bar (Only renders for Admins to toggle views; keeps Employee view uncluttered) */}
-      {isAdmin && (
-        <View
-          style={[
-            styles.topHeader,
-            {
-              backgroundColor: t.colors.surfaceDefault,
-              borderBottomColor: t.colors.borderSubtle,
-            },
-          ]}
-        >
-          <View style={styles.headerInfo}>
-            <Text style={[styles.orgLabel, { color: t.colors.textTertiary }]}>
-              {organizationName.toUpperCase()}
-            </Text>
-            <Text style={[styles.headerTitle, { color: t.colors.textPrimary }]}>
-              {isAdminView ? 'Admin Dashboard' : 'Employee View'}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.previewTogglePill,
-              {
-                backgroundColor: isAdminView ? '#EEF2FF' : '#ECFDF5',
-                borderColor: isAdminView ? '#C7D2FE' : '#A7F3D0',
-              },
-            ]}
-            onPress={handleTogglePreview}
-            activeOpacity={0.7}
-          >
-            <View
-              style={[
-                styles.previewDot,
-                { backgroundColor: isAdminView ? '#4F46E5' : '#10B981' },
-              ]}
-            />
-            <Text
-              style={[
-                styles.previewPillText,
-                { color: isAdminView ? '#4338CA' : '#047857' },
-              ]}
-            >
-              {isAdminView ? 'Staff View' : 'Admin View'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
@@ -308,11 +248,26 @@ export default function RoleResolvedDashboardScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {isAdminView ? (
+        {isAdmin ? (
           /* =======================================================
              ADMIN DASHBOARD (Breathable & Action-Oriented)
              ======================================================= */
           <View style={styles.sectionStack}>
+            {/* Admin Welcome Banner */}
+            <View style={styles.adminWelcomeHeader}>
+              <View style={[styles.orgBadge, { backgroundColor: t.colors.brandPrimarySubtle }]}>
+                <Text style={[styles.orgBadgeText, { color: t.colors.brandPrimary }]}>
+                  {organizationName.toUpperCase()}
+                </Text>
+              </View>
+              <Text style={[styles.adminTitle, { color: t.colors.textPrimary }]}>
+                Admin Dashboard
+              </Text>
+              <Text style={[styles.adminSubtitle, { color: t.colors.textSecondary }]}>
+                Real-time team presence, approvals & operations
+              </Text>
+            </View>
+
             {/* 1. Quick Pulse Cards */}
             <View style={styles.pulseRow}>
               <View
@@ -468,7 +423,7 @@ export default function RoleResolvedDashboardScreen() {
                   </Text>
                 </TouchableOpacity>
 
-                {/* ID Studio (Admin Only Feature) */}
+                {/* Payroll (Admin Feature) */}
                 <TouchableOpacity
                   style={[
                     styles.quickCard,
@@ -477,17 +432,17 @@ export default function RoleResolvedDashboardScreen() {
                       borderColor: t.colors.borderDefault,
                     },
                   ]}
-                  onPress={() => router.push('/id-card' as any)}
+                  onPress={() => router.push('/payroll' as any)}
                   activeOpacity={0.7}
                 >
                   <View style={[styles.quickIconBox, { backgroundColor: '#EDE9FE' }]}>
-                    <Award size={20} color="#7C3AED" />
+                    <Receipt size={20} color="#7C3AED" />
                   </View>
                   <Text style={[styles.quickTitle, { color: t.colors.textPrimary }]}>
-                    ID Studio
+                    Payroll
                   </Text>
                   <Text style={[styles.quickBadge, { color: t.colors.textTertiary }]}>
-                    Design
+                    Cycle & pay
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -719,46 +674,31 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
-  topHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
+  adminWelcomeHeader: {
+    paddingBottom: 2,
+    marginBottom: 4,
   },
-  headerInfo: {
-    flex: 1,
+  orgBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginBottom: 6,
   },
-  orgLabel: {
-    fontSize: 11,
-    fontWeight: '700',
+  orgBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
     letterSpacing: 0.8,
-    marginBottom: 2,
   },
-  headerTitle: {
-    fontSize: 20,
+  adminTitle: {
+    fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.4,
   },
-  previewTogglePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  previewDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  previewPillText: {
-    fontSize: 11,
-    fontWeight: '700',
+  adminSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+    lineHeight: 18,
   },
   container: {
     flex: 1,
