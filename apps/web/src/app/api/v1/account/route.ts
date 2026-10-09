@@ -11,7 +11,7 @@ export async function GET() {
     data: {
       id: "usr-admin-001",
       email: "admin@flowacord.com",
-      name: "Rishabh Kedia",
+      name: "CodeSchool Admin",
       code: "EMP-0001",
       role: "Owner",
       phone: "+91 98290 11223",

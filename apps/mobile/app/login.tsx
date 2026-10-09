@@ -567,7 +567,7 @@ export default function LoginScreen() {
                     <User size={18} color={t.colors.textTertiary} />
                     <TextInput
                       style={[styles.textInput, { color: t.colors.textPrimary }]}
-                      placeholder="e.g. Rishabh Kedia"
+                      placeholder="e.g. Ankit Sharma"
                       placeholderTextColor={t.colors.textTertiary}
                       value={fullName}
                       onChangeText={setFullName}

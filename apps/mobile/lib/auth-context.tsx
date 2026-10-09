@@ -156,7 +156,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const storedToken = await storage.getItem(STORAGE_KEY_TOKEN);
 
       if (storedUserJson) {
-        const parsedUser: UserProfile = JSON.parse(storedUserJson);
+        let parsedUser: UserProfile = JSON.parse(storedUserJson);
+        // Auto-heal legacy mock cached names
+        if (
+          parsedUser.email?.toLowerCase().includes('codeschoolrp') &&
+          (parsedUser.name === 'Rishabh Kedia' || parsedUser.name === 'Rishabh')
+        ) {
+          parsedUser.name = 'CodeSchool Admin';
+          await storage.setItem(STORAGE_KEY_USER, JSON.stringify(parsedUser));
+        }
         setUser(parsedUser);
         setSessionToken(storedToken || 'token-restored');
         setIsLoading(false);
