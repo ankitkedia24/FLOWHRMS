@@ -79,7 +79,7 @@ const AFFIRMATIONS: AffirmationItem[] = [
  */
 export function ConsentModal({
   visible,
-  userName = 'Rishabh',
+  userName = 'User',
   onAgree,
   onDecline,
   onClose,

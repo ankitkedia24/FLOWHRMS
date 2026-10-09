@@ -79,7 +79,7 @@ export const DEMO_ACCOUNTS = {
     id: 'usr-admin-001',
     email: 'admin@flowacord.com',
     password: 'FlowHRMS2026!',
-    name: 'Rishabh Kedia',
+    name: 'CodeSchool Admin',
     role: 'Owner' as UserRole,
     employeeCode: 'EMP-0001',
     cluster: 'Jaipur Central Cluster',

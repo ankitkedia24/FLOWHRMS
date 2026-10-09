@@ -32,13 +32,16 @@ export default function MenuScreen() {
     );
   };
 
+  const resolvedUserName = user?.name || (user?.email ? user.email.split('@')[0] : 'User');
+  const resolvedWorkspace = user?.tenant?.name || 'FlowHRMS';
+
   return (
     <View style={styles.container}>
       <NavigationHub
-        userName={user?.name || 'Rishabh'}
+        userName={resolvedUserName}
         userRole={user?.role || 'Owner'}
         employeeCode={user?.employeeCode || 'EMP-0001'}
-        workspaceName={user?.tenant?.name || 'FX & Float Logistics'}
+        workspaceName={resolvedWorkspace}
         trialDaysLeft={26}
         onSignOut={handleSignOut}
         onConsentPress={() => setConsentVisible(true)}
@@ -46,7 +49,7 @@ export default function MenuScreen() {
 
       <ConsentModal
         visible={consentVisible}
-        userName={user?.name || 'Rishabh'}
+        userName={resolvedUserName}
         onAgree={() => setConsentVisible(false)}
         onDecline={() => setConsentVisible(false)}
         onClose={() => setConsentVisible(false)}

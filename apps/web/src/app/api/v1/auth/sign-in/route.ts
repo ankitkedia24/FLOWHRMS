@@ -84,15 +84,8 @@ export async function POST(req: NextRequest) {
         } else if (data.user) {
           console.log(`   ✅ Supabase auth SUCCESS — user: ${data.user.email} (${data.user.id})`);
           console.log(`   🎫 Session token: ${data.session?.access_token ? "present" : "missing"}`);
-          
-          // Check database for real tenant & role
-          let assignedRole = data.user.user_metadata?.role;
-          let tenantInfo = {
-            id: "19cc363d-f16f-4f4d-a6ea-102e336e24d9",
-            name: "Demo Trading Co.",
-            code: "DEMO",
-          };
 
+          let realProfile: any = null;
           try {
             const db = getDb();
             const dbUser = await db.user.findFirst({
@@ -110,49 +103,55 @@ export async function POST(req: NextRequest) {
               },
             });
 
-            // Find relevant membership (prioritize shared tenant or latest updated)
             const activeMembership =
-              dbUser?.memberships?.find(
-                (m) => m.tenantId === "19cc363d-f16f-4f4d-a6ea-102e336e24d9"
-              ) || dbUser?.memberships?.[0];
+              dbUser?.memberships?.find((m) => m.status === "ACTIVE") || dbUser?.memberships?.[0];
 
-            if (activeMembership) {
-              tenantInfo = {
-                id: activeMembership.tenant.id,
-                name: activeMembership.tenant.name,
-                code: activeMembership.tenant.slug?.toUpperCase() || "FLUX",
-              };
-              if (
-                activeMembership.role?.key === "OWNER" ||
-                activeMembership.role?.key === "ADMIN" ||
-                activeMembership.role?.key === "SUPER_ADMIN"
-              ) {
-                assignedRole = "Owner";
-              } else {
-                assignedRole = "Employee";
-              }
-            }
+            const isOwner =
+              activeMembership?.role?.key === "OWNER" ||
+              activeMembership?.role?.key === "ADMIN" ||
+              activeMembership?.role?.key === "SUPER_ADMIN" ||
+              email.toLowerCase().includes("admin") ||
+              email.toLowerCase().includes("codeschoolrp");
+
+            realProfile = {
+              id: dbUser?.id || data.user.id,
+              email: dbUser?.email || data.user.email,
+              name: dbUser?.displayName || data.user.user_metadata?.name || (isOwner ? "Admin" : email.split("@")[0]),
+              role: activeMembership?.role?.name || (isOwner ? "Owner" : "Employee"),
+              employeeCode: activeMembership?.employeeCode || (isOwner ? "ADM-001" : "EMP-001"),
+              tenant: activeMembership?.tenant
+                ? {
+                    id: activeMembership.tenant.id,
+                    name: activeMembership.tenant.name,
+                    code: activeMembership.tenant.slug?.toUpperCase() || "DEMO",
+                  }
+                : {
+                    id: "19cc363d-f16f-4f4d-a6ea-102e336e24d9",
+                    name: "Demo Trading Co.",
+                    code: "DEMO",
+                  },
+            };
           } catch (e) {
             console.warn("Could not query DB tenant on sign in:", e);
           }
 
-          if (!assignedRole) {
-            assignedRole = email.toLowerCase().includes("admin") ? "Owner" : "Employee";
-          }
-
           return NextResponse.json({
             ok: true,
-            user: {
+            user: realProfile || {
               id: data.user.id,
               email: data.user.email,
               name: data.user.user_metadata?.name ?? email.split("@")[0],
-              role: assignedRole,
+              role: email.toLowerCase().includes("admin") ? "Owner" : "Employee",
             },
             session: {
               accessToken: data.session?.access_token,
               expiresAt: data.session?.expires_at,
             },
-            tenant: tenantInfo,
+            tenant: realProfile?.tenant || {
+              id: "19cc363d-f16f-4f4d-a6ea-102e336e24d9",
+              name: "Demo Trading Co.",
+              code: "DEMO",
+            },
           });
         } else {
           console.log("   ⚠️  No error but no user returned — falling through");
@@ -175,24 +174,72 @@ export async function POST(req: NextRequest) {
     console.log(`   Dev environment:  ${isDev}`);
 
     if (isDemoOwner || isDemoField || isDev) {
+      // Query PostgreSQL to always return real database user records
+      let realProfile: any = null;
+      try {
+        const db = getDb();
+        const dbUser = await db.user.findFirst({
+          where: { email: { equals: email, mode: "insensitive" } },
+          include: {
+            memberships: {
+              include: { tenant: true, role: true },
+              orderBy: { updatedAt: "desc" },
+            },
+          },
+        });
+
+        const activeMembership =
+          dbUser?.memberships?.find((m) => m.status === "ACTIVE") || dbUser?.memberships?.[0];
+
+        const isOwner =
+          activeMembership?.role?.key === "OWNER" ||
+          activeMembership?.role?.key === "ADMIN" ||
+          activeMembership?.role?.key === "SUPER_ADMIN" ||
+          email.toLowerCase().includes("admin") ||
+          email.toLowerCase().includes("codeschoolrp");
+
+        realProfile = {
+          id: dbUser?.id || (isOwner ? "usr-admin-001" : "usr-field-0428"),
+          email: dbUser?.email || email,
+          name: dbUser?.displayName || (isOwner ? "Admin" : "Employee"),
+          role: activeMembership?.role?.name || (isOwner ? "Owner" : "Field Specialist"),
+          employeeCode: activeMembership?.employeeCode || (isOwner ? "ADM-001" : "EMP-0428"),
+          tenant: activeMembership?.tenant
+            ? {
+                id: activeMembership.tenant.id,
+                name: activeMembership.tenant.name,
+                code: activeMembership.tenant.slug?.toUpperCase() || "DEMO",
+                cluster: "Jaipur Central Cluster",
+              }
+            : {
+                id: "19cc363d-f16f-4f4d-a6ea-102e336e24d9",
+                name: "Demo Trading Co.",
+                code: "DEMO",
+                cluster: "Jaipur Central Cluster",
+              },
+        };
+      } catch (e) {
+        console.warn("Could not query DB on fallback:", e);
+      }
+
       const isOwner = email.toLowerCase().includes("admin") || email.toLowerCase().includes("codeschoolrp");
       const elapsed = Date.now() - startTime;
-      console.log(`   ✅ Dev fallback SUCCESS (${isOwner ? "Owner" : "Employee"}) in ${elapsed}ms`);
+      console.log(`   ✅ Dev fallback SUCCESS (${realProfile?.role || (isOwner ? "Owner" : "Employee")}) in ${elapsed}ms`);
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
       return NextResponse.json({
         ok: true,
-        user: {
+        user: realProfile || {
           id: isOwner ? "usr-admin-001" : "usr-field-0428",
           email,
-          name: isOwner ? "Rishabh Kedia" : "Ramesh Kumar",
+          name: isOwner ? "Admin" : "Employee",
           role: isOwner ? "Owner" : "Field Specialist",
-          employeeCode: isOwner ? "EMP-0001" : "EMP-0428",
+          employeeCode: isOwner ? "ADM-001" : "EMP-0428",
         },
         session: {
           accessToken: "mock-jwt-token-flowhrms",
           expiresAt: Date.now() + 86400000 * 30,
         },
-        tenant: {
+        tenant: realProfile?.tenant || {
           id: "19cc363d-f16f-4f4d-a6ea-102e336e24d9",
           name: "Demo Trading Co.",
           code: "DEMO",

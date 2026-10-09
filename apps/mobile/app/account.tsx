@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useToast } from '@/components/ui/Toast';
 import { featureService } from '@/lib/api-service';
+import { useAuth } from '@/lib/auth-context';
 import {
   ArrowLeft,
   User,
@@ -38,6 +39,7 @@ export default function AccountScreen() {
   const t = getTheme(colorScheme);
   const router = useRouter();
   const toast = useToast();
+  const { user, signOut } = useAuth();
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -90,7 +92,8 @@ export default function AccountScreen() {
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
+            await signOut();
             toast.info('Signed Out', 'Your session has ended.');
             router.replace('/login' as any);
           },
@@ -126,7 +129,7 @@ export default function AccountScreen() {
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <Text style={[styles.headerSubtitle, { color: t.colors.brandPrimary }]}>
-            FX & FLOAT • PROFILE
+            {(user?.tenant?.name || 'FLOWHRMS').toUpperCase()} • PROFILE
           </Text>
           <Text style={[styles.headerTitle, { color: t.colors.textPrimary }]}>
             Account
@@ -170,7 +173,7 @@ export default function AccountScreen() {
             <View style={[styles.infoRow, { borderBottomColor: t.colors.borderSubtle }]}>
               <Text style={[t.typography.body, { color: t.colors.textSecondary }]}>Email</Text>
               <Text style={[styles.infoVal, { color: t.colors.textPrimary }]}>
-                rishabh17704@gmail.com
+                {user?.email || 'Not available'}
               </Text>
             </View>
 
@@ -179,7 +182,9 @@ export default function AccountScreen() {
                 Signed in as
               </Text>
               <View style={styles.roleTagRow}>
-                <Text style={[styles.infoVal, { color: t.colors.textPrimary }]}>Rishabh</Text>
+                <Text style={[styles.infoVal, { color: t.colors.textPrimary }]}>
+                  {user?.name || user?.email?.split('@')[0] || 'User'}
+                </Text>
                 <View
                   style={[
                     styles.ownerBadge,
@@ -187,7 +192,7 @@ export default function AccountScreen() {
                   ]}
                 >
                   <Text style={[styles.ownerBadgeText, { color: t.colors.brandPrimary }]}>
-                    Owner
+                    {user?.role || 'Member'}
                   </Text>
                 </View>
               </View>

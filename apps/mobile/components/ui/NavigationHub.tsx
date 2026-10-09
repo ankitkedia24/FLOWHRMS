@@ -54,10 +54,10 @@ interface NavigationHubProps {
  * Provides access to the 10 Daily Operation modules and 10 Configurations & Administration tools.
  */
 export function NavigationHub({
-  userName = 'Rishabh',
+  userName = 'User',
   userRole = 'Owner',
   employeeCode = 'EMP-0001',
-  workspaceName = 'FX & Float Logistics',
+  workspaceName = 'FlowHRMS',
   trialDaysLeft = 26,
   onSignOut,
   onConsentPress,
