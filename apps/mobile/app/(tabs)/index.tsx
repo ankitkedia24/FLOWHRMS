@@ -232,6 +232,15 @@ export default function RoleResolvedDashboardScreen() {
 
   const organizationName = user?.tenant?.name || 'FlowHRMS';
   const firstName = user?.name ? user.name.split(' ')[0] : 'Colleague';
+  const adminInitials = user?.name
+    ? user.name
+        .split(' ')
+        .filter(Boolean)
+        .map((part) => part[0])
+        .join('')
+        .substring(0, 2)
+        .toUpperCase()
+    : 'AD';
 
   return (
     <View style={[styles.screen, { backgroundColor: t.colors.surfaceCanvasWarm }]}>
@@ -250,22 +259,55 @@ export default function RoleResolvedDashboardScreen() {
       >
         {isAdmin ? (
           /* =======================================================
-             ADMIN DASHBOARD (Breathable & Action-Oriented)
+             ADMIN DASHBOARD (Personalized & Action-Oriented)
              ======================================================= */
           <View style={styles.sectionStack}>
             {/* Admin Welcome Banner */}
             <View style={styles.adminWelcomeHeader}>
-              <View style={[styles.orgBadge, { backgroundColor: t.colors.brandPrimarySubtle }]}>
-                <Text style={[styles.orgBadgeText, { color: t.colors.brandPrimary }]}>
-                  {organizationName.toUpperCase()}
-                </Text>
+              <View style={styles.adminHeaderRow}>
+                <View style={styles.adminHeaderTextCol}>
+                  <View style={styles.adminEyebrowRow}>
+                    <View style={[styles.orgBadge, { backgroundColor: t.colors.brandPrimarySubtle }]}>
+                      <Text style={[styles.orgBadgeText, { color: t.colors.brandPrimary }]}>
+                        {organizationName.toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={[styles.roleBadge, { backgroundColor: t.colors.surfaceCanvas, borderColor: t.colors.borderDefault }]}>
+                      <Text style={[styles.roleBadgeText, { color: t.colors.brandPrimary }]}>
+                        {user?.role || 'Admin'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={[styles.adminGreeting, { color: t.colors.textSecondary }]}>
+                    Welcome back,
+                  </Text>
+                  <Text style={[styles.adminName, { color: t.colors.textPrimary }]} numberOfLines={1}>
+                    {user?.name || 'Administrator'}
+                  </Text>
+                  <Text style={[styles.adminSubtitle, { color: t.colors.textTertiary }]}>
+                    Real-time team presence, approvals & operations
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[
+                    styles.adminAvatarBox,
+                    {
+                      backgroundColor: t.colors.brandPrimarySubtle,
+                      borderColor: t.colors.brandPrimary,
+                    },
+                  ]}
+                  onPress={() => router.push('/(tabs)/profile')}
+                  activeOpacity={0.8}
+                  accessibilityLabel="View profile"
+                >
+                  <Text style={[styles.adminAvatarInitials, { color: t.colors.brandPrimary }]}>
+                    {adminInitials}
+                  </Text>
+                  <View style={styles.adminOnlineDot} />
+                </TouchableOpacity>
               </View>
-              <Text style={[styles.adminTitle, { color: t.colors.textPrimary }]}>
-                Admin Dashboard
-              </Text>
-              <Text style={[styles.adminSubtitle, { color: t.colors.textSecondary }]}>
-                Real-time team presence, approvals & operations
-              </Text>
             </View>
 
             {/* 1. Quick Pulse Cards */}
@@ -675,30 +717,91 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   adminWelcomeHeader: {
-    paddingBottom: 2,
+    paddingBottom: 4,
     marginBottom: 4,
+  },
+  adminHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  adminHeaderTextCol: {
+    flex: 1,
+    paddingRight: 14,
+  },
+  adminEyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
   },
   orgBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    marginBottom: 6,
   },
   orgBadgeText: {
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.8,
   },
-  adminTitle: {
+  roleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  roleBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  adminGreeting: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  adminName: {
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.4,
+    lineHeight: 28,
   },
   adminSubtitle: {
-    fontSize: 13,
-    marginTop: 2,
-    lineHeight: 18,
+    fontSize: 12,
+    marginTop: 3,
+    lineHeight: 16,
+  },
+  adminAvatarBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  adminAvatarInitials: {
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  adminOnlineDot: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   container: {
     flex: 1,
