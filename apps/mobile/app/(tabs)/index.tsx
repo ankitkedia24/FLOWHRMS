@@ -262,7 +262,7 @@ export default function RoleResolvedDashboardScreen() {
               {organizationName.toUpperCase()}
             </Text>
             <Text style={[styles.headerTitle, { color: t.colors.textPrimary }]}>
-              {isAdminView ? 'Operations' : 'Employee View'}
+              {isAdminView ? 'Admin Dashboard' : 'Employee View'}
             </Text>
           </View>
 

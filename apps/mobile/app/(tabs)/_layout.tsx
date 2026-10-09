@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, View, type ColorValue } from 'react-native';
+import { StyleSheet, View, Platform, type ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   LayoutDashboard,
   Clock,
@@ -8,16 +9,15 @@ import {
   CheckSquare,
   Menu,
   CalendarDays,
-  User,
 } from 'lucide-react-native';
 import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AppHeader } from '@/components/shell/AppHeader';
+import { useAuth } from '@/lib/auth-context';
 
 /**
- * Mobile Bottom Navigation (Stitch "Respectful Field Utility" 5-tab bar)
- * 5 primary navigation tabs: Dashboard, Attendance, Employees, Tasks, Menu.
- * Active = brand primary colour + 3px top indicator.
+ * Ultra-Sleek Icon-Only Tab Item (Instagram aesthetic)
+ * Clean, minimalist icon with responsive touch target and active indicator dot.
  */
 function TabIcon({
   Icon,
@@ -33,50 +33,63 @@ function TabIcon({
 
   return (
     <View style={styles.tabItem}>
+      <View
+        style={[
+          styles.iconWrap,
+          focused && {
+            backgroundColor: t.colors.brandPrimarySubtle,
+          },
+        ]}
+      >
+        <Icon
+          size={23}
+          color={focused ? t.colors.brandPrimary : (color as string)}
+          strokeWidth={focused ? 2.5 : 1.8}
+        />
+      </View>
       {focused && (
         <View
           style={[
-            styles.topIndicator,
+            styles.activeDot,
             { backgroundColor: t.colors.brandPrimary },
           ]}
         />
       )}
-      <Icon size={21} color={color as string} strokeWidth={focused ? 2.5 : 2} />
     </View>
   );
 }
 
-import { useAuth } from '@/lib/auth-context';
-import { EmployeeTopBar } from '@/components/shell/EmployeeTopBar';
-
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
-  const { user, isAdmin } = useAuth();
+  const insets = useSafeAreaInsets();
+  const { isAdmin } = useAuth();
+
+  const bottomInset = insets.bottom > 0 ? insets.bottom : 8;
+  const barHeight = 56 + bottomInset;
 
   return (
     <Tabs
       screenOptions={{
+        tabBarShowLabel: false,
         tabBarActiveTintColor: t.colors.brandPrimary,
         tabBarInactiveTintColor: t.colors.textTertiary,
         tabBarStyle: {
           backgroundColor: t.colors.surfaceDefault,
-          borderTopColor: t.colors.borderDefault,
-          borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 0,
-          elevation: 0,
-          shadowOpacity: 0,
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
+          borderTopColor: t.colors.borderSubtle,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          height: barHeight,
+          paddingBottom: bottomInset,
+          paddingTop: 6,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
         },
         headerShadowVisible: false,
         header: () => <AppHeader />,
       }}
-
     >
       {/* 1. Admin Dashboard OR Employee Home */}
       <Tabs.Screen
@@ -165,14 +178,19 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     position: 'relative',
-    paddingTop: 6,
   },
-  topIndicator: {
+  iconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeDot: {
     position: 'absolute',
-    top: 0,
-    width: 36,
-    height: 3,
-    borderBottomLeftRadius: 3,
-    borderBottomRightRadius: 3,
+    bottom: 1,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
 });
