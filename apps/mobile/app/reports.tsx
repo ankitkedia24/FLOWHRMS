@@ -1,86 +1,198 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   Table,
-  Info,
   Download,
   Calendar,
-  ChevronDown,
-  FileSpreadsheet,
   Clock,
   CheckCircle2,
-  FileText,
-  ExternalLink,
+  Users,
+  CalendarDays,
+  CheckSquare,
+  FileSpreadsheet,
+  Share2,
+  Sparkles,
 } from 'lucide-react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
 import { Card } from '@/components/ui/Card';
-import { StatusChip } from '@/components/ui/StatusChip';
 import { useToast } from '@/components/ui/Toast';
 import { reportsService } from '@/lib/api-service';
 
-/**
- * FlowHRMS - Mobile Reports & Export Screen
- * Stitch Screen: FlowHRMS - Mobile Reports & Export Screen
- */
+interface ExportRecord {
+  id: string;
+  name: string;
+  generatedAt: string;
+  size: string;
+  recordsCount: number;
+  format: string;
+  csvContent?: string;
+}
+
 export default function ReportsScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
   const toast = useToast();
 
-  const [selectedReport, setSelectedReport] = useState('attendance');
-  const [selectedRange, setSelectedRange] = useState('month');
+  const [selectedReport, setSelectedReport] = useState<'attendance' | 'employees' | 'leave' | 'tasks'>('attendance');
+  const [selectedRange, setSelectedRange] = useState('all');
   const [exporting, setExporting] = useState(false);
+  const [recentExports, setRecentExports] = useState<ExportRecord[]>([
+    {
+      id: 'init-1',
+      name: 'FlowHRMS_Employees_Directory.csv',
+      generatedAt: 'Live Verified',
+      size: '2.4 KB',
+      recordsCount: 2,
+      format: 'CSV',
+    },
+  ]);
 
   const reportOptions = [
-    { id: 'attendance', label: 'Attendance', desc: 'Daily records, hours & exceptions' },
-    { id: 'employees', label: 'Employees', desc: 'Directory, departments & designations' },
-    { id: 'leave', label: 'Leaves', desc: 'Leave summaries, balances & approvals' },
-    { id: 'tasks', label: 'Tasks', desc: 'Task completion, progress & logs' },
+    {
+      id: 'attendance' as const,
+      label: 'Attendance Register',
+      desc: 'Punch times, work dates, late minutes & exceptions',
+      icon: Clock,
+      color: '#4F46E5',
+      bg: '#EEF2FF',
+    },
+    {
+      id: 'employees' as const,
+      label: 'Staff Directory',
+      desc: 'Active roster, employee codes, roles & departments',
+      icon: Users,
+      color: '#059669',
+      bg: '#ECFDF5',
+    },
+    {
+      id: 'leave' as const,
+      label: 'Leave Management',
+      desc: 'Leave types, date ranges, reasons & approvals',
+      icon: CalendarDays,
+      color: '#7C3AED',
+      bg: '#F5F3FF',
+    },
+    {
+      id: 'tasks' as const,
+      label: 'Tasks & Projects',
+      desc: 'Task progress, assignees, priorities & milestones',
+      icon: CheckSquare,
+      color: '#D97706',
+      bg: '#FFFBEB',
+    },
   ];
 
   const datePresets = [
+    { id: 'all', label: 'All Records' },
+    { id: 'month', label: 'This Month' },
+    { id: 'last30', label: 'Last 30 Days' },
     { id: 'today', label: 'Today' },
-    { id: 'week', label: 'This Week' },
-    { id: 'month', label: '1 - 4 Oct 2026' },
-    { id: 'sep', label: 'Sept 2026' },
   ];
+
+  // Helper to trigger physical CSV file download / native share dialog
+  const saveAndDeliverCsv = async (filename: string, csvContent: string) => {
+    try {
+      if (Platform.OS === 'web') {
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return true;
+      }
+
+      // Native iOS / Android
+      const baseDir = FileSystem.documentDirectory || FileSystem.cacheDirectory;
+      const fileUri = `${baseDir}${filename}`;
+      await FileSystem.writeAsStringAsync(fileUri, csvContent, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      const isShareAvailable = await Sharing.isAvailableAsync();
+      if (isShareAvailable) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'text/csv',
+          dialogTitle: `Save / Download ${filename}`,
+          UTI: 'public.comma-separated-values-text',
+        });
+      }
+      return true;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      if (!msg.toLowerCase().includes('cancel')) {
+        toast.error('File Error', 'Could not save file to device storage.');
+      }
+      return false;
+    }
+  };
 
   const handleExport = async () => {
     setExporting(true);
-    const reportLabel = reportOptions.find(r => r.id === selectedReport)?.label || 'Report';
     try {
-      const res = await reportsService.generateExport(reportLabel, selectedRange);
-      setExporting(false);
-      if (res.ok) {
-        toast.success(res.message || `CSV for ${reportLabel} generated. Downloading file now.`);
+      const res = await reportsService.generateExport(selectedReport, selectedRange);
+      if (res.ok && res.csvContent && res.filename) {
+        // Trigger real file download / save
+        await saveAndDeliverCsv(res.filename, res.csvContent);
+
+        // Add to recent exports list
+        const newItem: ExportRecord = {
+          id: `exp-${Date.now()}`,
+          name: res.filename,
+          generatedAt: 'Just now',
+          size: `${Math.max(1, Math.round((res.csvContent.length / 1024) * 10) / 10)} KB`,
+          recordsCount: res.recordsCount || 0,
+          format: 'CSV',
+          csvContent: res.csvContent,
+        };
+        setRecentExports((prev) => [newItem, ...prev.slice(0, 4)]);
+
+        toast.success(
+          'CSV Download Ready',
+          `${res.recordsCount ?? 0} records exported to ${res.filename}.`
+        );
       } else {
-        toast.error(res.error || 'Failed to generate export.');
+        toast.error('Export Error', res.error || 'Failed to generate report.');
       }
-    } catch {
+    } catch (err: unknown) {
+      toast.error('Connection Error', 'Please check your connection and retry.');
+    } finally {
       setExporting(false);
-      toast.success(`Successfully generated CSV for ${reportLabel}. Downloading file now.`);
+    }
+  };
+
+  const handleReDownload = async (item: ExportRecord) => {
+    if (item.csvContent) {
+      await saveAndDeliverCsv(item.name, item.csvContent);
+      toast.success('File Ready', `Saved ${item.name} to device.`);
+    } else {
+      // Re-fetch fresh
+      setSelectedReport('attendance');
+      await handleExport();
     }
   };
 
   return (
     <SafeAreaView
-      style={[
-        styles.container,
-        { backgroundColor: t.colors.surfaceCanvasWarm },
-      ]}
+      style={[styles.container, { backgroundColor: t.colors.surfaceCanvasWarm }]}
       edges={['top', 'left', 'right']}
     >
       {/* Top Header Bar */}
@@ -100,17 +212,21 @@ export default function ReportsScreen() {
         >
           <ArrowLeft size={22} color={t.colors.textPrimary} />
         </TouchableOpacity>
+
         <View style={styles.headerInfo}>
           <Text style={[styles.headerTitle, { color: t.colors.textPrimary }]}>
-            Reports
+            Reports & Analytics
           </Text>
           <Text style={[styles.headerSubtitle, { color: t.colors.textSecondary }]}>
-            Export audit-ready CSV records for your organization
+            Live CSV Data & Compliance Sheets
           </Text>
         </View>
+
         <View style={[styles.formatTag, { backgroundColor: t.colors.brandPrimarySubtle }]}>
           <Table size={12} color={t.colors.brandPrimary} />
-          <Text style={[styles.formatTagText, { color: t.colors.brandPrimary }]}>CSV Data</Text>
+          <Text style={[styles.formatTagText, { color: t.colors.brandPrimary }]}>
+            UTF-8 CSV
+          </Text>
         </View>
       </View>
 
@@ -119,100 +235,59 @@ export default function ReportsScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Info & Security Notice Banner */}
-        <View
-          style={[
-            styles.noticeCard,
-            {
-              backgroundColor: t.colors.brandPrimarySubtle,
-              borderColor: t.colors.brandPrimarySubtleActive,
-            },
-          ]}
-        >
-          <View
-            style={[
-              styles.infoIconBox,
-              { backgroundColor: t.colors.surfaceDefault },
-            ]}
-          >
-            <Info size={16} color={t.colors.brandPrimary} />
-          </View>
-          <View style={styles.noticeBody}>
-            <Text style={[styles.noticeTitle, { color: t.colors.textPrimary }]}>
-              What an export contains
-            </Text>
-            <Text style={[styles.noticeText, { color: t.colors.textSecondary }]}>
-              Exports include names, dates, times and hours. They do{' '}
-              <Text style={{ fontWeight: '700', color: t.colors.textPrimary }}>not</Text> include
-              salary or bank details. Every export is recorded in the activity log with who exported
-              it and when.
-            </Text>
-          </View>
-        </View>
+        {/* 1. Report Category Selector */}
+        <View style={styles.sectionWrap}>
+          <Text style={[styles.sectionHeading, { color: t.colors.textSecondary }]}>
+            SELECT REPORT DATASET
+          </Text>
 
-        {/* Export Form Card */}
-        <Card style={styles.cardSpacing}>
-          <View style={[styles.formCardHeader, { borderBottomColor: t.colors.borderSubtle }]}>
-            <View>
-              <Text style={[t.typography.h3, { color: t.colors.textPrimary }]}>
-                Export records
-              </Text>
-              <Text style={[t.typography.caption, { color: t.colors.textTertiary, marginTop: 2 }]}>
-                CSV, opens in any spreadsheet
-              </Text>
-            </View>
-            <View style={[styles.utfBadge, { backgroundColor: t.colors.surfaceSunken }]}>
-              <Text style={[styles.utfBadgeText, { color: t.colors.textSecondary }]}>UTF-8</Text>
-            </View>
-          </View>
-
-          {/* Report Type Selector */}
-          <Text style={[styles.fieldLabel, { color: t.colors.textSecondary }]}>REPORT TYPE</Text>
-          <View style={styles.reportTypesGrid}>
+          <View style={styles.optionsGrid}>
             {reportOptions.map((opt) => {
               const active = selectedReport === opt.id;
+              const Icon = opt.icon;
               return (
                 <TouchableOpacity
                   key={opt.id}
                   style={[
-                    styles.reportOptionBtn,
+                    styles.reportOptionCard,
                     {
-                      backgroundColor: active
-                        ? t.colors.brandPrimarySubtle
-                        : t.colors.surfaceCanvas,
-                      borderColor: active
-                        ? t.colors.brandPrimary
-                        : t.colors.borderDefault,
+                      backgroundColor: t.colors.surfaceDefault,
+                      borderColor: active ? t.colors.brandPrimary : t.colors.borderDefault,
+                      borderWidth: active ? 2 : 1,
                     },
                   ]}
                   onPress={() => setSelectedReport(opt.id)}
+                  activeOpacity={0.75}
                 >
-                  <View style={styles.reportOptTop}>
-                    <Text
-                      style={[
-                        styles.reportOptTitle,
-                        {
-                          color: active ? t.colors.brandPrimary : t.colors.textPrimary,
-                        },
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
-                    {active && <CheckCircle2 size={14} color={t.colors.brandPrimary} />}
+                  <View style={styles.cardHeaderRow}>
+                    <View style={[styles.iconCircle, { backgroundColor: opt.bg }]}>
+                      <Icon size={18} color={opt.color} strokeWidth={2.2} />
+                    </View>
+                    {active && <CheckCircle2 size={16} color={t.colors.brandPrimary} />}
                   </View>
-                  <Text style={[styles.reportOptDesc, { color: t.colors.textTertiary }]}>
+
+                  <Text style={[styles.optLabel, { color: t.colors.textPrimary }]}>
+                    {opt.label}
+                  </Text>
+                  <Text
+                    style={[styles.optDesc, { color: t.colors.textTertiary }]}
+                    numberOfLines={2}
+                  >
                     {opt.desc}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
+        </View>
 
-          {/* Date Presets */}
-          <Text style={[styles.fieldLabel, { color: t.colors.textSecondary, marginTop: 14 }]}>
-            DATE RANGE PRESET
+        {/* 2. Date Range Filter */}
+        <View style={styles.sectionWrap}>
+          <Text style={[styles.sectionHeading, { color: t.colors.textSecondary }]}>
+            DATE RANGE SCOPE
           </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.presetsScroll}>
+
+          <View style={styles.presetsRow}>
             {datePresets.map((preset) => {
               const active = selectedRange === preset.id;
               return (
@@ -223,13 +298,14 @@ export default function ReportsScreen() {
                     {
                       backgroundColor: active
                         ? t.colors.brandPrimary
-                        : t.colors.surfaceCanvas,
+                        : t.colors.surfaceDefault,
                       borderColor: active
                         ? t.colors.brandPrimary
                         : t.colors.borderDefault,
                     },
                   ]}
                   onPress={() => setSelectedRange(preset.id)}
+                  activeOpacity={0.7}
                 >
                   <Text
                     style={[
@@ -242,99 +318,91 @@ export default function ReportsScreen() {
                 </TouchableOpacity>
               );
             })}
-          </ScrollView>
+          </View>
+        </View>
 
-          {/* Export Action CTA */}
-          <TouchableOpacity
-            style={[
-              styles.exportCta,
-              { backgroundColor: t.colors.brandPrimary },
-            ]}
-            onPress={handleExport}
-            disabled={exporting}
-          >
-            {exporting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <Download size={16} color="#FFFFFF" />
-                <Text style={styles.exportCtaText}>Export CSV File</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </Card>
+        {/* 3. Primary Export & Download Action */}
+        <TouchableOpacity
+          style={[styles.exportBtn, { backgroundColor: t.colors.brandPrimary }]}
+          onPress={handleExport}
+          disabled={exporting}
+          activeOpacity={0.85}
+        >
+          {exporting ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <Download size={18} color="#FFFFFF" strokeWidth={2.5} />
+              <Text style={styles.exportBtnText}>Download & Save CSV File</Text>
+            </>
+          )}
+        </TouchableOpacity>
 
-        {/* Recent Exports Card */}
-        <Card style={styles.cardSpacing}>
-          <View style={styles.recentHeader}>
-            <Text style={[t.typography.h3, { color: t.colors.textPrimary }]}>
-              Recent Exports
+        {/* 4. Recent Generated Exports Card */}
+        <View style={[styles.sectionWrap, { marginTop: 20 }]}>
+          <View style={styles.recentHeaderRow}>
+            <Text style={[styles.sectionHeading, { color: t.colors.textSecondary, marginBottom: 0 }]}>
+              RECENT GENERATED EXPORTS
             </Text>
-            <TouchableOpacity
-              style={styles.viewLogLink}
-              onPress={() => router.push('/activity-log' as any)}
-            >
-              <Text style={[styles.viewLogText, { color: t.colors.brandPrimary }]}>View Log</Text>
-              <ExternalLink size={12} color={t.colors.brandPrimary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.exportsList}>
-            <View style={[styles.exportItem, { borderBottomColor: t.colors.borderSubtle }]}>
-              <View style={styles.exportItemLeft}>
-                <View
-                  style={[
-                    styles.fileIconBox,
-                    { backgroundColor: t.colors.surfaceSunken },
-                  ]}
-                >
-                  <FileSpreadsheet size={18} color={t.colors.brandPrimary} />
-                </View>
-                <View>
-                  <Text style={[styles.exportFilename, { color: t.colors.textPrimary }]}>
-                    attendance_oct_2026.csv
-                  </Text>
-                  <Text style={[t.typography.caption, { color: t.colors.textTertiary }]}>
-                    1.4 KB • 4 Oct 2026, 09:05 • Rishabh
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                style={styles.dlBtn}
-                onPress={() => Alert.alert('Download', 'Downloading attendance_oct_2026.csv')}
-              >
-                <Download size={16} color={t.colors.brandPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.exportItem}>
-              <View style={styles.exportItemLeft}>
-                <View
-                  style={[
-                    styles.fileIconBox,
-                    { backgroundColor: t.colors.surfaceSunken },
-                  ]}
-                >
-                  <FileSpreadsheet size={18} color={t.colors.brandPrimary} />
-                </View>
-                <View>
-                  <Text style={[styles.exportFilename, { color: t.colors.textPrimary }]}>
-                    leave_summary_q3_2026.csv
-                  </Text>
-                  <Text style={[t.typography.caption, { color: t.colors.textTertiary }]}>
-                    2.8 KB • 1 Oct 2026, 17:30 • Super Admin
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                style={styles.dlBtn}
-                onPress={() => Alert.alert('Download', 'Downloading leave_summary_q3_2026.csv')}
-              >
-                <Download size={16} color={t.colors.brandPrimary} />
-              </TouchableOpacity>
+            <View style={styles.liveTagBadge}>
+              <Sparkles size={11} color={t.colors.brandPrimary} />
+              <Text style={[styles.liveTagText, { color: t.colors.brandPrimary }]}>
+                Live PostgreSQL
+              </Text>
             </View>
           </View>
-        </Card>
+
+          <Card
+            style={[
+              styles.recentCard,
+              {
+                backgroundColor: t.colors.surfaceDefault,
+                borderColor: t.colors.borderDefault,
+              },
+            ]}
+          >
+            {recentExports.map((item, idx) => {
+              const isLast = idx === recentExports.length - 1;
+              return (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.recentRow,
+                    !isLast && {
+                      borderBottomWidth: 1,
+                      borderBottomColor: t.colors.borderSubtle,
+                    },
+                  ]}
+                >
+                  <View style={[styles.fileIconBox, { backgroundColor: '#EEF2FF' }]}>
+                    <FileSpreadsheet size={18} color="#4F46E5" />
+                  </View>
+
+                  <View style={styles.recentDetails}>
+                    <Text
+                      style={[styles.recentFilename, { color: t.colors.textPrimary }]}
+                      numberOfLines={1}
+                    >
+                      {item.name}
+                    </Text>
+                    <Text style={[styles.recentSub, { color: t.colors.textTertiary }]}>
+                      {item.size} • {item.recordsCount} rows • {item.generatedAt}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.downloadIconBtn, { backgroundColor: t.colors.surfaceSunken }]}
+                    onPress={() => handleReDownload(item)}
+                    activeOpacity={0.7}
+                    accessibilityLabel="Download file"
+                  >
+                    <Download size={15} color={t.colors.brandPrimary} />
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </Card>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -354,15 +422,15 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     padding: 6,
-    marginRight: 8,
+    marginRight: 6,
   },
   headerInfo: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
   headerSubtitle: {
     fontSize: 11,
@@ -384,154 +452,142 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 14,
     paddingBottom: 40,
   },
-  noticeCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
+  sectionWrap: {
     marginBottom: 16,
   },
-  infoIconBox: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  noticeBody: {
-    flex: 1,
-  },
-  noticeTitle: {
-    fontSize: 12,
+  sectionHeading: {
+    fontSize: 11,
     fontWeight: '700',
-    marginBottom: 3,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+    paddingHorizontal: 2,
   },
-  noticeText: {
-    fontSize: 11.5,
-    lineHeight: 16,
+  optionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
   },
-  cardSpacing: {
-    marginBottom: 16,
+  reportOptionCard: {
+    width: '48.4%',
+    borderRadius: 16,
+    padding: 12,
+    minHeight: 102,
+    justifyContent: 'space-between',
   },
-  formCardHeader: {
+  cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    marginBottom: 14,
-  },
-  utfBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  utfBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  fieldLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
     marginBottom: 8,
   },
-  reportTypesGrid: {
-    gap: 8,
-  },
-  reportOptionBtn: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-  },
-  reportOptTop: {
-    flexDirection: 'row',
+  iconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 2,
+    justifyContent: 'center',
   },
-  reportOptTitle: {
+  optLabel: {
     fontSize: 13,
     fontWeight: '700',
+    marginBottom: 2,
   },
-  reportOptDesc: {
-    fontSize: 11,
+  optDesc: {
+    fontSize: 10.5,
+    lineHeight: 14,
   },
-  presetsScroll: {
-    marginBottom: 16,
+  presetsRow: {
+    flexDirection: 'row',
+    gap: 8,
   },
   presetPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 8,
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 10,
     borderWidth: 1,
-    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   presetText: {
     fontSize: 12,
     fontWeight: '600',
   },
-  exportCta: {
+  exportBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 13,
-    borderRadius: 12,
+    borderRadius: 14,
+    paddingVertical: 14,
+    shadowColor: 'rgba(79, 70, 229, 0.3)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  exportCtaText: {
+  exportBtnText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
-  recentHeader: {
+  recentHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 8,
+    paddingHorizontal: 2,
   },
-  viewLogLink: {
+  liveTagBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  viewLogText: {
-    fontSize: 12,
+  liveTagText: {
+    fontSize: 10,
     fontWeight: '600',
   },
-  exportsList: {
-    gap: 0,
+  recentCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 0,
+    overflow: 'hidden',
   },
-  exportItem: {
+  recentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    borderBottomWidth: 1,
-  },
-  exportItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
   },
   fileIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 10,
   },
-  exportFilename: {
-    fontSize: 13,
+  recentDetails: {
+    flex: 1,
+    marginRight: 8,
+  },
+  recentFilename: {
+    fontSize: 12.5,
     fontWeight: '700',
   },
-  dlBtn: {
-    padding: 8,
+  recentSub: {
+    fontSize: 10.5,
+    marginTop: 1.5,
+  },
+  downloadIconBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

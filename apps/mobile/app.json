@@ -59,7 +59,8 @@
         {
           "photosPermission": "FlowHRMS needs access to your photos to upload receipts and documentation."
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true

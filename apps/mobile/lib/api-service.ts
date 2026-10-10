@@ -281,10 +281,10 @@ export const payrollService = {
 
 // 8. Reports & Daily Pulse Service
 export const reportsService = {
-  async getDailyPulse() {
+  async getDailyPulse(date?: string) {
     const res = await apiClient<any>('/reports', {
       method: 'GET',
-      params: { type: 'daily' },
+      params: { type: 'daily', ...(date ? { date } : {}) },
     });
     return res.data?.data ?? null;
   },
@@ -305,13 +305,21 @@ export const reportsService = {
     return res.data?.data?.recentExports ?? [];
   },
 
-  async generateExport(reportType: string, dateRange: string) {
+  async generateExport(reportType: string, dateRange?: string) {
     const res = await apiClient<any>('/reports', {
       method: 'POST',
       body: JSON.stringify({ reportType, dateRange }),
     });
     if (res.data?.ok) {
-      return { ok: true, success: true, message: res.data.message, exportItem: res.data.exportItem };
+      return {
+        ok: true,
+        success: true,
+        message: res.data.message,
+        filename: res.data.filename,
+        csvContent: res.data.csvContent,
+        recordsCount: res.data.recordsCount,
+        exportItem: res.data.exportItem,
+      };
     }
     return { ok: false, success: false, error: res.error || 'Export generation failed' };
   },

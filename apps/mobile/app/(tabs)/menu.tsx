@@ -5,12 +5,17 @@ import { NavigationHub } from '@/components/ui/NavigationHub';
 import { ConsentModal } from '@/components/ui/ConsentModal';
 import { useAuth } from '@/lib/auth-context';
 
+import { getTheme } from '@/constants/Theme';
+import { useColorScheme } from '@/components/useColorScheme';
+
 /**
  * Menu Tab Screen (Main Navigation - Drawer / Hub)
  * Mounts the NavigationHub component with role-aware context.
  */
 export default function MenuScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const t = getTheme(colorScheme);
   const { user, signOut } = useAuth();
   const [consentVisible, setConsentVisible] = useState(false);
 
@@ -36,7 +41,7 @@ export default function MenuScreen() {
   const resolvedWorkspace = user?.tenant?.name || 'FlowHRMS';
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: t.colors.surfaceCanvasWarm }]}>
       <NavigationHub
         userName={resolvedUserName}
         userRole={user?.role || 'Owner'}
