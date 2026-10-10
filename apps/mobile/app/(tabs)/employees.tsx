@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,7 +7,11 @@ import {
   TextInput,
   TouchableOpacity,
   Switch,
-  Alert,
+  ActivityIndicator,
+  RefreshControl,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -17,270 +21,533 @@ import {
   Share2,
   ChevronRight,
   Users,
+  X,
+  Mail,
+  Phone,
+  Briefcase,
+  Building,
 } from 'lucide-react-native';
 import { getTheme } from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
 import { EmployeeCard, EmployeeData } from '@/components/ui/EmployeeCard';
 import { useToast } from '@/components/ui/Toast';
 import { employeesService } from '@/lib/api-service';
+import { useAuth } from '@/lib/auth-context';
 
-const INITIAL_EMPLOYEES: EmployeeData[] = [
-  {
-    id: '1',
-    name: 'Manas Mody',
-    role: 'Owner',
-    phone: '+917829910939',
-    status: 'active',
-    location: 'Jaipur Central Warehouse',
-    attendanceStatus: 'not_recorded',
-    initials: 'MM',
-  },
-  {
-    id: '2',
-    name: 'Rishabh',
-    code: 'EMP-0001',
-    role: 'Owner',
-    email: 'rishabh17704@gmail.com',
-    status: 'active',
-    location: 'Works across locations',
-    attendanceStatus: 'not_recorded',
-    initials: 'R',
-  },
-];
-
-/**
- * Mobile Employees Screen
- * Exact implementation of Stitch "FlowHRMS - Mobile Employees Screen".
- * Features search & filter, ID card printing CTA, Add Employee CTA, employee cards, and invite helper.
- */
 export default function EmployeesScreen() {
   const colorScheme = useColorScheme();
   const t = getTheme(colorScheme);
   const router = useRouter();
   const toast = useToast();
+  const { user } = useAuth();
 
-  const [employees, setEmployees] = useState<EmployeeData[]>(INITIAL_EMPLOYEES);
+  const [employees, setEmployees] = useState<EmployeeData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [includeLeft, setIncludeLeft] = useState(false);
 
-  useEffect(() => {
-    employeesService.getEmployees().then((res) => {
-      if (res.success && res.data?.employees) {
-        // optionally update list
-      }
-    }).catch(() => {});
-  }, []);
+  // Add Employee Modal Form State
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formName, setFormName] = useState('');
+  const [formEmail, setFormEmail] = useState('');
+  const [formPhone, setFormPhone] = useState('');
+  const [formDesignation, setFormDesignation] = useState('');
+  const [formDepartment, setFormDepartment] = useState('Operations');
+  const [formRole, setFormRole] = useState<'Employee' | 'Admin'>('Employee');
 
-  const handleAddEmployee = async () => {
+  const loadEmployees = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setIsLoading(true);
+
+    try {
+      const res = await employeesService.getEmployees(includeLeft);
+      if (res.success && Array.isArray(res.data?.employees)) {
+        setEmployees(res.data.employees);
+      }
+    } catch {
+      toast.error('Connection Error', 'Could not load staff directory.');
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  }, [includeLeft, toast]);
+
+  useEffect(() => {
+    loadEmployees();
+  }, [loadEmployees]);
+
+  const handleRefresh = () => {
+    loadEmployees(true);
+  };
+
+  const handleAddEmployeeSubmit = async () => {
+    if (!formName.trim()) {
+      toast.error('Required Field', 'Please enter employee name.');
+      return;
+    }
+    if (!formEmail.trim() || !formEmail.includes('@')) {
+      toast.error('Invalid Email', 'Please enter a valid work email address.');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       const res = await employeesService.inviteEmployee({
-        name: 'Arjun Verma',
-        email: 'arjun.v@fxfloat.com',
-        phone: '+919988776655',
-        role: 'Field Supervisor',
+        name: formName.trim(),
+        email: formEmail.trim().toLowerCase(),
+        phone: formPhone.trim(),
+        designation: formDesignation.trim() || 'Field Specialist',
+        department: formDepartment.trim() || 'Operations',
+        role: formRole,
       });
 
       if (res.success) {
-        const newEmp: EmployeeData = res.data?.employee || {
-          id: String(Date.now()),
-          name: 'Arjun Verma',
-          role: 'Field Supervisor',
-          phone: '+919988776655',
-          status: 'active',
-          location: 'Delhi NCR Hub',
-          attendanceStatus: 'not_recorded',
-          initials: 'AV',
-        };
-        setEmployees((prev) => [newEmp, ...prev]);
         toast.success(
-          'Employee Invited',
-          'Invite link & temporary passcode sent via SMS and Email.'
+          'Employee Added',
+          `${formName} added to directory. Login invitation generated.`
         );
+        setIsAddModalOpen(false);
+        setFormName('');
+        setFormEmail('');
+        setFormPhone('');
+        setFormDesignation('');
+        // Reload list directly from PostgreSQL
+        await loadEmployees(true);
       } else {
-        toast.error('Invite Failed', res.error || 'Could not send employee invitation.');
+        toast.error('Failed to Add', res.error || 'Could not add team member.');
       }
     } catch {
-      toast.error('Network Error', 'Check your connection to server.');
+      toast.error('Network Error', 'Please check your connection and retry.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleShareInvite = () => {
+    const slug = user?.tenant?.code?.toLowerCase() || 'demo';
     toast.success(
       'Invite Link Copied',
-      'Joining link copied: https://flowhrms.in/join/fx-float'
+      `Joining link copied: https://flowhrms.in/join/${slug}`
     );
   };
 
-  const filteredEmployees = employees.filter(
-    (emp) =>
-      emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (emp.phone && emp.phone.includes(searchQuery)) ||
-      (emp.email && emp.email.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredEmployees = employees.filter((emp) => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return true;
+    return (
+      (emp.name && emp.name.toLowerCase().includes(query)) ||
+      (emp.phone && emp.phone.includes(query)) ||
+      (emp.email && emp.email.toLowerCase().includes(query)) ||
+      (emp.code && emp.code.toLowerCase().includes(query)) ||
+      (emp.role && emp.role.toLowerCase().includes(query))
+    );
+  });
 
   return (
-    <ScrollView
-      style={[
-        styles.container,
-        { backgroundColor: t.colors.surfaceCanvasWarm },
-      ]}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Title & Top Action Row */}
-      <View style={styles.titleRow}>
-        <View>
-          <Text style={[styles.heading, { color: t.colors.brandNavy }]}>
-            Employees
-          </Text>
-          <Text style={[styles.subheading, { color: t.colors.textSecondary }]}>
-            Manage directory & permissions
-          </Text>
+    <View style={[styles.container, { backgroundColor: t.colors.surfaceCanvasWarm }]}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={t.colors.brandPrimary}
+            colors={[t.colors.brandPrimary]}
+          />
+        }
+      >
+        {/* Title & Top Action Row */}
+        <View style={styles.titleRow}>
+          <View>
+            <Text style={[styles.heading, { color: t.colors.brandNavy }]}>
+              Employees
+            </Text>
+            <Text style={[styles.subheading, { color: t.colors.textSecondary }]}>
+              Live organization directory & presence
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.printButton,
+              {
+                backgroundColor: t.colors.surfaceDefault,
+                borderColor: t.colors.borderDefault,
+              },
+            ]}
+            activeOpacity={0.7}
+            onPress={() => router.push('/id-card' as any)}
+          >
+            <Printer size={14} color={t.colors.textSecondary} />
+            <Text style={[styles.printButtonText, { color: t.colors.textPrimary }]}>
+              Print ID cards
+            </Text>
+          </TouchableOpacity>
         </View>
 
+        {/* Add Employee Primary CTA */}
         <TouchableOpacity
           style={[
-            styles.printButton,
+            styles.addEmployeeBtn,
+            { backgroundColor: t.colors.brandPrimary },
+          ]}
+          activeOpacity={0.85}
+          onPress={() => setIsAddModalOpen(true)}
+        >
+          <UserPlus size={16} color="#FFFFFF" strokeWidth={2.5} />
+          <Text style={styles.addEmployeeBtnText}>Add employee</Text>
+        </TouchableOpacity>
+
+        {/* Search & Filter Card */}
+        <View
+          style={[
+            styles.filterCard,
             {
               backgroundColor: t.colors.surfaceDefault,
               borderColor: t.colors.borderDefault,
             },
           ]}
-          activeOpacity={0.7}
-          onPress={() => router.push('/id-card' as any)}
         >
-          <Printer size={14} color={t.colors.textSecondary} />
-          <Text
-            style={[styles.printButtonText, { color: t.colors.textPrimary }]}
-          >
-            Print ID cards
+          <Text style={[styles.searchLabel, { color: t.colors.textPrimary }]}>
+            Search Directory
           </Text>
-        </TouchableOpacity>
-      </View>
+          <View
+            style={[
+              styles.searchInputWrap,
+              {
+                backgroundColor: t.colors.surfaceSunken,
+                borderColor: t.colors.borderDefault,
+              },
+            ]}
+          >
+            <Search size={16} color={t.colors.textTertiary} />
+            <TextInput
+              style={[styles.searchInput, { color: t.colors.textPrimary }]}
+              placeholder="Search by name, phone, code or email..."
+              placeholderTextColor={t.colors.textTertiary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <X size={14} color={t.colors.textTertiary} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <Text style={[styles.searchHelp, { color: t.colors.textTertiary }]}>
+            Live match against registered workforce.
+          </Text>
 
-      {/* Add Employee Primary CTA */}
-      <TouchableOpacity
-        style={[
-          styles.addEmployeeBtn,
-          { backgroundColor: t.colors.brandPrimary },
-        ]}
-        activeOpacity={0.85}
-        onPress={handleAddEmployee}
-      >
-        <UserPlus size={16} color="#FFFFFF" strokeWidth={2.5} />
-        <Text style={styles.addEmployeeBtnText}>Add employee</Text>
-      </TouchableOpacity>
+          {/* Filter Checkbox */}
+          <View
+            style={[
+              styles.filterRow,
+              { borderTopColor: t.colors.borderSubtle },
+            ]}
+          >
+            <View style={styles.switchGroup}>
+              <Switch
+                value={includeLeft}
+                onValueChange={setIncludeLeft}
+                trackColor={{
+                  false: t.colors.surfaceDisabled,
+                  true: t.colors.brandPrimary,
+                }}
+                thumbColor="#FFFFFF"
+              />
+              <Text style={[styles.filterText, { color: t.colors.textPrimary }]}>
+                Include inactive / departed staff
+              </Text>
+            </View>
+            <Text style={[styles.counterText, { color: t.colors.textTertiary }]}>
+              {filteredEmployees.length} of {employees.length}
+            </Text>
+          </View>
+        </View>
 
-      {/* Search & Filter Card */}
-      <View
-        style={[
-          styles.filterCard,
-          {
-            backgroundColor: t.colors.surfaceDefault,
-            borderColor: t.colors.borderDefault,
-          },
-        ]}
-      >
-        <Text style={[styles.searchLabel, { color: t.colors.textPrimary }]}>
-          Search
-        </Text>
+        {/* Loading Indicator */}
+        {isLoading && !refreshing ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="small" color={t.colors.brandPrimary} />
+            <Text style={[styles.loadingText, { color: t.colors.textSecondary }]}>
+              Loading team directory...
+            </Text>
+          </View>
+        ) : filteredEmployees.length === 0 ? (
+          /* Empty State */
+          <View
+            style={[
+              styles.emptyStateCard,
+              {
+                backgroundColor: t.colors.surfaceDefault,
+                borderColor: t.colors.borderDefault,
+              },
+            ]}
+          >
+            <Users size={32} color={t.colors.textTertiary} />
+            <Text style={[styles.emptyTitle, { color: t.colors.textPrimary }]}>
+              {searchQuery ? 'No matching employees' : 'No staff members registered'}
+            </Text>
+            <Text style={[styles.emptySubtitle, { color: t.colors.textSecondary }]}>
+              {searchQuery
+                ? 'Try searching with a different name, code, or phone number.'
+                : 'Tap "Add employee" above to invite your first team member.'}
+            </Text>
+          </View>
+        ) : (
+          /* Employee Cards List */
+          <View style={styles.listSection}>
+            {filteredEmployees.map((emp) => (
+              <EmployeeCard key={emp.id} employee={emp} />
+            ))}
+          </View>
+        )}
+
+        {/* Onboarding Invite Helper Card */}
         <View
           style={[
-            styles.searchInputWrap,
+            styles.inviteCard,
             {
-              backgroundColor: t.colors.surfaceSunken,
-              borderColor: t.colors.borderDefault,
+              backgroundColor: t.colors.brandPrimarySubtle,
+              borderColor: t.colors.brandPrimarySubtleHover,
             },
           ]}
         >
-          <Search size={16} color={t.colors.textTertiary} />
-          <TextInput
-            style={[styles.searchInput, { color: t.colors.textPrimary }]}
-            placeholder="Search employee or phone..."
-            placeholderTextColor={t.colors.textTertiary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-        <Text style={[styles.searchHelp, { color: t.colors.textTertiary }]}>
-          Name, phone number or employee code.
-        </Text>
-
-        {/* Filter Checkbox */}
-        <View
-          style={[
-            styles.filterRow,
-            { borderTopColor: t.colors.borderSubtle },
-          ]}
-        >
-          <View style={styles.switchGroup}>
-            <Switch
-              value={includeLeft}
-              onValueChange={setIncludeLeft}
-              trackColor={{
-                false: t.colors.surfaceDisabled,
-                true: t.colors.brandPrimary,
-              }}
-              thumbColor="#FFFFFF"
-            />
-            <Text style={[styles.filterText, { color: t.colors.textPrimary }]}>
-              Include people who have left
-            </Text>
+          <View
+            style={[
+              styles.inviteIconCircle,
+              { backgroundColor: t.colors.surfaceDefault },
+            ]}
+          >
+            <Share2 size={16} color={t.colors.brandPrimary} />
           </View>
-          <Text style={[styles.counterText, { color: t.colors.textTertiary }]}>
-            Showing {filteredEmployees.length} of {INITIAL_EMPLOYEES.length}
+          <Text style={[styles.inviteTitle, { color: t.colors.brandNavy }]}>
+            Need to onboard more staff?
           </Text>
+          <Text style={[styles.inviteDesc, { color: t.colors.textSecondary }]}>
+            Share an invite link or invite staff directly from this screen.
+          </Text>
+          <TouchableOpacity
+            style={styles.shareLinkRow}
+            activeOpacity={0.7}
+            onPress={handleShareInvite}
+          >
+            <Text style={[styles.shareLinkText, { color: t.colors.brandPrimary }]}>
+              Share company invite link
+            </Text>
+            <ChevronRight size={14} color={t.colors.brandPrimary} />
+          </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
 
-      {/* Employee Cards List */}
-      <View style={styles.listSection}>
-        {filteredEmployees.map((emp) => (
-          <EmployeeCard key={emp.id} employee={emp} />
-        ))}
-      </View>
-
-      {/* Onboarding Invite Helper Card */}
-      <View
-        style={[
-          styles.inviteCard,
-          {
-            backgroundColor: t.colors.brandPrimarySubtle,
-            borderColor: t.colors.brandPrimarySubtleHover,
-          },
-        ]}
+      {/* Add Employee Interactive Modal */}
+      <Modal
+        visible={isAddModalOpen}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsAddModalOpen(false)}
       >
-        <View
-          style={[
-            styles.inviteIconCircle,
-            { backgroundColor: t.colors.surfaceDefault },
-          ]}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
         >
-          <Share2 size={16} color={t.colors.brandPrimary} />
-        </View>
-        <Text style={[styles.inviteTitle, { color: t.colors.brandNavy }]}>
-          Need to onboard more staff?
-        </Text>
-        <Text style={[styles.inviteDesc, { color: t.colors.textSecondary }]}>
-          Share an invite link or bulk import members anytime via desktop web app.
-        </Text>
-        <TouchableOpacity
-          style={styles.shareLinkRow}
-          activeOpacity={0.7}
-          onPress={handleShareInvite}
-        >
-          <Text style={[styles.shareLinkText, { color: t.colors.brandPrimary }]}>
-            Share invite link
-          </Text>
-          <ChevronRight size={14} color={t.colors.brandPrimary} />
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          <View
+            style={[
+              styles.modalSheet,
+              { backgroundColor: t.colors.surfaceDefault },
+            ]}
+          >
+            {/* Modal Header */}
+            <View style={[styles.modalHeader, { borderBottomColor: t.colors.borderSubtle }]}>
+              <View>
+                <Text style={[styles.modalTitle, { color: t.colors.textPrimary }]}>
+                  Add Team Member
+                </Text>
+                <Text style={[styles.modalSubtitle, { color: t.colors.textSecondary }]}>
+                  Invite a new employee to your workspace
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsAddModalOpen(false)}
+                style={styles.modalCloseBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <X size={20} color={t.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Modal Form Content */}
+            <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false}>
+              {/* Name */}
+              <View style={styles.formGroup}>
+                <Text style={[styles.formLabel, { color: t.colors.textPrimary }]}>
+                  Full Name *
+                </Text>
+                <TextInput
+                  style={[
+                    styles.formInput,
+                    {
+                      backgroundColor: t.colors.surfaceSunken,
+                      borderColor: t.colors.borderDefault,
+                      color: t.colors.textPrimary,
+                    },
+                  ]}
+                  placeholder="e.g. Ramesh Kumar"
+                  placeholderTextColor={t.colors.textTertiary}
+                  value={formName}
+                  onChangeText={setFormName}
+                />
+              </View>
+
+              {/* Email */}
+              <View style={styles.formGroup}>
+                <Text style={[styles.formLabel, { color: t.colors.textPrimary }]}>
+                  Work Email *
+                </Text>
+                <TextInput
+                  style={[
+                    styles.formInput,
+                    {
+                      backgroundColor: t.colors.surfaceSunken,
+                      borderColor: t.colors.borderDefault,
+                      color: t.colors.textPrimary,
+                    },
+                  ]}
+                  placeholder="e.g. ramesh.kumar@example.com"
+                  placeholderTextColor={t.colors.textTertiary}
+                  value={formEmail}
+                  onChangeText={setFormEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              {/* Phone */}
+              <View style={styles.formGroup}>
+                <Text style={[styles.formLabel, { color: t.colors.textPrimary }]}>
+                  Phone Number
+                </Text>
+                <TextInput
+                  style={[
+                    styles.formInput,
+                    {
+                      backgroundColor: t.colors.surfaceSunken,
+                      borderColor: t.colors.borderDefault,
+                      color: t.colors.textPrimary,
+                    },
+                  ]}
+                  placeholder="+91 98000 00000"
+                  placeholderTextColor={t.colors.textTertiary}
+                  value={formPhone}
+                  onChangeText={setFormPhone}
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              {/* Designation */}
+              <View style={styles.formGroup}>
+                <Text style={[styles.formLabel, { color: t.colors.textPrimary }]}>
+                  Job Title / Designation
+                </Text>
+                <TextInput
+                  style={[
+                    styles.formInput,
+                    {
+                      backgroundColor: t.colors.surfaceSunken,
+                      borderColor: t.colors.borderDefault,
+                      color: t.colors.textPrimary,
+                    },
+                  ]}
+                  placeholder="e.g. Field Operations Specialist"
+                  placeholderTextColor={t.colors.textTertiary}
+                  value={formDesignation}
+                  onChangeText={setFormDesignation}
+                />
+              </View>
+
+              {/* Role Toggle */}
+              <View style={styles.formGroup}>
+                <Text style={[styles.formLabel, { color: t.colors.textPrimary }]}>
+                  Access Level
+                </Text>
+                <View style={styles.roleToggleRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.roleOption,
+                      formRole === 'Employee' && {
+                        backgroundColor: t.colors.brandPrimary,
+                        borderColor: t.colors.brandPrimary,
+                      },
+                    ]}
+                    onPress={() => setFormRole('Employee')}
+                  >
+                    <Text
+                      style={[
+                        styles.roleOptionText,
+                        { color: formRole === 'Employee' ? '#FFFFFF' : t.colors.textPrimary },
+                      ]}
+                    >
+                      Employee
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.roleOption,
+                      formRole === 'Admin' && {
+                        backgroundColor: t.colors.brandPrimary,
+                        borderColor: t.colors.brandPrimary,
+                      },
+                    ]}
+                    onPress={() => setFormRole('Admin')}
+                  >
+                    <Text
+                      style={[
+                        styles.roleOptionText,
+                        { color: formRole === 'Admin' ? '#FFFFFF' : t.colors.textPrimary },
+                      ]}
+                    >
+                      Admin
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Submit CTA */}
+              <TouchableOpacity
+                style={[
+                  styles.modalSubmitBtn,
+                  { backgroundColor: t.colors.brandPrimary },
+                  isSubmitting && { opacity: 0.7 },
+                ]}
+                onPress={handleAddEmployeeSubmit}
+                disabled={isSubmitting}
+                activeOpacity={0.85}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalSubmitBtnText}>Create Employee Profile</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  scrollView: {
     flex: 1,
   },
   content: {
@@ -382,6 +649,33 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
+  loadingBox: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    gap: 10,
+  },
+  loadingText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  emptyStateCard: {
+    padding: 32,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 6,
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 17,
+    maxWidth: 260,
+  },
   listSection: {
     gap: 10,
   },
@@ -421,6 +715,85 @@ const styles = StyleSheet.create({
   },
   shareLinkText: {
     fontSize: 12,
+    fontWeight: '700',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 36,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  modalForm: {
+    marginTop: 16,
+  },
+  formGroup: {
+    marginBottom: 14,
+  },
+  formLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  formInput: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 13,
+  },
+  roleToggleRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  roleOption: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+  },
+  roleOptionText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  modalSubmitBtn: {
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  modalSubmitBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '700',
   },
 });

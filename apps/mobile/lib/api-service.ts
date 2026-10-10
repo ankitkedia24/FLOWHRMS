@@ -198,8 +198,11 @@ export const tasksService = {
 
 // 6. Employees Service
 export const employeesService = {
-  async getEmployees() {
-    const res = await apiClient<any>('/employees', { method: 'GET' });
+  async getEmployees(includeLeft?: boolean) {
+    const res = await apiClient<any>('/employees', {
+      method: 'GET',
+      params: includeLeft ? { includeLeft: 'true' } : undefined,
+    });
     return {
       ok: res.data?.ok ?? true,
       success: res.data?.ok ?? true,
